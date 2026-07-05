@@ -6,7 +6,7 @@ import {
 } from "@wuliuqi/auth";
 import { loginSchema } from "@wuliuqi/validators";
 import { type NextRequest } from "next/server";
-import { handleError, ok } from "../../../../lib/api-response";
+import { handleError, ok } from "@/lib/api-response";
 
 export async function POST(request: NextRequest) {
   try {

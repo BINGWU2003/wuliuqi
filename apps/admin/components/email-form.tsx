@@ -21,7 +21,7 @@ import { ArrowLeft, Save } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { createEmail, fetchEmail, updateEmail } from "../lib/client-api";
+import { createEmail, fetchEmail, updateEmail } from "@/lib/client-api";
 
 const postfixOptions = [
   "@163.com",

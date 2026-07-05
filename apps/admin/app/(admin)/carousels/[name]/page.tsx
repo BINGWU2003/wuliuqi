@@ -1,4 +1,4 @@
-import { CarouselPage } from "../../../../components/carousel-page";
+import { CarouselPage } from "@/components/carousel-page";
 
 type Params = Promise<{ name: string }>;
 

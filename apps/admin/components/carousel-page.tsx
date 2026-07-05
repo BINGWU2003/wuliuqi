@@ -16,7 +16,7 @@ import { downloadImageWithWatermark } from "@wuliuqi/utils/browser/image-downloa
 import { ArrowDown, ArrowUp, ImagePlus, Save, Trash2 } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
-import { fetchCarousel, updateCarousel, uploadImage } from "../lib/client-api";
+import { fetchCarousel, updateCarousel, uploadImage } from "@/lib/client-api";
 
 const MAX_IMAGES = 6;
 

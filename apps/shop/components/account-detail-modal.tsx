@@ -9,7 +9,7 @@ import {
 } from "@wuliuqi/ui/components/dialog";
 import { X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { AccountDetail } from "./account-detail";
+import { AccountDetail } from "@/components/account-detail";
 
 export function AccountDetailModal({ id }: { id: number | null }) {
   const router = useRouter();

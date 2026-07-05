@@ -39,9 +39,9 @@ import {
 import { Edit, Plus, RefreshCw, Search, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { EmailBindStatusBadge } from "./status-badge";
-import { deleteEmail, fetchEmails } from "../lib/client-api";
-import { formatDate } from "../lib/format";
+import { EmailBindStatusBadge } from "@/components/status-badge";
+import { deleteEmail, fetchEmails } from "@/lib/client-api";
+import { formatDate } from "@/lib/format";
 
 export function EmailsPage() {
   const [emails, setEmails] = useState<AdminEmail[]>([]);

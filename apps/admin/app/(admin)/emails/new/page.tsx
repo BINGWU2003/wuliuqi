@@ -1,4 +1,4 @@
-import { EmailForm } from "../../../../components/email-form";
+import { EmailForm } from "@/components/email-form";
 
 export default function Page() {
   return <EmailForm />;

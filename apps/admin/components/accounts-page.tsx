@@ -51,14 +51,14 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AccountStatusBadge } from "./status-badge";
+import { AccountStatusBadge } from "@/components/status-badge";
 import {
   deleteAccount,
   fetchAccounts,
   updateAccountStatus,
-} from "../lib/client-api";
-import { ADMIN_ACCOUNTS_CHANGED_EVENT } from "../lib/events";
-import { formatDate, formatPrice } from "../lib/format";
+} from "@/lib/client-api";
+import { ADMIN_ACCOUNTS_CHANGED_EVENT } from "@/lib/events";
+import { formatDate, formatPrice } from "@/lib/format";
 
 const ACCOUNT_PAGE_SIZE = 50;
 const MOBILE_VIEWPORT_QUERY = "(max-width: 639px)";

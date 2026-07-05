@@ -12,7 +12,7 @@ import { Spinner } from "@wuliuqi/ui/components/spinner";
 import { ShieldCheck } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
-import { login } from "../lib/client-api";
+import { login } from "@/lib/client-api";
 
 export function LoginForm() {
   const router = useRouter();

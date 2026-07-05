@@ -8,7 +8,7 @@ import { downloadImageWithWatermark } from "@wuliuqi/utils/browser/image-downloa
 import { ImagePlus, Trash2 } from "lucide-react";
 import Image from "next/image";
 import { useRef, useState } from "react";
-import { uploadImage } from "../lib/client-api";
+import { uploadImage } from "@/lib/client-api";
 
 export function ImageUploader({
   folder,

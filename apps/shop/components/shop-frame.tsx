@@ -6,7 +6,7 @@ import { ArrowLeft, BookOpen, Gamepad2, Home, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import type { ReactNode } from "react";
-import { ThemeToggle } from "./theme-toggle";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 const titleMap: Record<string, string> = {
   "/": "567手游店",

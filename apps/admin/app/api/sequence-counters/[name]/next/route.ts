@@ -1,7 +1,7 @@
 import { getNextSequenceCounterValue } from "@wuliuqi/domain";
 import { type NextRequest } from "next/server";
-import { fail, handleError, ok } from "../../../../../lib/api-response";
-import { requireAdminSession } from "../../../../../lib/session";
+import { fail, handleError, ok } from "@/lib/api-response";
+import { requireAdminSession } from "@/lib/session";
 
 type Params = Promise<{ name: string }>;
 

@@ -1,4 +1,4 @@
-import { AdminFrame } from "../../components/admin-frame";
+import { AdminFrame } from "@/components/admin-frame";
 
 export default function AdminLayout({
   children,

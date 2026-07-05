@@ -1,8 +1,8 @@
 import { resetSequenceCounter } from "@wuliuqi/domain";
 import { sequenceCounterResetSchema } from "@wuliuqi/validators";
 import { type NextRequest } from "next/server";
-import { fail, handleError, ok } from "../../../../../lib/api-response";
-import { requireAdminSession } from "../../../../../lib/session";
+import { fail, handleError, ok } from "@/lib/api-response";
+import { requireAdminSession } from "@/lib/session";
 
 type Params = Promise<{ name: string }>;
 

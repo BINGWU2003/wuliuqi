@@ -23,16 +23,16 @@ import { ArrowLeft, Save, Search } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { ImageUploader } from "./image-uploader";
-import { RichTextEditor } from "./rich-text-editor";
-import { EmailBindStatusBadge } from "./status-badge";
+import { ImageUploader } from "@/components/image-uploader";
+import { RichTextEditor } from "@/components/rich-text-editor";
+import { EmailBindStatusBadge } from "@/components/status-badge";
 import {
   createAccount,
   fetchAccount,
   fetchEmails,
   updateAccount,
-} from "../lib/client-api";
-import { ADMIN_ACCOUNTS_CHANGED_EVENT } from "../lib/events";
+} from "@/lib/client-api";
+import { ADMIN_ACCOUNTS_CHANGED_EVENT } from "@/lib/events";
 
 type AccountFormState = {
   serialNumber: string;

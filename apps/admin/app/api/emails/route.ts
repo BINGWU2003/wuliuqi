@@ -4,8 +4,8 @@ import {
   adminEmailListQuerySchema,
 } from "@wuliuqi/validators";
 import { type NextRequest } from "next/server";
-import { handleError, ok } from "../../../lib/api-response";
-import { requireAdminSession } from "../../../lib/session";
+import { handleError, ok } from "@/lib/api-response";
+import { requireAdminSession } from "@/lib/session";
 
 export async function GET(request: NextRequest) {
   try {

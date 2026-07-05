@@ -1,4 +1,4 @@
-import { AccountEditModal } from "../../../../../../components/account-edit-modal";
+import { AccountEditModal } from "@/components/account-edit-modal";
 
 type Params = Promise<{ id: string }>;
 

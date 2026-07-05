@@ -12,7 +12,7 @@ import {
   useState,
   type PointerEvent,
 } from "react";
-import { fetchCarousel } from "../lib/client-api";
+import { fetchCarousel } from "@/lib/client-api";
 
 const CAROUSEL_NAME = "home_ads";
 const SWIPE_THRESHOLD = 48;

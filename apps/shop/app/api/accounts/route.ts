@@ -2,7 +2,7 @@ import { listShopAccounts } from "@wuliuqi/domain";
 import { accountListQuerySchema } from "@wuliuqi/validators";
 import { type NextRequest } from "next/server";
 import { ZodError } from "zod";
-import { fail, ok } from "../../../lib/api-response";
+import { fail, ok } from "@/lib/api-response";
 
 export async function GET(request: NextRequest) {
   try {

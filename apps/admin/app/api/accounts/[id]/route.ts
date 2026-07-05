@@ -5,8 +5,8 @@ import {
 } from "@wuliuqi/domain";
 import { adminAccountUpdateSchema } from "@wuliuqi/validators";
 import { type NextRequest } from "next/server";
-import { fail, handleError, ok, parseId } from "../../../../lib/api-response";
-import { requireAdminSession } from "../../../../lib/session";
+import { fail, handleError, ok, parseId } from "@/lib/api-response";
+import { requireAdminSession } from "@/lib/session";
 
 type Params = Promise<{ id: string }>;
 

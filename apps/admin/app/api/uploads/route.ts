@@ -1,7 +1,7 @@
 import { uploadToCos } from "@wuliuqi/storage";
 import { type NextRequest } from "next/server";
-import { fail, handleError, ok } from "../../../lib/api-response";
-import { requireAdminSession } from "../../../lib/session";
+import { fail, handleError, ok } from "@/lib/api-response";
+import { requireAdminSession } from "@/lib/session";
 
 export const runtime = "nodejs";
 

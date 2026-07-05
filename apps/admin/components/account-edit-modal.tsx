@@ -9,7 +9,7 @@ import {
 } from "@wuliuqi/ui/components/dialog";
 import { X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { AccountForm } from "./account-form";
+import { AccountForm } from "@/components/account-form";
 
 function preventOutsideDismiss(event: Event) {
   event.preventDefault();

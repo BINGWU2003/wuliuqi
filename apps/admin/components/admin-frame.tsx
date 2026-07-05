@@ -14,8 +14,8 @@ import {
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
-import { ThemeToggle } from "./theme-toggle";
-import { logout } from "../lib/client-api";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { logout } from "@/lib/client-api";
 
 type NavItem = {
   href: string;

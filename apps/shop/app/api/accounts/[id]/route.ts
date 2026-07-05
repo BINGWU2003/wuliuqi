@@ -1,6 +1,6 @@
 import { getShopAccountById } from "@wuliuqi/domain";
 import { type NextRequest } from "next/server";
-import { fail, ok } from "../../../../lib/api-response";
+import { fail, ok } from "@/lib/api-response";
 
 type Params = Promise<{ id: string }>;
 

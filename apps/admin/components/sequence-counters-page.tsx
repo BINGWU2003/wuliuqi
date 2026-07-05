@@ -36,8 +36,8 @@ import {
   fetchSequenceCounters,
   nextSequenceCounterValue,
   resetSequenceCounterValue,
-} from "../lib/client-api";
-import { formatDate } from "../lib/format";
+} from "@/lib/client-api";
+import { formatDate } from "@/lib/format";
 
 type CounterConfirmTarget =
   | { type: "next"; counterName: string }

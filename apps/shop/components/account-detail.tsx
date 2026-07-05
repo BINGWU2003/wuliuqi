@@ -31,8 +31,8 @@ import {
   formatPrice,
   getAccountBadges,
   getStatusLabel,
-} from "../lib/account-display";
-import { fetchAccount } from "../lib/client-api";
+} from "@/lib/account-display";
+import { fetchAccount } from "@/lib/client-api";
 
 type AccountDetailPresentation = "page" | "modal";
 

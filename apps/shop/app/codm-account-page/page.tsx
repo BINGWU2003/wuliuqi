@@ -1,4 +1,4 @@
-import { AccountList } from "../../components/account-list";
+import { AccountList } from "@/components/account-list";
 
 export default function CodmAccountPage() {
   return (

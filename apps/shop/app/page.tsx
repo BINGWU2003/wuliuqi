@@ -1,5 +1,5 @@
-import { AccountList } from "../components/account-list";
-import { HomeCarousel } from "../components/home-carousel";
+import { AccountList } from "@/components/account-list";
+import { HomeCarousel } from "@/components/home-carousel";
 
 export default function Home() {
   return (

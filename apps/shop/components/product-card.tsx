@@ -9,7 +9,7 @@ import {
   getAccountBadges,
   getAccountName,
   getStatusLabel,
-} from "../lib/account-display";
+} from "@/lib/account-display";
 
 export function ProductCard({
   account,

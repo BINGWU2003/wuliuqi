@@ -1,4 +1,4 @@
-import { AccountDetailModal } from "../../../components/account-detail-modal";
+import { AccountDetailModal } from "@/components/account-detail-modal";
 
 type SearchParams = Promise<{
   id?: string | string[];

@@ -26,8 +26,8 @@ import { Spinner } from "@wuliuqi/ui/components/spinner";
 import { cn } from "@wuliuqi/ui/lib/utils";
 import { RotateCcw, Search, SlidersHorizontal, Sparkles } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { fetchAccounts } from "../lib/client-api";
-import { ProductCard } from "./product-card";
+import { fetchAccounts } from "@/lib/client-api";
+import { ProductCard } from "@/components/product-card";
 
 const PAGE_SIZE = 12;
 

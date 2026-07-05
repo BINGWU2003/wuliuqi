@@ -1,6 +1,6 @@
 import { ADMIN_SESSION_COOKIE } from "@wuliuqi/auth";
-import { handleError, ok } from "../../../../lib/api-response";
-import { requireAdminSession } from "../../../../lib/session";
+import { handleError, ok } from "@/lib/api-response";
+import { requireAdminSession } from "@/lib/session";
 
 export async function POST() {
   try {
