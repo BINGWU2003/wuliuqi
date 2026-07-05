@@ -11,12 +11,23 @@ import {
   getStatusLabel,
 } from "../lib/account-display";
 
-export function ProductCard({ account }: { account: ShopAccount }) {
+export function ProductCard({
+  account,
+  onOpen,
+}: {
+  account: ShopAccount;
+  onOpen?: () => void;
+}) {
   const name = getAccountName(account);
   const badges = getAccountBadges(account);
+  const badgeSlots = [...badges, ...Array<string>(3 - badges.length).fill("")];
 
   return (
-    <Link className="group block" href={`/codm-account-info?id=${account.id}`}>
+    <Link
+      className="group block"
+      href={`/codm-account-info?id=${account.id}`}
+      onClick={onOpen}
+    >
       <Card className="h-full overflow-hidden rounded-md border-border/80 bg-card shadow-none transition-colors hover:border-foreground/30">
         <div className="relative aspect-[4/3] bg-muted">
           {account.images[0] ? (
@@ -55,9 +66,9 @@ export function ProductCard({ account }: { account: ShopAccount }) {
               {getStatusLabel(account.status)}
             </Badge>
           </div>
-          {badges.length > 0 ? (
-            <div className="flex flex-wrap gap-1.5">
-              {badges.map((badge) => (
+          <div className="flex min-h-[46px] content-start flex-wrap gap-1.5">
+            {badgeSlots.map((badge, index) =>
+              badge ? (
                 <Badge
                   key={badge}
                   className="rounded-sm px-1.5 font-normal"
@@ -65,9 +76,18 @@ export function ProductCard({ account }: { account: ShopAccount }) {
                 >
                   {badge}
                 </Badge>
-              ))}
-            </div>
-          ) : null}
+              ) : (
+                <Badge
+                  key={`empty-${index}`}
+                  aria-hidden="true"
+                  className="invisible rounded-sm px-1.5 font-normal"
+                  variant="secondary"
+                >
+                  占位
+                </Badge>
+              ),
+            )}
+          </div>
           <div className="flex items-end justify-between gap-2 border-t border-border pt-3">
             <div>
               <div className="text-[11px] font-medium uppercase text-muted-foreground">

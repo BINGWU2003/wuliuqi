@@ -16,14 +16,16 @@ const titleMap: Record<string, string> = {
   "/guide": "指南",
 };
 
-const rootPaths = ["/", "/account-section", "/guide"];
+const accountTabPaths = ["/account-section", "/codm-account-page"];
+const tabPaths = ["/", ...accountTabPaths, "/guide"];
 
 export function ShopFrame({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const title = titleMap[pathname] ?? "567手游店";
-  const showBack = !rootPaths.includes(pathname);
-  const showTabs = rootPaths.includes(pathname);
+  const accountTabActive = accountTabPaths.includes(pathname);
+  const showBack = !tabPaths.includes(pathname);
+  const showTabs = tabPaths.includes(pathname);
 
   return (
     <>
@@ -59,7 +61,7 @@ export function ShopFrame({ children }: { children: ReactNode }) {
             <TopLink active={pathname === "/"} href="/">
               首页
             </TopLink>
-            <TopLink active={pathname === "/account-section"} href="/account-section">
+            <TopLink active={accountTabActive} href="/account-section">
               账号专区
             </TopLink>
             <TopLink active={pathname === "/guide"} href="/guide">
@@ -90,7 +92,7 @@ export function ShopFrame({ children }: { children: ReactNode }) {
             首页
           </TabLink>
           <TabLink
-            active={pathname === "/account-section"}
+            active={accountTabActive}
             href="/account-section"
             icon={<Gamepad2 size={21} />}
           >
@@ -144,12 +146,16 @@ function TabLink({
 }) {
   return (
     <Link
+      aria-current={active ? "page" : undefined}
       className={cn(
-        "flex flex-col items-center justify-center gap-1 text-xs font-semibold text-muted-foreground transition-colors",
+        "relative flex flex-col items-center justify-center gap-1 text-xs font-semibold text-muted-foreground transition-colors",
         active && "text-primary",
       )}
       href={href}
     >
+      {active ? (
+        <span className="absolute top-1 h-1 w-6 rounded-full bg-primary" />
+      ) : null}
       {icon}
       <span>{children}</span>
     </Link>
