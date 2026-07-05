@@ -3,7 +3,8 @@
 import { Button } from "@wuliuqi/ui/components/button";
 import { ChevronLeft, ChevronRight, Download, X } from "lucide-react";
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import type { TouchEvent } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { downloadImageWithWatermark } from "../lib/watermark";
 
 export function ImageLightbox({
@@ -18,6 +19,16 @@ export function ImageLightbox({
   startIndex: number;
 }) {
   const [index, setIndex] = useState(startIndex);
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+  const touchEndRef = useRef<{ x: number; y: number } | null>(null);
+
+  const goPrevious = useCallback(() => {
+    setIndex((current) => Math.max(0, current - 1));
+  }, []);
+
+  const goNext = useCallback(() => {
+    setIndex((current) => Math.min(images.length - 1, current + 1));
+  }, [images.length]);
 
   useEffect(() => {
     if (open) {
@@ -35,16 +46,16 @@ export function ImageLightbox({
         onClose();
       }
       if (event.key === "ArrowLeft") {
-        setIndex((current) => Math.max(0, current - 1));
+        goPrevious();
       }
       if (event.key === "ArrowRight") {
-        setIndex((current) => Math.min(images.length - 1, current + 1));
+        goNext();
       }
     }
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [images.length, onClose, open]);
+  }, [goNext, goPrevious, onClose, open]);
 
   if (!open || images.length === 0) {
     return null;
@@ -64,11 +75,62 @@ export function ImageLightbox({
     }
   }
 
+  function handleTouchStart(event: TouchEvent<HTMLDivElement>) {
+    const touch = event.touches[0];
+
+    if (!touch) {
+      return;
+    }
+
+    touchStartRef.current = { x: touch.clientX, y: touch.clientY };
+    touchEndRef.current = null;
+  }
+
+  function handleTouchMove(event: TouchEvent<HTMLDivElement>) {
+    const touch = event.touches[0];
+
+    if (!touch) {
+      return;
+    }
+
+    touchEndRef.current = { x: touch.clientX, y: touch.clientY };
+  }
+
+  function handleTouchEnd() {
+    const start = touchStartRef.current;
+    const end = touchEndRef.current;
+
+    touchStartRef.current = null;
+    touchEndRef.current = null;
+
+    if (!start || !end) {
+      return;
+    }
+
+    const deltaX = end.x - start.x;
+    const deltaY = end.y - start.y;
+    const isHorizontalSwipe =
+      Math.abs(deltaX) > 48 && Math.abs(deltaX) > Math.abs(deltaY) * 1.25;
+
+    if (!isHorizontalSwipe) {
+      return;
+    }
+
+    if (deltaX > 0) {
+      goPrevious();
+    } else {
+      goNext();
+    }
+  }
+
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/90"
+      className="fixed inset-0 z-50 flex touch-none items-center justify-center bg-black/90 select-none"
       role="dialog"
       aria-modal="true"
+      onTouchEnd={handleTouchEnd}
+      onTouchMove={handleTouchMove}
+      onTouchStart={handleTouchStart}
     >
       <div className="absolute inset-x-3 top-3 z-10 flex items-center justify-between text-white">
         <span className="rounded-full bg-white/15 px-3 py-1 text-sm">
@@ -102,7 +164,7 @@ export function ImageLightbox({
           size="icon"
           type="button"
           variant="ghost"
-          onClick={() => setIndex((current) => Math.max(0, current - 1))}
+          onClick={goPrevious}
         >
           <ChevronLeft size={28} />
         </Button>
@@ -114,9 +176,7 @@ export function ImageLightbox({
           size="icon"
           type="button"
           variant="ghost"
-          onClick={() =>
-            setIndex((current) => Math.min(images.length - 1, current + 1))
-          }
+          onClick={goNext}
         >
           <ChevronRight size={28} />
         </Button>

@@ -223,6 +223,7 @@ function AccountGallery({
       <div className="relative aspect-[4/3] bg-muted sm:aspect-[16/10]">
         {mainImage ? (
           <button
+            aria-label="预览账号主图"
             className="relative size-full overflow-hidden"
             type="button"
             onClick={() => onPreview(0)}
@@ -248,6 +249,7 @@ function AccountGallery({
           {account.images.slice(0, 12).map((image, index) => (
             <button
               key={`${image}-${index}`}
+              aria-label={`预览第 ${index + 1} 张账号截图`}
               className={cn(
                 "relative aspect-square overflow-hidden rounded-sm border border-border bg-muted transition-opacity active:opacity-80",
                 index === 0 && "ring-2 ring-foreground ring-offset-2",
