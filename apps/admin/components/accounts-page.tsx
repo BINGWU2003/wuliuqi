@@ -144,7 +144,93 @@ export function AccountsPage() {
         </CardContent>
       </Card>
 
-      <Card className="rounded-md shadow-none">
+      <div className="grid gap-3 sm:hidden">
+        {accounts.map((account) => (
+          <div
+            className="rounded-md border border-border bg-card p-3"
+            key={account.id}
+          >
+            <div className="flex gap-3">
+              <div className="relative size-16 shrink-0 overflow-hidden rounded-md border border-border bg-muted">
+                {account.images[0] ? (
+                  <Image
+                    fill
+                    alt={account.title}
+                    className="object-cover"
+                    sizes="64px"
+                    src={account.images[0]}
+                    unoptimized
+                  />
+                ) : null}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="truncate font-medium">{account.title}</div>
+                <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                  <Badge className="rounded-sm" variant="secondary">
+                    {account.serialNumber}
+                  </Badge>
+                  {account.images.length} 图
+                </div>
+                <div className="mt-2 font-mono text-sm font-semibold text-price">
+                  {formatPrice(account.price)}
+                </div>
+                <div className="mt-2 truncate text-xs text-muted-foreground">
+                  {account.email || "-"}
+                </div>
+              </div>
+            </div>
+            <div className="mt-3 flex items-center justify-between gap-3 border-t border-border pt-3">
+              <div className="min-w-0 text-xs text-muted-foreground">
+                <span className="mr-2">更新</span>
+                {formatDate(account.updatedAt)}
+              </div>
+              <AccountStatusBadge status={account.status} />
+            </div>
+            <div className="mt-3 grid grid-cols-[1fr_1fr_auto] gap-2">
+              <Button asChild size="sm" variant="outline">
+                <Link href={`/accounts/${account.id}/edit`}>
+                  <Edit size={15} />
+                  编辑
+                </Link>
+              </Button>
+              <Button
+                size="sm"
+                type="button"
+                variant="outline"
+                onClick={() => toggleStatus(account)}
+              >
+                {account.status === 1 ? "下架" : "上架"}
+              </Button>
+              <Button
+                aria-label={`删除账号 ${account.serialNumber}`}
+                size="sm"
+                type="button"
+                variant="ghost"
+                onClick={() => removeAccount(account)}
+              >
+                <Trash2 size={15} />
+              </Button>
+            </div>
+          </div>
+        ))}
+        {!loading && accounts.length === 0 ? (
+          <div className="rounded-md border border-border bg-card px-4 py-10 text-center text-sm text-muted-foreground">
+            暂无账号
+          </div>
+        ) : null}
+        {loading ? (
+          <div className="rounded-md border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
+            加载中...
+          </div>
+        ) : null}
+        {error ? (
+          <div className="rounded-md border border-border bg-card px-4 py-3 text-sm text-destructive">
+            {error}
+          </div>
+        ) : null}
+      </div>
+
+      <Card className="hidden rounded-md shadow-none sm:block">
         <Table>
           <TableHeader>
             <TableRow>

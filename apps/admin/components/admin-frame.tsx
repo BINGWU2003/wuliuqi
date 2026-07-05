@@ -25,6 +25,8 @@ const navItems = [
 export function AdminFrame({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+  const activeNavItem =
+    navItems.find((item) => isNavActive(pathname, item.href)) ?? navItems[0];
 
   async function handleLogout() {
     await logout().catch(() => undefined);
@@ -35,41 +37,34 @@ export function AdminFrame({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-30 border-b border-border bg-card/95 backdrop-blur">
-        <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-3 px-3 sm:h-16 sm:px-6">
+        <div className="mx-auto grid h-14 max-w-7xl grid-cols-[48px_1fr_88px] items-center gap-2 px-3 sm:flex sm:h-16 sm:justify-between sm:gap-3 sm:px-6">
           <Link className="flex items-center gap-2 font-bold" href="/accounts">
             <span className="grid size-8 place-items-center rounded-md bg-primary text-xs text-primary-foreground">
               567
             </span>
             <span className="hidden sm:inline">五六七管理端</span>
           </Link>
+          <div className="truncate text-center text-[15px] font-bold sm:hidden">
+            {activeNavItem.label}
+          </div>
           <nav
             aria-label="管理导航"
-            className="flex min-w-0 flex-1 justify-center gap-1 overflow-x-auto"
+            className="hidden min-w-0 flex-1 justify-center gap-1 overflow-x-auto sm:flex"
           >
             {navItems.map((item) => {
-              const Icon = item.icon;
-              const active =
-                pathname === item.href ||
-                (item.href !== "/accounts" && pathname.startsWith(item.href)) ||
-                (item.href === "/accounts" && pathname.startsWith("/accounts"));
-
               return (
-                <Link
+                <TopNavLink
+                  active={isNavActive(pathname, item.href)}
+                  icon={item.icon}
                   key={item.href}
-                  aria-current={active ? "page" : undefined}
-                  className={cn(
-                    "inline-flex h-9 items-center gap-2 rounded-md px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground",
-                    active && "bg-accent text-foreground",
-                  )}
                   href={item.href}
                 >
-                  <Icon size={16} />
-                  <span>{item.label}</span>
-                </Link>
+                  {item.label}
+                </TopNavLink>
               );
             })}
           </nav>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center justify-end gap-1">
             <ThemeToggle />
             <Button
               aria-label="退出登录"
@@ -83,9 +78,91 @@ export function AdminFrame({ children }: { children: ReactNode }) {
           </div>
         </div>
       </header>
-      <main className="mx-auto w-full max-w-7xl px-3 py-4 sm:px-6 sm:py-6">
+      <main className="mx-auto w-full max-w-7xl px-3 pb-[calc(5rem+env(safe-area-inset-bottom))] pt-4 sm:px-6 sm:py-6">
         {children}
       </main>
+      <nav
+        aria-label="底部管理导航"
+        className="fixed inset-x-0 bottom-0 z-30 grid h-[calc(4rem+env(safe-area-inset-bottom))] grid-cols-4 border-t border-border bg-card/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_24px_rgba(0,0,0,0.08)] backdrop-blur sm:hidden"
+      >
+        {navItems.map((item) => (
+          <BottomTabLink
+            active={isNavActive(pathname, item.href)}
+            icon={item.icon}
+            key={item.href}
+            href={item.href}
+          >
+            {item.label}
+          </BottomTabLink>
+        ))}
+      </nav>
     </div>
+  );
+}
+
+function isNavActive(pathname: string, href: string) {
+  if (href === "/accounts") {
+    return pathname.startsWith("/accounts");
+  }
+
+  if (href === "/carousels/home_ads") {
+    return pathname.startsWith("/carousels");
+  }
+
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+function TopNavLink({
+  active,
+  children,
+  href,
+  icon: Icon,
+}: {
+  active: boolean;
+  children: ReactNode;
+  href: string;
+  icon: (typeof navItems)[number]["icon"];
+}) {
+  return (
+    <Link
+      aria-current={active ? "page" : undefined}
+      className={cn(
+        "inline-flex h-9 items-center gap-2 rounded-md px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground",
+        active && "bg-accent text-foreground",
+      )}
+      href={href}
+    >
+      <Icon size={16} />
+      <span>{children}</span>
+    </Link>
+  );
+}
+
+function BottomTabLink({
+  active,
+  children,
+  href,
+  icon: Icon,
+}: {
+  active: boolean;
+  children: ReactNode;
+  href: string;
+  icon: (typeof navItems)[number]["icon"];
+}) {
+  return (
+    <Link
+      aria-current={active ? "page" : undefined}
+      className={cn(
+        "relative flex min-w-0 flex-col items-center justify-center gap-1 text-xs font-semibold text-muted-foreground transition-colors",
+        active && "text-primary",
+      )}
+      href={href}
+    >
+      {active ? (
+        <span className="absolute top-1 h-1 w-6 rounded-full bg-primary" />
+      ) : null}
+      <Icon size={20} />
+      <span className="max-w-full truncate px-1">{children}</span>
+    </Link>
   );
 }
