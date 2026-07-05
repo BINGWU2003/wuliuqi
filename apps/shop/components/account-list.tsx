@@ -22,6 +22,7 @@ import {
   SheetTrigger,
 } from "@wuliuqi/ui/components/sheet";
 import { Skeleton } from "@wuliuqi/ui/components/skeleton";
+import { Spinner } from "@wuliuqi/ui/components/spinner";
 import { cn } from "@wuliuqi/ui/lib/utils";
 import { SlidersHorizontal, Sparkles, Search } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -46,6 +47,7 @@ const sortOptions = [
 ] as const;
 
 type SortValue = (typeof sortOptions)[number]["value"];
+type LoadingMode = "append" | "replace";
 
 type AccountListProps = {
   compactHeader?: boolean;
@@ -67,6 +69,7 @@ export function AccountList({
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [loadingMode, setLoadingMode] = useState<LoadingMode | null>(null);
   const [error, setError] = useState("");
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const loadingRef = useRef(false);
@@ -96,6 +99,7 @@ export function AccountList({
       loadingRef.current = true;
       errorRef.current = "";
       setLoading(true);
+      setLoadingMode(replace ? "replace" : "append");
       setError("");
 
       try {
@@ -116,6 +120,7 @@ export function AccountList({
       } finally {
         loadingRef.current = false;
         setLoading(false);
+        setLoadingMode(null);
       }
     },
     [activeRange, keyword, sort],
@@ -171,14 +176,12 @@ export function AccountList({
   const activeRangeLabel = priceRanges[activeRange]?.label ?? "全部价格";
   const activeSortLabel =
     sortOptions.find((option) => option.value === sort)?.label ?? "最新上架";
+  const isSearchLoading = loading && loadingMode === "replace";
 
   return (
     <section className="mx-auto flex w-full max-w-6xl flex-col gap-4">
       <div
-        className={cn(
-          "flex flex-col gap-3",
-          compactHeader ? "pt-1" : "pt-2",
-        )}
+        className={cn("flex flex-col gap-3", compactHeader ? "pt-1" : "pt-2")}
       >
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div className="min-w-0">
@@ -214,6 +217,7 @@ export function AccountList({
                   activeSortLabel={activeSortLabel}
                   clearFilters={clearFilters}
                   searchValue={searchValue}
+                  loading={isSearchLoading}
                   setActiveRange={setActiveRange}
                   setSearchValue={setSearchValue}
                   setSort={setSort}
@@ -237,6 +241,7 @@ export function AccountList({
             activeSortLabel={activeSortLabel}
             clearFilters={clearFilters}
             searchValue={searchValue}
+            loading={isSearchLoading}
             setActiveRange={setActiveRange}
             setSearchValue={setSearchValue}
             setSort={setSort}
@@ -280,7 +285,10 @@ export function AccountList({
         ))}
         {loading && accounts.length === 0
           ? Array.from({ length: 8 }).map((_, index) => (
-              <Card key={index} className="overflow-hidden rounded-md shadow-none">
+              <Card
+                key={index}
+                className="overflow-hidden rounded-md shadow-none"
+              >
                 <Skeleton className="aspect-[4/3] rounded-none" />
                 <CardContent className="space-y-3 p-3">
                   <Skeleton className="h-3 w-20" />
@@ -298,13 +306,15 @@ export function AccountList({
         className="flex min-h-12 items-center justify-center py-4"
       >
         {loading && accounts.length > 0 ? (
-          <span className="text-sm text-muted-foreground">正在加载更多...</span>
+          <LoadingLine
+            label={loadingMode === "append" ? "正在加载更多" : "正在刷新结果"}
+          />
         ) : accounts.length > 0 && page >= totalPages ? (
           <span className="text-sm text-muted-foreground">没有更多了</span>
         ) : accounts.length > 0 ? (
           <span className="text-sm text-muted-foreground">下滑加载更多</span>
         ) : loading ? (
-          <span className="text-sm text-muted-foreground">加载中...</span>
+          <LoadingLine label="加载账号" />
         ) : null}
       </div>
     </section>
@@ -315,6 +325,7 @@ function FilterControls({
   activeRange,
   activeSortLabel,
   clearFilters,
+  loading = false,
   onSearch,
   searchValue,
   setActiveRange,
@@ -326,6 +337,7 @@ function FilterControls({
   activeRange: number;
   activeSortLabel: string;
   clearFilters: () => void;
+  loading?: boolean;
   onSearch: () => void;
   searchValue: string;
   setActiveRange: (value: number) => void;
@@ -335,7 +347,12 @@ function FilterControls({
   stacked?: boolean;
 }) {
   return (
-    <div className={cn("gap-3", stacked ? "flex flex-col" : "grid grid-cols-[1fr_auto]")}>
+    <div
+      className={cn(
+        "gap-3",
+        stacked ? "flex flex-col" : "grid grid-cols-[1fr_auto]",
+      )}
+    >
       <form
         className={cn(
           "grid gap-2",
@@ -358,7 +375,8 @@ function FilterControls({
             onChange={(event) => setSearchValue(event.target.value)}
           />
         </div>
-        <Button className="h-9 rounded-md" type="submit">
+        <Button className="h-9 rounded-md" disabled={loading} type="submit">
+          {loading ? <Spinner /> : null}
           搜索
         </Button>
       </form>
@@ -384,7 +402,10 @@ function FilterControls({
             </Button>
           ))}
         </div>
-        <Select value={sort} onValueChange={(value) => setSort(value as SortValue)}>
+        <Select
+          value={sort}
+          onValueChange={(value) => setSort(value as SortValue)}
+        >
           <SelectTrigger
             aria-label="排序"
             className={cn("h-9 rounded-md", stacked ? "w-full" : "w-[154px]")}
@@ -409,5 +430,14 @@ function FilterControls({
         </Button>
       </div>
     </div>
+  );
+}
+
+function LoadingLine({ label }: { label: string }) {
+  return (
+    <span className="inline-flex items-center gap-2 text-sm text-muted-foreground">
+      <Spinner />
+      {label}
+    </span>
   );
 }

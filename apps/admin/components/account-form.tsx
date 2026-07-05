@@ -17,6 +17,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@wuliuqi/ui/components/select";
+import { Skeleton } from "@wuliuqi/ui/components/skeleton";
+import { Spinner } from "@wuliuqi/ui/components/spinner";
 import { ArrowLeft, Save, Search } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -70,6 +72,7 @@ export function AccountForm({
   const [emailOptions, setEmailOptions] = useState<AdminEmail[]>([]);
   const [loading, setLoading] = useState(Boolean(accountId));
   const [saving, setSaving] = useState(false);
+  const [searchingEmails, setSearchingEmails] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -102,12 +105,25 @@ export function AccountForm({
   }
 
   async function searchEmails() {
-    const result = await fetchEmails({
-      keyword: emailKeyword,
-      limit: 20,
-      page: 1,
-    });
-    setEmailOptions(result.list);
+    if (searchingEmails) {
+      return;
+    }
+
+    setSearchingEmails(true);
+    setError("");
+
+    try {
+      const result = await fetchEmails({
+        keyword: emailKeyword,
+        limit: 20,
+        page: 1,
+      });
+      setEmailOptions(result.list);
+    } catch (searchError) {
+      setError(searchError instanceof Error ? searchError.message : "搜索失败");
+    } finally {
+      setSearchingEmails(false);
+    }
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -145,7 +161,7 @@ export function AccountForm({
   }
 
   if (loading) {
-    return <div className="text-sm text-muted-foreground">加载中...</div>;
+    return <AccountFormSkeleton isModal={isModal} />;
   }
 
   return (
@@ -160,12 +176,16 @@ export function AccountForm({
               </Link>
             </Button>
           ) : null}
-          <h1 className={isModal ? "text-xl font-bold" : "mt-2 text-2xl font-bold"}>
+          <h1
+            className={
+              isModal ? "text-xl font-bold" : "mt-2 text-2xl font-bold"
+            }
+          >
             {accountId ? "编辑账号" : "新建账号"}
           </h1>
         </div>
         <Button className="w-full sm:w-auto" disabled={saving} type="submit">
-          <Save size={16} />
+          {saving ? <Spinner /> : <Save size={16} />}
           {saving ? "保存中..." : "保存账号"}
         </Button>
       </div>
@@ -215,7 +235,9 @@ export function AccountForm({
               <Input
                 placeholder="留空自动生成"
                 value={form.serialNumber}
-                onChange={(event) => updateForm({ serialNumber: event.target.value })}
+                onChange={(event) =>
+                  updateForm({ serialNumber: event.target.value })
+                }
               />
             </label>
             <label className="block space-y-1.5">
@@ -261,7 +283,9 @@ export function AccountForm({
               <Input
                 placeholder="https://..."
                 value={form.xianyuUrl}
-                onChange={(event) => updateForm({ xianyuUrl: event.target.value })}
+                onChange={(event) =>
+                  updateForm({ xianyuUrl: event.target.value })
+                }
               />
             </label>
             <div className="space-y-2">
@@ -269,7 +293,9 @@ export function AccountForm({
                 <span className="text-sm font-medium">绑定邮箱</span>
                 <Input
                   value={form.email}
-                  onChange={(event) => updateForm({ email: event.target.value })}
+                  onChange={(event) =>
+                    updateForm({ email: event.target.value })
+                  }
                 />
               </label>
               <div className="flex gap-2">
@@ -279,8 +305,13 @@ export function AccountForm({
                   value={emailKeyword}
                   onChange={(event) => setEmailKeyword(event.target.value)}
                 />
-                <Button type="button" variant="outline" onClick={searchEmails}>
-                  <Search size={16} />
+                <Button
+                  disabled={searchingEmails}
+                  type="button"
+                  variant="outline"
+                  onClick={searchEmails}
+                >
+                  {searchingEmails ? <Spinner /> : <Search size={16} />}
                 </Button>
               </div>
               {emailOptions.length > 0 ? (
@@ -308,5 +339,58 @@ export function AccountForm({
         </Card>
       </div>
     </form>
+  );
+}
+
+function AccountFormSkeleton({ isModal }: { isModal: boolean }) {
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="space-y-2">
+          {!isModal ? <Skeleton className="h-8 w-32" /> : null}
+          <Skeleton className={isModal ? "h-7 w-28" : "h-8 w-32"} />
+        </div>
+        <div className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-md border border-border text-sm text-muted-foreground sm:w-28">
+          <Spinner />
+          加载账号
+        </div>
+      </div>
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="order-2 space-y-4 lg:order-1">
+          <Card className="rounded-md shadow-none">
+            <CardHeader className="border-b border-border">
+              <Skeleton className="h-4 w-20" />
+            </CardHeader>
+            <CardContent className="grid grid-cols-2 gap-2 pt-4 sm:grid-cols-4">
+              {Array.from({ length: 4 }).map((_, index) => (
+                <Skeleton key={index} className="aspect-square" />
+              ))}
+            </CardContent>
+          </Card>
+          <Card className="rounded-md shadow-none">
+            <CardHeader className="border-b border-border">
+              <Skeleton className="h-4 w-20" />
+            </CardHeader>
+            <CardContent className="space-y-3 pt-4">
+              <Skeleton className="h-24 w-full" />
+              <Skeleton className="h-24 w-full" />
+            </CardContent>
+          </Card>
+        </div>
+        <Card className="order-1 h-fit rounded-md shadow-none lg:order-2">
+          <CardHeader className="border-b border-border">
+            <Skeleton className="h-4 w-20" />
+          </CardHeader>
+          <CardContent className="space-y-3 pt-4">
+            {Array.from({ length: 7 }).map((_, index) => (
+              <div key={index} className="space-y-1.5">
+                <Skeleton className="h-3 w-16" />
+                <Skeleton className="h-9 w-full" />
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
   );
 }

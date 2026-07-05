@@ -1,9 +1,24 @@
 "use client";
 
 import type { AdminAccount } from "@wuliuqi/types";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@wuliuqi/ui/components/alert-dialog";
 import { Badge } from "@wuliuqi/ui/components/badge";
 import { Button } from "@wuliuqi/ui/components/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@wuliuqi/ui/components/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@wuliuqi/ui/components/card";
 import { Input } from "@wuliuqi/ui/components/input";
 import {
   Select,
@@ -12,6 +27,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@wuliuqi/ui/components/select";
+import { Skeleton } from "@wuliuqi/ui/components/skeleton";
+import { Spinner } from "@wuliuqi/ui/components/spinner";
 import {
   Table,
   TableBody,
@@ -66,6 +83,9 @@ export function AccountsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [total, setTotal] = useState(0);
+  const [statusActionId, setStatusActionId] = useState<number | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<AdminAccount | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const loadingRef = useRef(false);
   const pageRef = useRef(1);
@@ -86,11 +106,7 @@ export function AccountsPage() {
   );
 
   const applyPagination = useCallback(
-    (pagination: {
-      page: number;
-      total: number;
-      totalPages: number;
-    }) => {
+    (pagination: { page: number; total: number; totalPages: number }) => {
       setPage(pagination.page);
       pageRef.current = pagination.page;
       setTotal(pagination.total);
@@ -249,7 +265,10 @@ export function AccountsPage() {
       void reloadCurrentView();
     }
 
-    window.addEventListener(ADMIN_ACCOUNTS_CHANGED_EVENT, handleAccountsChanged);
+    window.addEventListener(
+      ADMIN_ACCOUNTS_CHANGED_EVENT,
+      handleAccountsChanged,
+    );
 
     return () =>
       window.removeEventListener(
@@ -259,6 +278,10 @@ export function AccountsPage() {
   }, [reloadCurrentView]);
 
   function handleSearch() {
+    if (loadingRef.current) {
+      return;
+    }
+
     const nextKeyword = searchValue.trim();
 
     if (nextKeyword === keyword) {
@@ -270,26 +293,44 @@ export function AccountsPage() {
   }
 
   async function toggleStatus(account: AdminAccount) {
+    if (statusActionId !== null) {
+      return;
+    }
+
+    setStatusActionId(account.id);
+    setError("");
+
     try {
       await updateAccountStatus(account.id, account.status === 1 ? 2 : 1);
       await reloadCurrentView();
     } catch (toggleError) {
       setError(toggleError instanceof Error ? toggleError.message : "更新失败");
+    } finally {
+      setStatusActionId(null);
     }
   }
 
-  async function removeAccount(account: AdminAccount) {
-    if (!window.confirm(`确认删除账号 ${account.serialNumber}？`)) {
+  async function confirmRemoveAccount() {
+    if (!deleteTarget || deletingId !== null) {
       return;
     }
 
+    setDeletingId(deleteTarget.id);
+    setError("");
+
     try {
-      await deleteAccount(account.id);
+      await deleteAccount(deleteTarget.id);
       await reloadCurrentView();
+      setDeleteTarget(null);
     } catch (deleteError) {
       setError(deleteError instanceof Error ? deleteError.message : "删除失败");
+      setDeleteTarget(null);
+    } finally {
+      setDeletingId(null);
     }
   }
+
+  const isInitialLoading = loading && accounts.length === 0;
 
   return (
     <div className="space-y-4">
@@ -347,14 +388,20 @@ export function AccountsPage() {
               <SelectItem value="price_asc">价格从低到高</SelectItem>
             </SelectContent>
           </Select>
-          <Button type="button" variant="outline" onClick={handleSearch}>
-            <RefreshCw size={16} />
+          <Button
+            disabled={loading}
+            type="button"
+            variant="outline"
+            onClick={handleSearch}
+          >
+            {loading ? <Spinner /> : <RefreshCw size={16} />}
             刷新
           </Button>
         </CardContent>
       </Card>
 
       <div className="grid gap-3 sm:hidden">
+        {isInitialLoading ? <MobileAccountSkeletons /> : null}
         {accounts.map((account) => (
           <div
             className="rounded-md border border-border bg-card p-3"
@@ -404,21 +451,24 @@ export function AccountsPage() {
                 </Link>
               </Button>
               <Button
+                disabled={statusActionId !== null || deletingId !== null}
                 size="sm"
                 type="button"
                 variant="outline"
                 onClick={() => toggleStatus(account)}
               >
+                {statusActionId === account.id ? <Spinner /> : null}
                 {account.status === 1 ? "下架" : "上架"}
               </Button>
               <Button
                 aria-label={`删除账号 ${account.serialNumber}`}
+                disabled={deletingId === account.id || statusActionId !== null}
                 size="sm"
                 type="button"
                 variant="ghost"
-                onClick={() => removeAccount(account)}
+                onClick={() => setDeleteTarget(account)}
               >
-                <Trash2 size={15} />
+                {deletingId === account.id ? <Spinner /> : <Trash2 size={15} />}
               </Button>
             </div>
           </div>
@@ -438,13 +488,13 @@ export function AccountsPage() {
           className="flex min-h-12 items-center justify-center py-4"
         >
           {loading && accounts.length > 0 ? (
-            <span className="text-sm text-muted-foreground">正在加载更多...</span>
+            <LoadingLine label="正在加载更多" />
           ) : accounts.length > 0 && page >= totalPages ? (
             <span className="text-sm text-muted-foreground">没有更多了</span>
           ) : accounts.length > 0 ? (
             <span className="text-sm text-muted-foreground">下滑加载更多</span>
           ) : loading ? (
-            <span className="text-sm text-muted-foreground">加载中...</span>
+            <LoadingLine label="加载账号" />
           ) : null}
         </div>
       </div>
@@ -452,97 +502,119 @@ export function AccountsPage() {
       <Card className="hidden overflow-hidden rounded-md shadow-none sm:block">
         <div className="h-[calc(100dvh-22rem)] min-h-[420px] max-h-[620px] overflow-auto">
           <Table>
-          <TableHeader className="sticky top-0 z-10 bg-card shadow-[0_1px_0_var(--border)]">
-            <TableRow>
-              <TableHead>账号</TableHead>
-              <TableHead>价格</TableHead>
-              <TableHead>邮箱</TableHead>
-              <TableHead>状态</TableHead>
-              <TableHead>更新</TableHead>
-              <TableHead className="text-right">操作</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {accounts.map((account) => (
-              <TableRow key={account.id}>
-                <TableCell>
-                  <div className="flex min-w-72 items-center gap-3">
-                    <div className="relative size-14 overflow-hidden rounded-md border border-border bg-muted">
-                      {account.images[0] ? (
-                        <Image
-                          fill
-                          alt={account.title}
-                          className="object-cover"
-                          sizes="56px"
-                          src={account.images[0]}
-                          unoptimized
-                        />
-                      ) : null}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="truncate font-medium">{account.title}</div>
-                      <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                        <Badge className="rounded-sm" variant="secondary">
-                          {account.serialNumber}
-                        </Badge>
-                        {account.images.length} 图
+            <TableHeader className="sticky top-0 z-10 bg-card shadow-[0_1px_0_var(--border)]">
+              <TableRow>
+                <TableHead>账号</TableHead>
+                <TableHead>价格</TableHead>
+                <TableHead>邮箱</TableHead>
+                <TableHead>状态</TableHead>
+                <TableHead>更新</TableHead>
+                <TableHead className="text-right">操作</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isInitialLoading ? <AccountTableSkeletonRows /> : null}
+              {accounts.map((account) => (
+                <TableRow key={account.id}>
+                  <TableCell>
+                    <div className="flex min-w-72 items-center gap-3">
+                      <div className="relative size-14 overflow-hidden rounded-md border border-border bg-muted">
+                        {account.images[0] ? (
+                          <Image
+                            fill
+                            alt={account.title}
+                            className="object-cover"
+                            sizes="56px"
+                            src={account.images[0]}
+                            unoptimized
+                          />
+                        ) : null}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="truncate font-medium">
+                          {account.title}
+                        </div>
+                        <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                          <Badge className="rounded-sm" variant="secondary">
+                            {account.serialNumber}
+                          </Badge>
+                          {account.images.length} 图
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </TableCell>
-                <TableCell className="font-mono font-semibold text-price">
-                  {formatPrice(account.price)}
-                </TableCell>
-                <TableCell className="max-w-48 truncate text-muted-foreground">
-                  {account.email || "-"}
-                </TableCell>
-                <TableCell>
-                  <AccountStatusBadge status={account.status} />
-                </TableCell>
-                <TableCell className="text-muted-foreground">
-                  {formatDate(account.updatedAt)}
-                </TableCell>
-                <TableCell>
-                  <div className="flex justify-end gap-1">
-                    <Button asChild size="sm" variant="ghost">
-                      <Link href={`/accounts/${account.id}/edit`} scroll={false}>
-                        <Edit size={15} />
-                        编辑
-                      </Link>
-                    </Button>
-                    <Button
-                      size="sm"
-                      type="button"
-                      variant="outline"
-                      onClick={() => toggleStatus(account)}
-                    >
-                      {account.status === 1 ? "下架" : "上架"}
-                    </Button>
-                    <Button
-                      size="sm"
-                      type="button"
-                      variant="ghost"
-                      onClick={() => removeAccount(account)}
-                    >
-                      <Trash2 size={15} />
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-            {!loading && accounts.length === 0 ? (
-              <TableRow>
-                <TableCell className="py-10 text-center text-muted-foreground" colSpan={6}>
-                  暂无账号
-                </TableCell>
-              </TableRow>
-            ) : null}
-          </TableBody>
+                  </TableCell>
+                  <TableCell className="font-mono font-semibold text-price">
+                    {formatPrice(account.price)}
+                  </TableCell>
+                  <TableCell className="max-w-48 truncate text-muted-foreground">
+                    {account.email || "-"}
+                  </TableCell>
+                  <TableCell>
+                    <AccountStatusBadge status={account.status} />
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {formatDate(account.updatedAt)}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex justify-end gap-1">
+                      <Button asChild size="sm" variant="ghost">
+                        <Link
+                          href={`/accounts/${account.id}/edit`}
+                          scroll={false}
+                        >
+                          <Edit size={15} />
+                          编辑
+                        </Link>
+                      </Button>
+                      <Button
+                        disabled={
+                          statusActionId !== null || deletingId !== null
+                        }
+                        size="sm"
+                        type="button"
+                        variant="outline"
+                        onClick={() => toggleStatus(account)}
+                      >
+                        {statusActionId === account.id ? <Spinner /> : null}
+                        {account.status === 1 ? "下架" : "上架"}
+                      </Button>
+                      <Button
+                        disabled={
+                          deletingId === account.id || statusActionId !== null
+                        }
+                        size="sm"
+                        type="button"
+                        variant="ghost"
+                        onClick={() => setDeleteTarget(account)}
+                      >
+                        {deletingId === account.id ? (
+                          <Spinner />
+                        ) : (
+                          <Trash2 size={15} />
+                        )}
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+              {!loading && accounts.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    className="py-10 text-center text-muted-foreground"
+                    colSpan={6}
+                  >
+                    暂无账号
+                  </TableCell>
+                </TableRow>
+              ) : null}
+            </TableBody>
           </Table>
         </div>
         {loading ? (
-          <div className="border-t border-border px-4 py-3 text-sm text-muted-foreground">
-            加载中...
+          <div className="border-t border-border px-4 py-3">
+            <LoadingLine
+              label={accounts.length > 0 ? "正在刷新" : "加载账号"}
+            />
           </div>
         ) : null}
         {error ? (
@@ -560,8 +632,106 @@ export function AccountsPage() {
           />
         ) : null}
       </Card>
+      <AlertDialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => {
+          if (!open && deletingId === null) {
+            setDeleteTarget(null);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>删除账号</AlertDialogTitle>
+            <AlertDialogDescription>
+              确认删除账号 {deleteTarget?.serialNumber}？删除后无法恢复。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletingId !== null}>
+              取消
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/30"
+              disabled={deletingId !== null}
+              onClick={(event) => {
+                event.preventDefault();
+                void confirmRemoveAccount();
+              }}
+            >
+              {deletingId !== null ? <Spinner /> : null}
+              删除账号
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
+}
+
+function LoadingLine({ label }: { label: string }) {
+  return (
+    <span className="inline-flex items-center gap-2 text-sm text-muted-foreground">
+      <Spinner />
+      {label}
+    </span>
+  );
+}
+
+function MobileAccountSkeletons() {
+  return Array.from({ length: 4 }).map((_, index) => (
+    <div className="rounded-md border border-border bg-card p-3" key={index}>
+      <div className="flex gap-3">
+        <Skeleton className="size-16 shrink-0" />
+        <div className="min-w-0 flex-1 space-y-2">
+          <Skeleton className="h-4 w-4/5" />
+          <Skeleton className="h-3 w-28" />
+          <Skeleton className="h-4 w-20" />
+          <Skeleton className="h-3 w-3/5" />
+        </div>
+      </div>
+      <div className="mt-3 grid grid-cols-3 gap-2 border-t border-border pt-3">
+        <Skeleton className="h-8" />
+        <Skeleton className="h-8" />
+        <Skeleton className="h-8" />
+      </div>
+    </div>
+  ));
+}
+
+function AccountTableSkeletonRows() {
+  return Array.from({ length: 6 }).map((_, index) => (
+    <TableRow key={index}>
+      <TableCell>
+        <div className="flex min-w-72 items-center gap-3">
+          <Skeleton className="size-14" />
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-44" />
+            <Skeleton className="h-3 w-28" />
+          </div>
+        </div>
+      </TableCell>
+      <TableCell>
+        <Skeleton className="h-4 w-20" />
+      </TableCell>
+      <TableCell>
+        <Skeleton className="h-4 w-36" />
+      </TableCell>
+      <TableCell>
+        <Skeleton className="h-5 w-14" />
+      </TableCell>
+      <TableCell>
+        <Skeleton className="h-4 w-24" />
+      </TableCell>
+      <TableCell>
+        <div className="flex justify-end gap-1">
+          <Skeleton className="h-8 w-16" />
+          <Skeleton className="h-8 w-14" />
+          <Skeleton className="h-8 w-8" />
+        </div>
+      </TableCell>
+    </TableRow>
+  ));
 }
 
 function AccountsPagination({

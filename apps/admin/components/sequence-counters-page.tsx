@@ -1,9 +1,26 @@
 "use client";
 
 import type { SequenceCounter } from "@wuliuqi/types";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@wuliuqi/ui/components/alert-dialog";
 import { Button } from "@wuliuqi/ui/components/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@wuliuqi/ui/components/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@wuliuqi/ui/components/card";
 import { Input } from "@wuliuqi/ui/components/input";
+import { Skeleton } from "@wuliuqi/ui/components/skeleton";
+import { Spinner } from "@wuliuqi/ui/components/spinner";
 import {
   Table,
   TableBody,
@@ -22,13 +39,21 @@ import {
 } from "../lib/client-api";
 import { formatDate } from "../lib/format";
 
+type CounterConfirmTarget =
+  | { type: "next"; counterName: string }
+  | { type: "reset"; counterName: string; value: number };
+
 export function SequenceCountersPage() {
   const [counters, setCounters] = useState<SequenceCounter[]>([]);
   const [counterName, setCounterName] = useState("CODM_ACCOUNT");
   const [currentValue, setCurrentValue] = useState(0);
   const [resetValues, setResetValues] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
   const [message, setMessage] = useState("");
+  const [confirmTarget, setConfirmTarget] =
+    useState<CounterConfirmTarget | null>(null);
+  const [counterAction, setCounterAction] = useState<string | null>(null);
 
   async function loadCounters() {
     setLoading(true);
@@ -49,6 +74,11 @@ export function SequenceCountersPage() {
 
   async function createCounter(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (creating) {
+      return;
+    }
+
+    setCreating(true);
     setMessage("");
 
     try {
@@ -57,28 +87,54 @@ export function SequenceCountersPage() {
       setCurrentValue(0);
       await loadCounters();
     } catch (createError) {
-      setMessage(createError instanceof Error ? createError.message : "创建失败");
+      setMessage(
+        createError instanceof Error ? createError.message : "创建失败",
+      );
+    } finally {
+      setCreating(false);
     }
   }
 
-  async function nextValue(name: string) {
+  async function confirmCounterAction() {
+    if (!confirmTarget || counterAction !== null) {
+      return;
+    }
+
+    const actionKey = `${confirmTarget.type}:${confirmTarget.counterName}`;
+    setCounterAction(actionKey);
+    setMessage("");
+
     try {
-      const result = await nextSequenceCounterValue(name);
-      setMessage(`${result.counterName} 下一个值：${result.nextValue}`);
-      await loadCounters();
-    } catch (nextError) {
-      setMessage(nextError instanceof Error ? nextError.message : "操作失败");
+      if (confirmTarget.type === "next") {
+        const result = await nextSequenceCounterValue(
+          confirmTarget.counterName,
+        );
+        await loadCounters();
+        setMessage(`${result.counterName} 下一个值：${result.nextValue}`);
+      } else {
+        await resetSequenceCounterValue(
+          confirmTarget.counterName,
+          confirmTarget.value,
+        );
+        await loadCounters();
+      }
+
+      setConfirmTarget(null);
+    } catch (actionError) {
+      const fallback = confirmTarget.type === "reset" ? "重置失败" : "操作失败";
+      setMessage(actionError instanceof Error ? actionError.message : fallback);
+      setConfirmTarget(null);
+    } finally {
+      setCounterAction(null);
     }
   }
 
-  async function resetValue(name: string) {
-    try {
-      await resetSequenceCounterValue(name, resetValues[name] ?? 0);
-      await loadCounters();
-    } catch (resetError) {
-      setMessage(resetError instanceof Error ? resetError.message : "重置失败");
-    }
-  }
+  const isInitialLoading = loading && counters.length === 0;
+  const confirmPending = counterAction !== null;
+  const confirmDescription =
+    confirmTarget?.type === "reset"
+      ? `确认将 ${confirmTarget.counterName} 重置为 ${confirmTarget.value}？这会立即写入服务端。`
+      : `确认获取 ${confirmTarget?.counterName ?? ""} 的下一个值？这会立即推进当前计数。`;
 
   return (
     <div className="space-y-4">
@@ -93,9 +149,10 @@ export function SequenceCountersPage() {
           className="w-full sm:w-auto"
           type="button"
           variant="outline"
+          disabled={loading}
           onClick={loadCounters}
         >
-          <RefreshCw size={16} />
+          {loading ? <Spinner /> : <RefreshCw size={16} />}
           刷新
         </Button>
       </div>
@@ -111,7 +168,10 @@ export function SequenceCountersPage() {
           <CardTitle className="text-base">新建计数器</CardTitle>
         </CardHeader>
         <CardContent className="pt-4">
-          <form className="grid gap-3 sm:grid-cols-[1fr_180px_auto]" onSubmit={createCounter}>
+          <form
+            className="grid gap-3 sm:grid-cols-[1fr_180px_auto]"
+            onSubmit={createCounter}
+          >
             <Input
               required
               placeholder="计数器名称"
@@ -124,8 +184,12 @@ export function SequenceCountersPage() {
               value={currentValue}
               onChange={(event) => setCurrentValue(Number(event.target.value))}
             />
-            <Button className="w-full sm:w-auto" type="submit">
-              <Plus size={16} />
+            <Button
+              className="w-full sm:w-auto"
+              disabled={creating}
+              type="submit"
+            >
+              {creating ? <Spinner /> : <Plus size={16} />}
               创建
             </Button>
           </form>
@@ -133,6 +197,7 @@ export function SequenceCountersPage() {
       </Card>
 
       <div className="grid gap-3 sm:hidden">
+        {isInitialLoading ? <MobileCounterSkeletons /> : null}
         {counters.map((counter) => (
           <div
             className="rounded-md border border-border bg-card p-3"
@@ -140,7 +205,9 @@ export function SequenceCountersPage() {
           >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <div className="break-all font-medium">{counter.counterName}</div>
+                <div className="break-all font-medium">
+                  {counter.counterName}
+                </div>
                 <div className="mt-1 text-xs text-muted-foreground">
                   <span className="mr-2">更新</span>
                   {formatDate(counter.updatedAt)}
@@ -164,19 +231,39 @@ export function SequenceCountersPage() {
               />
               <div className="grid grid-cols-2 gap-2">
                 <Button
+                  disabled={confirmPending}
                   size="sm"
                   type="button"
                   variant="outline"
-                  onClick={() => resetValue(counter.counterName)}
+                  onClick={() =>
+                    setConfirmTarget({
+                      counterName: counter.counterName,
+                      type: "reset",
+                      value: resetValues[counter.counterName] ?? 0,
+                    })
+                  }
                 >
-                  <RotateCcw size={15} />
+                  {counterAction === `reset:${counter.counterName}` ? (
+                    <Spinner />
+                  ) : (
+                    <RotateCcw size={15} />
+                  )}
                   重置
                 </Button>
                 <Button
+                  disabled={confirmPending}
                   size="sm"
                   type="button"
-                  onClick={() => nextValue(counter.counterName)}
+                  onClick={() =>
+                    setConfirmTarget({
+                      counterName: counter.counterName,
+                      type: "next",
+                    })
+                  }
                 >
+                  {counterAction === `next:${counter.counterName}` ? (
+                    <Spinner />
+                  ) : null}
                   下一个
                 </Button>
               </div>
@@ -189,8 +276,10 @@ export function SequenceCountersPage() {
           </div>
         ) : null}
         {loading ? (
-          <div className="rounded-md border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
-            加载中...
+          <div className="rounded-md border border-border bg-card px-4 py-3">
+            <LoadingLine
+              label={counters.length > 0 ? "正在刷新" : "加载计数器"}
+            />
           </div>
         ) : null}
       </div>
@@ -206,10 +295,15 @@ export function SequenceCountersPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
+            {isInitialLoading ? <CounterTableSkeletonRows /> : null}
             {counters.map((counter) => (
               <TableRow key={counter.id}>
-                <TableCell className="font-medium">{counter.counterName}</TableCell>
-                <TableCell className="font-mono">{counter.currentValue}</TableCell>
+                <TableCell className="font-medium">
+                  {counter.counterName}
+                </TableCell>
+                <TableCell className="font-mono">
+                  {counter.currentValue}
+                </TableCell>
                 <TableCell className="text-muted-foreground">
                   {formatDate(counter.updatedAt)}
                 </TableCell>
@@ -228,19 +322,39 @@ export function SequenceCountersPage() {
                       }
                     />
                     <Button
+                      disabled={confirmPending}
                       size="sm"
                       type="button"
                       variant="outline"
-                      onClick={() => resetValue(counter.counterName)}
+                      onClick={() =>
+                        setConfirmTarget({
+                          counterName: counter.counterName,
+                          type: "reset",
+                          value: resetValues[counter.counterName] ?? 0,
+                        })
+                      }
                     >
-                      <RotateCcw size={15} />
+                      {counterAction === `reset:${counter.counterName}` ? (
+                        <Spinner />
+                      ) : (
+                        <RotateCcw size={15} />
+                      )}
                       重置
                     </Button>
                     <Button
+                      disabled={confirmPending}
                       size="sm"
                       type="button"
-                      onClick={() => nextValue(counter.counterName)}
+                      onClick={() =>
+                        setConfirmTarget({
+                          counterName: counter.counterName,
+                          type: "next",
+                        })
+                      }
                     >
+                      {counterAction === `next:${counter.counterName}` ? (
+                        <Spinner />
+                      ) : null}
                       下一个
                     </Button>
                   </div>
@@ -249,7 +363,10 @@ export function SequenceCountersPage() {
             ))}
             {!loading && counters.length === 0 ? (
               <TableRow>
-                <TableCell className="py-10 text-center text-muted-foreground" colSpan={4}>
+                <TableCell
+                  className="py-10 text-center text-muted-foreground"
+                  colSpan={4}
+                >
                   暂无计数器
                 </TableCell>
               </TableRow>
@@ -257,11 +374,100 @@ export function SequenceCountersPage() {
           </TableBody>
         </Table>
         {loading ? (
-          <div className="border-t border-border px-4 py-3 text-sm text-muted-foreground">
-            加载中...
+          <div className="border-t border-border px-4 py-3">
+            <LoadingLine
+              label={counters.length > 0 ? "正在刷新" : "加载计数器"}
+            />
           </div>
         ) : null}
       </Card>
+      <AlertDialog
+        open={Boolean(confirmTarget)}
+        onOpenChange={(open) => {
+          if (!open && counterAction === null) {
+            setConfirmTarget(null);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {confirmTarget?.type === "reset" ? "重置计数器" : "获取下一个值"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmDescription}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={confirmPending}>
+              取消
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={confirmPending}
+              onClick={(event) => {
+                event.preventDefault();
+                void confirmCounterAction();
+              }}
+            >
+              {confirmPending ? <Spinner /> : null}
+              确认
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
+}
+
+function LoadingLine({ label }: { label: string }) {
+  return (
+    <span className="inline-flex items-center gap-2 text-sm text-muted-foreground">
+      <Spinner />
+      {label}
+    </span>
+  );
+}
+
+function MobileCounterSkeletons() {
+  return Array.from({ length: 3 }).map((_, index) => (
+    <div className="rounded-md border border-border bg-card p-3" key={index}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1 space-y-2">
+          <Skeleton className="h-4 w-4/5" />
+          <Skeleton className="h-3 w-28" />
+        </div>
+        <Skeleton className="h-7 w-16" />
+      </div>
+      <div className="mt-3 grid gap-2 border-t border-border pt-3">
+        <Skeleton className="h-9" />
+        <div className="grid grid-cols-2 gap-2">
+          <Skeleton className="h-8" />
+          <Skeleton className="h-8" />
+        </div>
+      </div>
+    </div>
+  ));
+}
+
+function CounterTableSkeletonRows() {
+  return Array.from({ length: 5 }).map((_, index) => (
+    <TableRow key={index}>
+      <TableCell>
+        <Skeleton className="h-4 w-48" />
+      </TableCell>
+      <TableCell>
+        <Skeleton className="h-4 w-16" />
+      </TableCell>
+      <TableCell>
+        <Skeleton className="h-4 w-24" />
+      </TableCell>
+      <TableCell>
+        <div className="flex justify-end gap-2">
+          <Skeleton className="h-8 w-24" />
+          <Skeleton className="h-8 w-16" />
+          <Skeleton className="h-8 w-16" />
+        </div>
+      </TableCell>
+    </TableRow>
+  ));
 }

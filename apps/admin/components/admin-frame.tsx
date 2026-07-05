@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@wuliuqi/ui/components/button";
+import { Spinner } from "@wuliuqi/ui/components/spinner";
 import { cn } from "@wuliuqi/ui/lib/utils";
 import {
   GalleryHorizontalEnd,
@@ -12,7 +13,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { ThemeToggle } from "./theme-toggle";
 import { logout } from "../lib/client-api";
 
@@ -32,13 +33,24 @@ const navItems = [
 export function AdminFrame({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+  const [loggingOut, setLoggingOut] = useState(false);
   const activeNavItem =
     navItems.find((item) => isNavActive(pathname, item.href)) ?? navItems[0];
 
   async function handleLogout() {
-    await logout().catch(() => undefined);
-    router.replace("/login");
-    router.refresh();
+    if (loggingOut) {
+      return;
+    }
+
+    setLoggingOut(true);
+
+    try {
+      await logout().catch(() => undefined);
+      router.replace("/login");
+      router.refresh();
+    } finally {
+      setLoggingOut(false);
+    }
   }
 
   return (
@@ -75,12 +87,13 @@ export function AdminFrame({ children }: { children: ReactNode }) {
             <ThemeToggle />
             <Button
               aria-label="退出登录"
+              disabled={loggingOut}
               size="icon"
               type="button"
               variant="ghost"
               onClick={handleLogout}
             >
-              <LogOut size={18} />
+              {loggingOut ? <Spinner /> : <LogOut size={18} />}
             </Button>
           </div>
         </div>

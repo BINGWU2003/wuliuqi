@@ -1,6 +1,8 @@
 "use client";
 
 import type { CarouselItem } from "@wuliuqi/types";
+import { Skeleton } from "@wuliuqi/ui/components/skeleton";
+import { Spinner } from "@wuliuqi/ui/components/spinner";
 import { cn } from "@wuliuqi/ui/lib/utils";
 import Image from "next/image";
 import {
@@ -17,6 +19,7 @@ const SWIPE_THRESHOLD = 48;
 
 export function HomeCarousel() {
   const [items, setItems] = useState<CarouselItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [active, setActive] = useState(0);
   const dragStartXRef = useRef<number | null>(null);
   const dragPointerIdRef = useRef<number | null>(null);
@@ -24,7 +27,8 @@ export function HomeCarousel() {
   useEffect(() => {
     fetchCarousel(CAROUSEL_NAME)
       .then((carousel) => setItems(carousel.items))
-      .catch(() => setItems([]));
+      .catch(() => setItems([]))
+      .finally(() => setLoading(false));
   }, []);
 
   useEffect(() => {
@@ -96,6 +100,23 @@ export function HomeCarousel() {
 
     dragStartXRef.current = null;
     dragPointerIdRef.current = null;
+  }
+
+  if (loading) {
+    return (
+      <section
+        aria-label="首页轮播图加载中"
+        className="relative mx-auto aspect-[16/6] min-h-[150px] w-full max-w-6xl overflow-hidden rounded-md border border-border bg-card shadow-xs"
+      >
+        <Skeleton className="size-full rounded-none" />
+        <div className="absolute inset-0 flex items-center justify-center">
+          <span className="inline-flex items-center gap-2 rounded-md bg-background/85 px-3 py-2 text-sm text-muted-foreground shadow-sm backdrop-blur">
+            <Spinner />
+            加载轮播图
+          </span>
+        </div>
+      </section>
+    );
   }
 
   if (items.length === 0) {

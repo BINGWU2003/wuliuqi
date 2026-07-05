@@ -15,6 +15,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@wuliuqi/ui/components/select";
+import { Skeleton } from "@wuliuqi/ui/components/skeleton";
+import { Spinner } from "@wuliuqi/ui/components/spinner";
 import { ArrowLeft, Save } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -80,7 +82,7 @@ export function EmailForm({ emailId }: { emailId?: number }) {
   }
 
   if (loading) {
-    return <div className="text-sm text-muted-foreground">加载中...</div>;
+    return <EmailFormSkeleton />;
   }
 
   return (
@@ -98,7 +100,7 @@ export function EmailForm({ emailId }: { emailId?: number }) {
           </h1>
         </div>
         <Button className="w-full sm:w-auto" disabled={saving} type="submit">
-          <Save size={16} />
+          {saving ? <Spinner /> : <Save size={16} />}
           {saving ? "保存中..." : "保存邮箱"}
         </Button>
       </div>
@@ -160,5 +162,36 @@ export function EmailForm({ emailId }: { emailId?: number }) {
         </CardContent>
       </Card>
     </form>
+  );
+}
+
+function EmailFormSkeleton() {
+  return (
+    <div className="mx-auto max-w-2xl space-y-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="space-y-2">
+          <Skeleton className="h-8 w-32" />
+          <Skeleton className="h-8 w-28" />
+        </div>
+        <div className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-md border border-border text-sm text-muted-foreground sm:w-28">
+          <Spinner />
+          加载邮箱
+        </div>
+      </div>
+      <Card className="rounded-md shadow-none">
+        <CardHeader className="border-b border-border">
+          <Skeleton className="h-4 w-20" />
+        </CardHeader>
+        <CardContent className="grid gap-3 pt-4 sm:grid-cols-2">
+          {Array.from({ length: 3 }).map((_, index) => (
+            <div key={index} className="space-y-1.5">
+              <Skeleton className="h-3 w-16" />
+              <Skeleton className="h-9 w-full" />
+            </div>
+          ))}
+          <Skeleton className="h-16 sm:col-span-2" />
+        </CardContent>
+      </Card>
+    </div>
   );
 }

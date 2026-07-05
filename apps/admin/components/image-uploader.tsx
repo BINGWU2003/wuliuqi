@@ -2,6 +2,7 @@
 
 import { Button } from "@wuliuqi/ui/components/button";
 import { Input } from "@wuliuqi/ui/components/input";
+import { Spinner } from "@wuliuqi/ui/components/spinner";
 import { ImagePlus, Trash2 } from "lucide-react";
 import Image from "next/image";
 import { useRef, useState } from "react";
@@ -75,7 +76,9 @@ export function ImageUploader({
               size="icon"
               type="button"
               variant="ghost"
-              onClick={() => onChange(images.filter((_, itemIndex) => itemIndex !== index))}
+              onClick={() =>
+                onChange(images.filter((_, itemIndex) => itemIndex !== index))
+              }
             >
               <Trash2 size={15} />
             </Button>
@@ -88,7 +91,11 @@ export function ImageUploader({
             type="button"
             onClick={() => inputRef.current?.click()}
           >
-            <ImagePlus size={22} />
+            {uploading ? (
+              <Spinner className="size-5" />
+            ) : (
+              <ImagePlus size={22} />
+            )}
             {uploading ? "上传中..." : "添加图片"}
           </button>
         ) : null}

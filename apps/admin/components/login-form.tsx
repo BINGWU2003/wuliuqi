@@ -8,6 +8,7 @@ import {
   CardTitle,
 } from "@wuliuqi/ui/components/card";
 import { Input } from "@wuliuqi/ui/components/input";
+import { Spinner } from "@wuliuqi/ui/components/spinner";
 import { ShieldCheck } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
@@ -75,6 +76,7 @@ export function LoginForm() {
             </div>
           ) : null}
           <Button className="w-full" disabled={loading} type="submit">
+            {loading ? <Spinner /> : null}
             {loading ? "登录中..." : "登录"}
           </Button>
         </form>

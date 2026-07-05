@@ -2,8 +2,15 @@
 
 import type { CarouselItem } from "@wuliuqi/types";
 import { Button } from "@wuliuqi/ui/components/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@wuliuqi/ui/components/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@wuliuqi/ui/components/card";
 import { Input } from "@wuliuqi/ui/components/input";
+import { Skeleton } from "@wuliuqi/ui/components/skeleton";
+import { Spinner } from "@wuliuqi/ui/components/spinner";
 import { ArrowDown, ArrowUp, ImagePlus, Save, Trash2 } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
@@ -52,7 +59,7 @@ export function CarouselPage({ name }: { name: string }) {
   }, [name]);
 
   async function handleFiles(files: FileList | null) {
-    if (!files?.length || items.length >= MAX_IMAGES) {
+    if (!files?.length || uploading || items.length >= MAX_IMAGES) {
       return;
     }
 
@@ -76,7 +83,9 @@ export function CarouselPage({ name }: { name: string }) {
 
       setItems(nextItems);
     } catch (uploadError) {
-      setMessage(uploadError instanceof Error ? uploadError.message : "上传失败");
+      setMessage(
+        uploadError instanceof Error ? uploadError.message : "上传失败",
+      );
     } finally {
       setUploading(false);
       if (fileInputRef.current) {
@@ -121,7 +130,7 @@ export function CarouselPage({ name }: { name: string }) {
             variant="outline"
             onClick={() => fileInputRef.current?.click()}
           >
-            <ImagePlus size={16} />
+            {uploading ? <Spinner /> : <ImagePlus size={16} />}
             {uploading ? "上传中..." : "添加图片"}
           </Button>
           <Button
@@ -130,7 +139,7 @@ export function CarouselPage({ name }: { name: string }) {
             type="button"
             onClick={save}
           >
-            <Save size={16} />
+            {saving ? <Spinner /> : <Save size={16} />}
             {saving ? "保存中..." : "保存"}
           </Button>
         </div>
@@ -157,7 +166,7 @@ export function CarouselPage({ name }: { name: string }) {
         </CardHeader>
         <CardContent className="pt-4">
           {loading ? (
-            <div className="text-sm text-muted-foreground">加载中...</div>
+            <CarouselLoadingGrid />
           ) : (
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {items.map((item, index) => (
@@ -208,7 +217,9 @@ export function CarouselPage({ name }: { name: string }) {
                           size="icon"
                           type="button"
                           variant="ghost"
-                          onClick={() => setItems(reorder(items, index, index - 1))}
+                          onClick={() =>
+                            setItems(reorder(items, index, index - 1))
+                          }
                         >
                           <ArrowUp size={16} />
                         </Button>
@@ -218,7 +229,9 @@ export function CarouselPage({ name }: { name: string }) {
                           size="icon"
                           type="button"
                           variant="ghost"
-                          onClick={() => setItems(reorder(items, index, index + 1))}
+                          onClick={() =>
+                            setItems(reorder(items, index, index + 1))
+                          }
                         >
                           <ArrowDown size={16} />
                         </Button>
@@ -254,6 +267,35 @@ export function CarouselPage({ name }: { name: string }) {
           )}
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+function CarouselLoadingGrid() {
+  return (
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      {Array.from({ length: 3 }).map((_, index) => (
+        <div
+          className="overflow-hidden rounded-md border border-border bg-background"
+          key={index}
+        >
+          <Skeleton className="aspect-[16/9] rounded-none" />
+          <div className="space-y-2 p-3">
+            <Skeleton className="h-9 w-full" />
+            <div className="flex justify-between gap-1">
+              <div className="flex gap-1">
+                <Skeleton className="size-9" />
+                <Skeleton className="size-9" />
+              </div>
+              <Skeleton className="size-9" />
+            </div>
+          </div>
+        </div>
+      ))}
+      <div className="flex min-h-32 items-center justify-center rounded-md border border-dashed border-input text-sm text-muted-foreground">
+        <Spinner />
+        <span className="ml-2">加载轮播图</span>
+      </div>
     </div>
   );
 }

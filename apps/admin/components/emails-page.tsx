@@ -1,8 +1,23 @@
 "use client";
 
 import type { AdminEmail } from "@wuliuqi/types";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@wuliuqi/ui/components/alert-dialog";
 import { Button } from "@wuliuqi/ui/components/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@wuliuqi/ui/components/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@wuliuqi/ui/components/card";
 import { Input } from "@wuliuqi/ui/components/input";
 import {
   Select,
@@ -11,6 +26,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@wuliuqi/ui/components/select";
+import { Skeleton } from "@wuliuqi/ui/components/skeleton";
+import { Spinner } from "@wuliuqi/ui/components/spinner";
 import {
   Table,
   TableBody,
@@ -33,6 +50,8 @@ export function EmailsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [total, setTotal] = useState(0);
+  const [deleteTarget, setDeleteTarget] = useState<AdminEmail | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   async function loadEmails() {
     setLoading(true);
@@ -59,18 +78,27 @@ export function EmailsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bindStatus]);
 
-  async function removeEmail(email: AdminEmail) {
-    if (!window.confirm(`确认删除邮箱 ${email.email}？`)) {
+  async function confirmRemoveEmail() {
+    if (!deleteTarget || deletingId !== null) {
       return;
     }
 
+    setDeletingId(deleteTarget.id);
+    setError("");
+
     try {
-      await deleteEmail(email.id);
+      await deleteEmail(deleteTarget.id);
       await loadEmails();
+      setDeleteTarget(null);
     } catch (deleteError) {
       setError(deleteError instanceof Error ? deleteError.message : "删除失败");
+      setDeleteTarget(null);
+    } finally {
+      setDeletingId(null);
     }
   }
+
+  const isInitialLoading = loading && emails.length === 0;
 
   return (
     <div className="space-y-4">
@@ -118,14 +146,20 @@ export function EmailsPage() {
               <SelectItem value="2">未绑定</SelectItem>
             </SelectContent>
           </Select>
-          <Button variant="outline" onClick={() => loadEmails()}>
-            <RefreshCw size={16} />
+          <Button
+            disabled={loading}
+            type="button"
+            variant="outline"
+            onClick={() => loadEmails()}
+          >
+            {loading ? <Spinner /> : <RefreshCw size={16} />}
             刷新
           </Button>
         </CardContent>
       </Card>
 
       <div className="grid gap-3 sm:hidden">
+        {isInitialLoading ? <MobileEmailSkeletons /> : null}
         {emails.map((email) => (
           <div
             className="rounded-md border border-border bg-card p-3"
@@ -150,12 +184,13 @@ export function EmailsPage() {
               </Button>
               <Button
                 aria-label={`删除邮箱 ${email.email}`}
+                disabled={deletingId === email.id}
                 size="sm"
                 type="button"
                 variant="ghost"
-                onClick={() => removeEmail(email)}
+                onClick={() => setDeleteTarget(email)}
               >
-                <Trash2 size={15} />
+                {deletingId === email.id ? <Spinner /> : <Trash2 size={15} />}
               </Button>
             </div>
           </div>
@@ -166,8 +201,8 @@ export function EmailsPage() {
           </div>
         ) : null}
         {loading ? (
-          <div className="rounded-md border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
-            加载中...
+          <div className="rounded-md border border-border bg-card px-4 py-3">
+            <LoadingLine label={emails.length > 0 ? "正在刷新" : "加载邮箱"} />
           </div>
         ) : null}
         {error ? (
@@ -188,6 +223,7 @@ export function EmailsPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
+            {isInitialLoading ? <EmailTableSkeletonRows /> : null}
             {emails.map((email) => (
               <TableRow key={email.id}>
                 <TableCell>
@@ -208,12 +244,17 @@ export function EmailsPage() {
                       </Link>
                     </Button>
                     <Button
+                      disabled={deletingId === email.id}
                       size="sm"
                       type="button"
                       variant="ghost"
-                      onClick={() => removeEmail(email)}
+                      onClick={() => setDeleteTarget(email)}
                     >
-                      <Trash2 size={15} />
+                      {deletingId === email.id ? (
+                        <Spinner />
+                      ) : (
+                        <Trash2 size={15} />
+                      )}
                     </Button>
                   </div>
                 </TableCell>
@@ -221,7 +262,10 @@ export function EmailsPage() {
             ))}
             {!loading && emails.length === 0 ? (
               <TableRow>
-                <TableCell className="py-10 text-center text-muted-foreground" colSpan={4}>
+                <TableCell
+                  className="py-10 text-center text-muted-foreground"
+                  colSpan={4}
+                >
                   暂无邮箱
                 </TableCell>
               </TableRow>
@@ -229,8 +273,8 @@ export function EmailsPage() {
           </TableBody>
         </Table>
         {loading ? (
-          <div className="border-t border-border px-4 py-3 text-sm text-muted-foreground">
-            加载中...
+          <div className="border-t border-border px-4 py-3">
+            <LoadingLine label={emails.length > 0 ? "正在刷新" : "加载邮箱"} />
           </div>
         ) : null}
         {error ? (
@@ -239,8 +283,90 @@ export function EmailsPage() {
           </div>
         ) : null}
       </Card>
+      <AlertDialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => {
+          if (!open && deletingId === null) {
+            setDeleteTarget(null);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>删除邮箱</AlertDialogTitle>
+            <AlertDialogDescription>
+              确认删除邮箱 {deleteTarget?.email}？删除后无法恢复。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletingId !== null}>
+              取消
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/30"
+              disabled={deletingId !== null}
+              onClick={(event) => {
+                event.preventDefault();
+                void confirmRemoveEmail();
+              }}
+            >
+              {deletingId !== null ? <Spinner /> : null}
+              删除邮箱
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
+}
+
+function LoadingLine({ label }: { label: string }) {
+  return (
+    <span className="inline-flex items-center gap-2 text-sm text-muted-foreground">
+      <Spinner />
+      {label}
+    </span>
+  );
+}
+
+function MobileEmailSkeletons() {
+  return Array.from({ length: 4 }).map((_, index) => (
+    <div className="rounded-md border border-border bg-card p-3" key={index}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1 space-y-2">
+          <Skeleton className="h-4 w-4/5" />
+          <Skeleton className="h-3 w-28" />
+        </div>
+        <Skeleton className="h-5 w-16" />
+      </div>
+      <div className="mt-3 grid grid-cols-[1fr_auto] gap-2 border-t border-border pt-3">
+        <Skeleton className="h-8" />
+        <Skeleton className="h-8 w-8" />
+      </div>
+    </div>
+  ));
+}
+
+function EmailTableSkeletonRows() {
+  return Array.from({ length: 6 }).map((_, index) => (
+    <TableRow key={index}>
+      <TableCell>
+        <Skeleton className="h-4 w-56" />
+      </TableCell>
+      <TableCell>
+        <Skeleton className="h-5 w-16" />
+      </TableCell>
+      <TableCell>
+        <Skeleton className="h-4 w-24" />
+      </TableCell>
+      <TableCell>
+        <div className="flex justify-end gap-1">
+          <Skeleton className="h-8 w-16" />
+          <Skeleton className="h-8 w-8" />
+        </div>
+      </TableCell>
+    </TableRow>
+  ));
 }
 
 function EmailAddress({ email }: { email: AdminEmail }) {
