@@ -107,11 +107,11 @@ export function AccountDetail({ id }: { id: number | null }) {
           </CardContent>
         </Card>
 
-        <Card className="rounded-md border-amber-200 bg-amber-50/60 shadow-none">
-          <CardHeader className="border-b border-amber-200/70">
-            <CardTitle className="text-base text-amber-950">交易提醒</CardTitle>
+        <Card className="rounded-md border-amber-200 bg-amber-50/60 shadow-none dark:border-amber-900/60 dark:bg-amber-950/30">
+          <CardHeader className="border-b border-amber-200/70 dark:border-amber-900/60">
+            <CardTitle className="text-base text-amber-950 dark:text-amber-200">交易提醒</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2 p-4 text-sm leading-7 text-amber-950/85">
+          <CardContent className="space-y-2 p-4 text-sm leading-7 text-amber-950/85 dark:text-amber-100/80">
             <p>
               购买可点击链接跳入闲鱼 app 联系，认准店铺：567手游店。私下购买认准微信号：wlq16680802181。
             </p>
@@ -136,7 +136,7 @@ export function AccountDetail({ id }: { id: number | null }) {
                 </CardTitle>
               </div>
               <Badge
-                className="rounded-sm border-emerald-200 bg-emerald-50 text-emerald-700"
+                className="rounded-sm border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/70 dark:bg-emerald-950/50 dark:text-emerald-300"
                 variant="outline"
               >
                 {getStatusLabel(account.status)}
@@ -319,7 +319,7 @@ function Metric({
 function TrustItem({ children }: { children: ReactNode }) {
   return (
     <div className="flex gap-2 text-sm leading-6 text-muted-foreground">
-      <CheckCircle2 className="mt-1 size-4 shrink-0 text-emerald-600" />
+      <CheckCircle2 className="mt-1 size-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
       <span>{children}</span>
     </div>
   );

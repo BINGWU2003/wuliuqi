@@ -6,6 +6,7 @@ import { ArrowLeft, BookOpen, Gamepad2, Home, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import type { ReactNode } from "react";
+import { ThemeToggle } from "./theme-toggle";
 
 const titleMap: Record<string, string> = {
   "/": "567手游店",
@@ -65,11 +66,16 @@ export function ShopFrame({ children }: { children: ReactNode }) {
               指南
             </TopLink>
           </nav>
-          <div className="hidden items-center gap-1 text-xs font-medium text-muted-foreground sm:flex">
-            <ShieldCheck size={15} />
-            闲鱼交易
+          <div className="hidden items-center gap-2 sm:flex">
+            <div className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
+              <ShieldCheck size={15} />
+              闲鱼交易
+            </div>
+            <ThemeToggle />
           </div>
-          <div className="sm:hidden" />
+          <div className="flex justify-end sm:hidden">
+            <ThemeToggle />
+          </div>
         </div>
       </header>
       <div className="min-h-screen px-3 pb-20 pt-[68px] sm:px-6 sm:pt-20">
