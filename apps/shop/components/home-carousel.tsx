@@ -1,10 +1,7 @@
 "use client";
 
 import type { CarouselItem } from "@wuliuqi/types";
-import { Badge } from "@wuliuqi/ui/components/badge";
-import { Button } from "@wuliuqi/ui/components/button";
 import { cn } from "@wuliuqi/ui/lib/utils";
-import { ChevronLeft, ChevronRight } from "lucide-react";
 import Image from "next/image";
 import {
   useCallback,
@@ -131,47 +128,13 @@ export function HomeCarousel() {
         unoptimized
       />
       {items.length > 1 ? (
-        <>
-          <Button
-            aria-label="上一张轮播图"
-            className="absolute left-2 top-1/2 size-9 -translate-y-1/2 rounded-full border-white/40 bg-background/85 text-foreground shadow-sm backdrop-blur hover:bg-background sm:left-3 sm:size-10"
-            size="icon"
-            type="button"
-            variant="outline"
-            onClick={showPrevious}
-            onPointerDown={(event) => event.stopPropagation()}
-          >
-            <ChevronLeft size={19} />
-          </Button>
-          <Button
-            aria-label="下一张轮播图"
-            className="absolute right-2 top-1/2 size-9 -translate-y-1/2 rounded-full border-white/40 bg-background/85 text-foreground shadow-sm backdrop-blur hover:bg-background sm:right-3 sm:size-10"
-            size="icon"
-            type="button"
-            variant="outline"
-            onClick={showNext}
-            onPointerDown={(event) => event.stopPropagation()}
-          >
-            <ChevronRight size={19} />
-          </Button>
-        </>
-      ) : null}
-      <div className="absolute inset-x-0 bottom-0 flex items-end justify-between bg-gradient-to-t from-black/55 to-transparent p-3">
-        <div className="text-left">
-          <Badge className="rounded-sm bg-white text-black hover:bg-white">
-            Featured
-          </Badge>
-          <div className="mt-2 text-sm font-semibold text-white sm:text-base">
-            CODM 账号精选上新
-          </div>
-        </div>
-        <div className="flex gap-1.5">
+        <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-1.5 rounded-full bg-black/25 px-2 py-1.5 backdrop-blur">
           {items.map((item, index) => (
             <button
               key={`${item.url}-${item.sortOrder}`}
               aria-label={`切换到第 ${index + 1} 张轮播图`}
               className={cn(
-                "h-1.5 w-1.5 rounded-full bg-white/65 transition-all",
+                "h-1.5 w-1.5 cursor-pointer rounded-full bg-white/65 transition-all hover:bg-white",
                 index === active && "w-5 bg-white",
               )}
               type="button"
@@ -180,7 +143,7 @@ export function HomeCarousel() {
             />
           ))}
         </div>
-      </div>
+      ) : null}
     </section>
   );
 }
