@@ -29,11 +29,18 @@ export async function listShopAccounts(
     ];
   }
 
+  const orderBy: Prisma.CodmAccountOrderByWithRelationInput =
+    query.sort === "price_asc"
+      ? { price: "asc" }
+      : query.sort === "price_desc"
+        ? { price: "desc" }
+        : { updatedAt: "desc" };
+
   const [total, accounts] = await Promise.all([
     prisma.codmAccount.count({ where }),
     prisma.codmAccount.findMany({
       where,
-      orderBy: { updatedAt: "desc" },
+      orderBy,
       skip: (page - 1) * limit,
       take: limit,
     }),

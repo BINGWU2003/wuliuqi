@@ -1,6 +1,7 @@
 "use client";
 
 import type { CarouselItem } from "@wuliuqi/types";
+import { Badge } from "@wuliuqi/ui/components/badge";
 import { cn } from "@wuliuqi/ui/lib/utils";
 import Image from "next/image";
 import { useEffect, useState } from "react";
@@ -45,7 +46,7 @@ export function HomeCarousel() {
   return (
     <>
       <button
-        className="relative mx-auto aspect-[16/7] min-h-[150px] w-full max-w-5xl overflow-hidden rounded-lg border border-border bg-card shadow-sm"
+        className="relative mx-auto aspect-[16/6] min-h-[150px] w-full max-w-6xl overflow-hidden rounded-md border border-border bg-card shadow-xs"
         type="button"
         onClick={() => setPreviewOpen(true)}
       >
@@ -58,7 +59,16 @@ export function HomeCarousel() {
           alt="首页轮播图"
           unoptimized
         />
-        <div className="absolute bottom-3 right-3 flex gap-1.5">
+        <div className="absolute inset-x-0 bottom-0 flex items-end justify-between bg-gradient-to-t from-black/55 to-transparent p-3">
+          <div className="text-left">
+            <Badge className="rounded-sm bg-white text-black hover:bg-white">
+              Featured
+            </Badge>
+            <div className="mt-2 text-sm font-semibold text-white sm:text-base">
+              CODM 账号精选上新
+            </div>
+          </div>
+          <div className="flex gap-1.5">
           {items.map((item, index) => (
             <span
               key={`${item.url}-${item.sortOrder}`}
@@ -68,6 +78,7 @@ export function HomeCarousel() {
               )}
             />
           ))}
+          </div>
         </div>
       </button>
       <ImageLightbox

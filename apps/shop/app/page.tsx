@@ -3,9 +3,12 @@ import { HomeCarousel } from "../components/home-carousel";
 
 export default function Home() {
   return (
-    <main className="flex flex-col gap-3">
+    <main className="flex flex-col gap-5">
       <HomeCarousel />
-      <AccountList />
+      <AccountList
+        eyebrow="Verified CODM accounts"
+        heading="CODM 账号市场"
+      />
     </main>
   );
 }

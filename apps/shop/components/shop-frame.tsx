@@ -2,7 +2,7 @@
 
 import { Button } from "@wuliuqi/ui/components/button";
 import { cn } from "@wuliuqi/ui/lib/utils";
-import { ArrowLeft, BookOpen, Gamepad2, Home } from "lucide-react";
+import { ArrowLeft, BookOpen, Gamepad2, Home, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import type { ReactNode } from "react";
@@ -26,30 +26,58 @@ export function ShopFrame({ children }: { children: ReactNode }) {
 
   return (
     <>
-      <header className="fixed inset-x-0 top-0 z-30 grid h-[52px] grid-cols-[48px_1fr_48px] items-center border-b border-border bg-card/95 shadow-sm backdrop-blur">
-        <div>
-          {showBack ? (
-            <Button
-              aria-label="返回"
-              className="ml-1"
-              size="icon"
-              type="button"
-              variant="ghost"
-              onClick={() => router.back()}
-            >
-              <ArrowLeft size={22} />
-            </Button>
-          ) : null}
+      <header className="fixed inset-x-0 top-0 z-30 border-b border-border bg-card/95 backdrop-blur">
+        <div className="mx-auto grid h-14 w-full max-w-6xl grid-cols-[48px_1fr_48px] items-center px-2 sm:h-16 sm:grid-cols-[auto_1fr_auto] sm:px-6">
+          <div className="flex items-center gap-2">
+            {showBack ? (
+              <Button
+                aria-label="返回"
+                size="icon"
+                type="button"
+                variant="ghost"
+                onClick={() => router.back()}
+              >
+                <ArrowLeft size={21} />
+              </Button>
+            ) : (
+              <Link
+                className="hidden items-center gap-2 text-sm font-bold sm:flex"
+                href="/"
+              >
+                <span className="grid size-8 place-items-center rounded-md bg-primary text-primary-foreground">
+                  567
+                </span>
+                五六七手游店
+              </Link>
+            )}
+          </div>
+          <div className="truncate text-center text-[15px] font-bold sm:hidden">
+            {title}
+          </div>
+          <nav className="hidden justify-center gap-1 sm:flex" aria-label="主导航">
+            <TopLink active={pathname === "/"} href="/">
+              首页
+            </TopLink>
+            <TopLink active={pathname === "/account-section"} href="/account-section">
+              账号专区
+            </TopLink>
+            <TopLink active={pathname === "/guide"} href="/guide">
+              指南
+            </TopLink>
+          </nav>
+          <div className="hidden items-center gap-1 text-xs font-medium text-muted-foreground sm:flex">
+            <ShieldCheck size={15} />
+            闲鱼交易
+          </div>
+          <div className="sm:hidden" />
         </div>
-        <div className="truncate text-center text-[17px] font-bold">
-          {title}
-        </div>
-        <div />
       </header>
-      <div className="min-h-screen px-3 pb-20 pt-16 sm:px-6">{children}</div>
+      <div className="min-h-screen px-3 pb-20 pt-[68px] sm:px-6 sm:pt-20">
+        {children}
+      </div>
       {showTabs ? (
         <nav
-          className="fixed inset-x-0 bottom-0 z-30 grid h-16 grid-cols-3 border-t border-border bg-card/95 shadow-[0_-8px_24px_rgba(20,35,65,0.07)] backdrop-blur"
+          className="fixed inset-x-0 bottom-0 z-30 grid h-16 grid-cols-3 border-t border-border bg-card/95 shadow-[0_-8px_24px_rgba(0,0,0,0.06)] backdrop-blur sm:hidden"
           aria-label="底部导航"
         >
           <TabLink active={pathname === "/"} href="/" icon={<Home size={21} />}>
@@ -72,6 +100,28 @@ export function ShopFrame({ children }: { children: ReactNode }) {
         </nav>
       ) : null}
     </>
+  );
+}
+
+function TopLink({
+  active,
+  children,
+  href,
+}: {
+  active: boolean;
+  children: ReactNode;
+  href: string;
+}) {
+  return (
+    <Link
+      className={cn(
+        "rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground",
+        active && "bg-accent text-foreground",
+      )}
+      href={href}
+    >
+      {children}
+    </Link>
   );
 }
 

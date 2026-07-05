@@ -28,6 +28,10 @@ export const accountListQuerySchema = z
     status: optionalNumberFromQuery.pipe(z.number().int().min(1).max(2).optional()),
     min_price: optionalNumberFromQuery.pipe(z.number().min(0).optional()),
     max_price: optionalNumberFromQuery.pipe(z.number().min(0).optional()),
+    sort: z
+      .enum(["latest", "price_asc", "price_desc"])
+      .optional()
+      .default("latest"),
   })
   .refine(
     (query) =>
