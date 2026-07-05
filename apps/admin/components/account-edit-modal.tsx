@@ -11,6 +11,10 @@ import { X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { AccountForm } from "./account-form";
 
+function preventOutsideDismiss(event: Event) {
+  event.preventDefault();
+}
+
 export function AccountEditModal({ accountId }: { accountId: number | null }) {
   const router = useRouter();
 
@@ -27,7 +31,12 @@ export function AccountEditModal({ accountId }: { accountId: number | null }) {
         }
       }}
     >
-      <DialogContent className="h-[100dvh] w-screen max-w-none gap-0 overflow-hidden rounded-none border-0 p-0 sm:h-[calc(100dvh-2rem)] sm:w-[calc(100vw-2rem)] sm:max-w-6xl sm:rounded-md sm:border">
+      <DialogContent
+        className="h-[100dvh] w-screen max-w-none gap-0 overflow-hidden rounded-none border-0 p-0 sm:h-[calc(100dvh-2rem)] sm:w-[calc(100vw-2rem)] sm:max-w-6xl sm:rounded-md sm:border"
+        onFocusOutside={preventOutsideDismiss}
+        onInteractOutside={preventOutsideDismiss}
+        onPointerDownOutside={preventOutsideDismiss}
+      >
         <DialogTitle className="sr-only">编辑账号</DialogTitle>
         <DialogDescription className="sr-only">
           编辑账号图片、价格、状态、邮箱和描述。
