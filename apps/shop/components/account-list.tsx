@@ -24,7 +24,7 @@ import {
 import { Skeleton } from "@wuliuqi/ui/components/skeleton";
 import { Spinner } from "@wuliuqi/ui/components/spinner";
 import { cn } from "@wuliuqi/ui/lib/utils";
-import { SlidersHorizontal, Sparkles, Search } from "lucide-react";
+import { RotateCcw, Search, SlidersHorizontal, Sparkles } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchAccounts } from "../lib/client-api";
 import { ProductCard } from "./product-card";
@@ -421,11 +421,15 @@ function FilterControls({
           </SelectContent>
         </Select>
         <Button
-          className="h-9 rounded-md"
+          className={cn(
+            "h-9 rounded-md border-border bg-background px-3 text-xs",
+            stacked ? "w-full justify-center" : "shrink-0",
+          )}
           type="button"
-          variant="ghost"
+          variant="outline"
           onClick={clearFilters}
         >
+          <RotateCcw size={15} />
           重置
         </Button>
       </div>
