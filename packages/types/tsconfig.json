@@ -1,8 +1,6 @@
 {
-  "extends": "@wuliuqi/typescript-config/react-library.json",
+  "extends": "@wuliuqi/typescript-config/base.json",
   "compilerOptions": {
-    "module": "ESNext",
-    "moduleResolution": "Bundler",
     "outDir": "dist",
     "strictNullChecks": true
   },
