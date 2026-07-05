@@ -1,5 +1,12 @@
 import type { Prisma } from "@prisma/client";
-import type { Carousel, CarouselItem, ShopAccount } from "@wuliuqi/types";
+import type {
+  AdminEmail,
+  AdminUser,
+  Carousel,
+  CarouselItem,
+  SequenceCounter,
+  ShopAccount,
+} from "@wuliuqi/types";
 
 type AccountRecord = {
   id: bigint;
@@ -19,6 +26,30 @@ type CarouselRecord = {
   id: bigint;
   name: string;
   items: Prisma.JsonValue;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type EmailRecord = {
+  id: bigint;
+  prefix: string;
+  postfix: string;
+  bindStatus: number;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type SequenceCounterRecord = {
+  id: bigint;
+  counterName: string;
+  currentValue: bigint;
+  updatedAt: Date;
+};
+
+type UserRecord = {
+  id: number;
+  name: string;
+  email: string;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -53,23 +84,23 @@ function normalizeCarouselItems(value: Prisma.JsonValue): CarouselItem[] {
   const items: CarouselItem[] = [];
 
   for (const item of value) {
-      if (!item || typeof item !== "object" || Array.isArray(item)) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) {
       continue;
-      }
+    }
 
-      const record = item as Record<string, unknown>;
-      const sortOrder = Number(record.sort_order ?? record.sortOrder ?? 0);
-      const url = typeof record.url === "string" ? record.url : "";
-      const linkUrl =
-        typeof record.link_url === "string"
-          ? record.link_url
-          : typeof record.linkUrl === "string"
-            ? record.linkUrl
-            : undefined;
+    const record = item as Record<string, unknown>;
+    const sortOrder = Number(record.sort_order ?? record.sortOrder ?? 0);
+    const url = typeof record.url === "string" ? record.url : "";
+    const linkUrl =
+      typeof record.link_url === "string"
+        ? record.link_url
+        : typeof record.linkUrl === "string"
+          ? record.linkUrl
+          : undefined;
 
-      if (!url) {
+    if (!url) {
       continue;
-      }
+    }
 
     items.push(
       linkUrl === undefined ? { sortOrder, url } : { sortOrder, url, linkUrl },
@@ -102,5 +133,38 @@ export function serializeCarousel(carousel: CarouselRecord): Carousel {
     items: normalizeCarouselItems(carousel.items),
     createdAt: toIsoString(carousel.createdAt),
     updatedAt: toIsoString(carousel.updatedAt),
+  };
+}
+
+export function serializeEmail(email: EmailRecord): AdminEmail {
+  return {
+    id: bigintToNumber(email.id),
+    prefix: email.prefix,
+    postfix: email.postfix,
+    email: `${email.prefix}${email.postfix}`,
+    bindStatus: email.bindStatus,
+    createdAt: toIsoString(email.createdAt),
+    updatedAt: toIsoString(email.updatedAt),
+  };
+}
+
+export function serializeSequenceCounter(
+  counter: SequenceCounterRecord,
+): SequenceCounter {
+  return {
+    id: bigintToNumber(counter.id),
+    counterName: counter.counterName,
+    currentValue: bigintToNumber(counter.currentValue),
+    updatedAt: toIsoString(counter.updatedAt),
+  };
+}
+
+export function serializeUser(user: UserRecord): AdminUser {
+  return {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    createdAt: toIsoString(user.createdAt),
+    updatedAt: toIsoString(user.updatedAt),
   };
 }

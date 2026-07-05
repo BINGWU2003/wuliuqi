@@ -1,7 +1,17 @@
 {
   "$schema": "https://turborepo.dev/schema.json",
   "ui": "tui",
-  "globalEnv": ["NODE_ENV", "DATABASE_URL"],
+  "globalEnv": [
+    "NODE_ENV",
+    "DATABASE_URL",
+    "JWT_SECRET",
+    "ADMIN_SESSION_SECRET",
+    "COS_SECRET_ID",
+    "COS_SECRET_KEY",
+    "COS_BUCKET",
+    "COS_REGION",
+    "COS_PUBLIC_BASE_URL"
+  ],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],

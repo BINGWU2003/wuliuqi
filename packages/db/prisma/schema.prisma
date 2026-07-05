@@ -17,18 +17,49 @@ model CodmAccount {
   xianyuUrl    String?  @map("xianyu_url") @db.VarChar(512)
   email        String?  @db.VarChar(255)
   status       Int      @default(1) @db.UnsignedTinyInt
-  createdAt    DateTime @map("created_at")
+  createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
   @@map("codm_accounts")
+}
+
+model CodmEmail {
+  id         BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  prefix     String   @db.VarChar(64)
+  postfix    String   @db.VarChar(255)
+  bindStatus Int      @default(2) @map("bind_status") @db.UnsignedTinyInt
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@map("codm_emails")
 }
 
 model Carousel {
   id        BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
   name      String   @unique @db.VarChar(255)
   items     Json
-  createdAt DateTime @map("created_at")
+  createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("carousels")
+}
+
+model SequenceCounter {
+  id           BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  counterName  String   @unique @map("counter_name") @db.VarChar(50)
+  currentValue BigInt   @default(0) @map("current_value") @db.UnsignedBigInt
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("sequence_counters")
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  name      String   @db.VarChar(100)
+  email     String   @unique @db.VarChar(100)
+  password  String   @db.VarChar(255)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("users")
 }

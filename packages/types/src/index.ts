@@ -46,3 +46,53 @@ export interface Carousel {
   createdAt?: string;
   updatedAt?: string;
 }
+
+export type AdminAccount = ShopAccount;
+
+export interface AdminAccountListResult {
+  list: AdminAccount[];
+  pagination: Pagination;
+  keyword?: string;
+  priceRange?: {
+    minPrice?: number;
+    maxPrice?: number;
+  };
+}
+
+export interface AdminEmail {
+  id: number;
+  prefix: string;
+  postfix: string;
+  email: string;
+  bindStatus: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface AdminEmailListResult {
+  list: AdminEmail[];
+  pagination: Pagination;
+  keyword?: string;
+}
+
+export interface SequenceCounter {
+  id: number;
+  counterName: string;
+  currentValue: number;
+  updatedAt?: string;
+}
+
+export interface AdminUser {
+  id: number;
+  name: string;
+  email: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface UploadResult {
+  key: string;
+  url: string;
+  size: number;
+  contentType: string;
+}
