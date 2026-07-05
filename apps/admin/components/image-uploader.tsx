@@ -71,7 +71,7 @@ export function ImageUploader({
             />
             <Button
               aria-label="删除图片"
-              className="absolute right-1 top-1 size-8 bg-background/90 opacity-0 group-hover:opacity-100"
+              className="absolute right-1 top-1 size-8 bg-background/90 sm:opacity-0 sm:group-hover:opacity-100"
               size="icon"
               type="button"
               variant="ghost"

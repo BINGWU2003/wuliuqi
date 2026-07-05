@@ -85,7 +85,7 @@ export function EmailForm({ emailId }: { emailId?: number }) {
 
   return (
     <form className="mx-auto max-w-2xl space-y-4" onSubmit={handleSubmit}>
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <Button asChild size="sm" variant="ghost">
             <Link href="/emails">
@@ -97,7 +97,7 @@ export function EmailForm({ emailId }: { emailId?: number }) {
             {emailId ? "编辑邮箱" : "新建邮箱"}
           </h1>
         </div>
-        <Button disabled={saving} type="submit">
+        <Button className="w-full sm:w-auto" disabled={saving} type="submit">
           <Save size={16} />
           {saving ? "保存中..." : "保存邮箱"}
         </Button>
@@ -150,9 +150,12 @@ export function EmailForm({ emailId }: { emailId?: number }) {
               </SelectContent>
             </Select>
           </label>
-          <div className="rounded-md border border-border bg-muted px-3 py-2 text-sm">
+          <div className="rounded-md border border-border bg-muted px-3 py-2 text-sm sm:col-span-2">
             <div className="text-muted-foreground">完整邮箱</div>
-            <div className="mt-1 font-medium">{prefix || "prefix"}{postfix}</div>
+            <div className="mt-1 break-all font-medium">
+              {prefix || "prefix"}
+              {postfix}
+            </div>
           </div>
         </CardContent>
       </Card>

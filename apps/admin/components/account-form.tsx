@@ -146,7 +146,7 @@ export function AccountForm({ accountId }: { accountId?: number }) {
             {accountId ? "编辑账号" : "新建账号"}
           </h1>
         </div>
-        <Button disabled={saving} type="submit">
+        <Button className="w-full sm:w-auto" disabled={saving} type="submit">
           <Save size={16} />
           {saving ? "保存中..." : "保存账号"}
         </Button>
@@ -159,7 +159,7 @@ export function AccountForm({ accountId }: { accountId?: number }) {
       ) : null}
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
-        <div className="space-y-4">
+        <div className="order-2 space-y-4 lg:order-1">
           <Card className="rounded-md shadow-none">
             <CardHeader className="border-b border-border">
               <CardTitle className="text-base">商品图片</CardTitle>
@@ -187,7 +187,7 @@ export function AccountForm({ accountId }: { accountId?: number }) {
           </Card>
         </div>
 
-        <Card className="h-fit rounded-md shadow-none">
+        <Card className="order-1 h-fit rounded-md shadow-none lg:order-2">
           <CardHeader className="border-b border-border">
             <CardTitle className="text-base">基础信息</CardTitle>
           </CardHeader>
@@ -256,6 +256,7 @@ export function AccountForm({ accountId }: { accountId?: number }) {
               </label>
               <div className="flex gap-2">
                 <Input
+                  className="min-w-0"
                   placeholder="搜索邮箱"
                   value={emailKeyword}
                   onChange={(event) => setEmailKeyword(event.target.value)}
@@ -274,7 +275,7 @@ export function AccountForm({ accountId }: { accountId?: number }) {
                       type="button"
                       onClick={() => updateForm({ email: email.email })}
                     >
-                      <span className="truncate">{email.email}</span>
+                      <span className="min-w-0 truncate">{email.email}</span>
                       <EmailBindStatusBadge bindStatus={email.bindStatus} />
                     </button>
                   ))}

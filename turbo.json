@@ -12,6 +12,7 @@
     "COS_REGION",
     "COS_PUBLIC_BASE_URL"
   ],
+  "globalDependencies": ["packages/db/prisma/schema.prisma"],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],

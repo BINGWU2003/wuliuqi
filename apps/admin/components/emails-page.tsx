@@ -125,7 +125,59 @@ export function EmailsPage() {
         </CardContent>
       </Card>
 
-      <Card className="rounded-md shadow-none">
+      <div className="grid gap-3 sm:hidden">
+        {emails.map((email) => (
+          <div
+            className="rounded-md border border-border bg-card p-3"
+            key={email.id}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="break-all font-medium">{email.email}</div>
+                <div className="mt-2 text-xs text-muted-foreground">
+                  <span className="mr-2">更新</span>
+                  {formatDate(email.updatedAt)}
+                </div>
+              </div>
+              <EmailBindStatusBadge bindStatus={email.bindStatus} />
+            </div>
+            <div className="mt-3 grid grid-cols-[1fr_auto] gap-2 border-t border-border pt-3">
+              <Button asChild size="sm" variant="outline">
+                <Link href={`/emails/${email.id}/edit`}>
+                  <Edit size={15} />
+                  编辑
+                </Link>
+              </Button>
+              <Button
+                aria-label={`删除邮箱 ${email.email}`}
+                size="sm"
+                type="button"
+                variant="ghost"
+                onClick={() => removeEmail(email)}
+              >
+                <Trash2 size={15} />
+              </Button>
+            </div>
+          </div>
+        ))}
+        {!loading && emails.length === 0 ? (
+          <div className="rounded-md border border-border bg-card px-4 py-10 text-center text-sm text-muted-foreground">
+            暂无邮箱
+          </div>
+        ) : null}
+        {loading ? (
+          <div className="rounded-md border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
+            加载中...
+          </div>
+        ) : null}
+        {error ? (
+          <div className="rounded-md border border-border bg-card px-4 py-3 text-sm text-destructive">
+            {error}
+          </div>
+        ) : null}
+      </div>
+
+      <Card className="hidden rounded-md shadow-none sm:block">
         <Table>
           <TableHeader>
             <TableRow>

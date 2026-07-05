@@ -89,7 +89,12 @@ export function SequenceCountersPage() {
             用于账号序列号等自增业务编号
           </p>
         </div>
-        <Button type="button" variant="outline" onClick={loadCounters}>
+        <Button
+          className="w-full sm:w-auto"
+          type="button"
+          variant="outline"
+          onClick={loadCounters}
+        >
           <RefreshCw size={16} />
           刷新
         </Button>
@@ -119,7 +124,7 @@ export function SequenceCountersPage() {
               value={currentValue}
               onChange={(event) => setCurrentValue(Number(event.target.value))}
             />
-            <Button type="submit">
+            <Button className="w-full sm:w-auto" type="submit">
               <Plus size={16} />
               创建
             </Button>
@@ -127,7 +132,70 @@ export function SequenceCountersPage() {
         </CardContent>
       </Card>
 
-      <Card className="rounded-md shadow-none">
+      <div className="grid gap-3 sm:hidden">
+        {counters.map((counter) => (
+          <div
+            className="rounded-md border border-border bg-card p-3"
+            key={counter.id}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="break-all font-medium">{counter.counterName}</div>
+                <div className="mt-1 text-xs text-muted-foreground">
+                  <span className="mr-2">更新</span>
+                  {formatDate(counter.updatedAt)}
+                </div>
+              </div>
+              <div className="shrink-0 rounded-md bg-muted px-2 py-1 font-mono text-sm font-semibold">
+                {counter.currentValue}
+              </div>
+            </div>
+            <div className="mt-3 grid gap-2 border-t border-border pt-3">
+              <Input
+                min={0}
+                type="number"
+                value={resetValues[counter.counterName] ?? 0}
+                onChange={(event) =>
+                  setResetValues((current) => ({
+                    ...current,
+                    [counter.counterName]: Number(event.target.value),
+                  }))
+                }
+              />
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  size="sm"
+                  type="button"
+                  variant="outline"
+                  onClick={() => resetValue(counter.counterName)}
+                >
+                  <RotateCcw size={15} />
+                  重置
+                </Button>
+                <Button
+                  size="sm"
+                  type="button"
+                  onClick={() => nextValue(counter.counterName)}
+                >
+                  下一个
+                </Button>
+              </div>
+            </div>
+          </div>
+        ))}
+        {!loading && counters.length === 0 ? (
+          <div className="rounded-md border border-border bg-card px-4 py-10 text-center text-sm text-muted-foreground">
+            暂无计数器
+          </div>
+        ) : null}
+        {loading ? (
+          <div className="rounded-md border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
+            加载中...
+          </div>
+        ) : null}
+      </div>
+
+      <Card className="hidden rounded-md shadow-none sm:block">
         <Table>
           <TableHeader>
             <TableRow>

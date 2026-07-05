@@ -29,7 +29,7 @@ export function RichTextEditor({
 
   return (
     <div className="overflow-hidden rounded-md border border-input bg-background">
-      <div className="flex items-center gap-1 border-b border-border p-1">
+      <div className="flex flex-wrap items-center gap-1 border-b border-border p-1">
         <Button
           aria-label="加粗"
           size="icon"
@@ -61,7 +61,7 @@ export function RichTextEditor({
       <div
         ref={editorRef}
         className={cn(
-          "min-h-36 px-3 py-2 text-sm leading-7 outline-none",
+          "min-h-36 break-words px-3 py-2 text-sm leading-7 outline-none",
           "empty:before:text-muted-foreground empty:before:content-['请输入账号描述']",
         )}
         contentEditable

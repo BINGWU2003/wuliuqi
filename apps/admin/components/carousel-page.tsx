@@ -113,8 +113,9 @@ export function CarouselPage({ name }: { name: string }) {
             配置名：{name}，最多 {MAX_IMAGES} 张
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="grid gap-2 sm:flex">
           <Button
+            className="w-full sm:w-auto"
             disabled={uploading || items.length >= MAX_IMAGES}
             type="button"
             variant="outline"
@@ -123,7 +124,12 @@ export function CarouselPage({ name }: { name: string }) {
             <ImagePlus size={16} />
             {uploading ? "上传中..." : "添加图片"}
           </Button>
-          <Button disabled={saving || items.length === 0} type="button" onClick={save}>
+          <Button
+            className="w-full sm:w-auto"
+            disabled={saving || items.length === 0}
+            type="button"
+            onClick={save}
+          >
             <Save size={16} />
             {saving ? "保存中..." : "保存"}
           </Button>
