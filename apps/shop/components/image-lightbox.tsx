@@ -3,7 +3,7 @@
 import { Button } from "@wuliuqi/ui/components/button";
 import { ChevronLeft, ChevronRight, Download, X } from "lucide-react";
 import Image from "next/image";
-import type { TouchEvent } from "react";
+import type { MouseEvent, TouchEvent } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { downloadImageWithWatermark } from "../lib/watermark";
 
@@ -21,6 +21,7 @@ export function ImageLightbox({
   const [index, setIndex] = useState(startIndex);
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const touchEndRef = useRef<{ x: number; y: number } | null>(null);
+  const ignoreNextClickRef = useRef(false);
 
   const goPrevious = useCallback(() => {
     setIndex((current) => Math.max(0, current - 1));
@@ -67,6 +68,19 @@ export function ImageLightbox({
     if (currentImage) {
       await downloadImageWithWatermark(currentImage);
     }
+  }
+
+  function stopClickPropagation(event: MouseEvent) {
+    event.stopPropagation();
+  }
+
+  function handleBackdropClick() {
+    if (ignoreNextClickRef.current) {
+      ignoreNextClickRef.current = false;
+      return;
+    }
+
+    onClose();
   }
 
   async function saveAll() {
@@ -116,6 +130,8 @@ export function ImageLightbox({
       return;
     }
 
+    ignoreNextClickRef.current = true;
+
     if (deltaX > 0) {
       goPrevious();
     } else {
@@ -128,11 +144,15 @@ export function ImageLightbox({
       className="fixed inset-0 z-50 flex touch-none items-center justify-center bg-black/90 select-none"
       role="dialog"
       aria-modal="true"
+      onClick={handleBackdropClick}
       onTouchEnd={handleTouchEnd}
       onTouchMove={handleTouchMove}
       onTouchStart={handleTouchStart}
     >
-      <div className="absolute inset-x-3 top-3 z-10 flex items-center justify-between text-white">
+      <div
+        className="absolute inset-x-3 top-3 z-10 flex items-center justify-between text-white"
+        onClick={stopClickPropagation}
+      >
         <span className="rounded-full bg-white/15 px-3 py-1 text-sm">
           {index + 1} / {images.length}
         </span>
@@ -150,7 +170,7 @@ export function ImageLightbox({
       {currentImage ? (
         <Image
           fill
-          className="object-contain"
+          className="pointer-events-none object-contain"
           sizes="100vw"
           src={currentImage}
           alt="账号截图预览"
@@ -164,7 +184,10 @@ export function ImageLightbox({
           size="icon"
           type="button"
           variant="ghost"
-          onClick={goPrevious}
+          onClick={(event) => {
+            event.stopPropagation();
+            goPrevious();
+          }}
         >
           <ChevronLeft size={28} />
         </Button>
@@ -176,17 +199,23 @@ export function ImageLightbox({
           size="icon"
           type="button"
           variant="ghost"
-          onClick={goNext}
+          onClick={(event) => {
+            event.stopPropagation();
+            goNext();
+          }}
         >
           <ChevronRight size={28} />
         </Button>
       ) : null}
-      <div className="absolute bottom-5 right-3 z-10 flex gap-2">
+      <div
+        className="absolute bottom-5 right-3 z-10 flex gap-2"
+        onClick={stopClickPropagation}
+      >
         <Button
           className="rounded-full bg-white/15 text-white hover:bg-white/25"
           type="button"
           variant="ghost"
-          onClick={saveCurrent}
+          onClick={() => void saveCurrent()}
         >
           <Download size={17} />
           保存当前
@@ -195,7 +224,7 @@ export function ImageLightbox({
           className="rounded-full bg-white/15 text-white hover:bg-white/25"
           type="button"
           variant="ghost"
-          onClick={saveAll}
+          onClick={() => void saveAll()}
         >
           <Download size={17} />
           保存全部
