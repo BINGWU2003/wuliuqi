@@ -365,9 +365,35 @@ export async function listAdminEmails(
       take: query.limit,
     }),
   ]);
+  const emailAddresses = emails.map((email) => `${email.prefix}${email.postfix}`);
+  const boundAccounts =
+    emailAddresses.length > 0
+      ? await prisma.codmAccount.findMany({
+          where: {
+            email: { in: emailAddresses },
+          },
+          orderBy: [{ status: "asc" }, { updatedAt: "desc" }],
+          select: {
+            email: true,
+            id: true,
+          },
+        })
+      : [];
+  const accountIdByEmail = new Map<string, bigint>();
+
+  for (const account of boundAccounts) {
+    if (account.email && !accountIdByEmail.has(account.email)) {
+      accountIdByEmail.set(account.email, account.id);
+    }
+  }
 
   return {
-    list: emails.map(serializeEmail),
+    list: emails.map((email) =>
+      serializeEmail({
+        ...email,
+        boundAccountId: accountIdByEmail.get(`${email.prefix}${email.postfix}`),
+      }),
+    ),
     pagination: {
       page: query.page,
       limit: query.limit,

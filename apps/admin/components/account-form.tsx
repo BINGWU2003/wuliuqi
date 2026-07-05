@@ -30,6 +30,7 @@ import {
   fetchEmails,
   updateAccount,
 } from "../lib/client-api";
+import { ADMIN_ACCOUNTS_CHANGED_EVENT } from "../lib/events";
 
 type AccountFormState = {
   serialNumber: string;
@@ -53,8 +54,17 @@ const emptyForm: AccountFormState = {
   status: 1,
 };
 
-export function AccountForm({ accountId }: { accountId?: number }) {
+type AccountFormPresentation = "page" | "modal";
+
+export function AccountForm({
+  accountId,
+  presentation = "page",
+}: {
+  accountId?: number;
+  presentation?: AccountFormPresentation;
+}) {
   const router = useRouter();
+  const isModal = presentation === "modal";
   const [form, setForm] = useState<AccountFormState>(emptyForm);
   const [emailKeyword, setEmailKeyword] = useState("");
   const [emailOptions, setEmailOptions] = useState<AdminEmail[]>([]);
@@ -119,8 +129,14 @@ export function AccountForm({ accountId }: { accountId?: number }) {
         await createAccount(payload);
       }
 
-      router.push("/accounts");
-      router.refresh();
+      window.dispatchEvent(new Event(ADMIN_ACCOUNTS_CHANGED_EVENT));
+
+      if (isModal) {
+        router.back();
+      } else {
+        router.push("/accounts");
+        router.refresh();
+      }
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "保存失败");
     } finally {
@@ -136,13 +152,15 @@ export function AccountForm({ accountId }: { accountId?: number }) {
     <form className="space-y-4" onSubmit={handleSubmit}>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <Button asChild size="sm" variant="ghost">
-            <Link href="/accounts">
-              <ArrowLeft size={16} />
-              返回账号列表
-            </Link>
-          </Button>
-          <h1 className="mt-2 text-2xl font-bold">
+          {!isModal ? (
+            <Button asChild size="sm" variant="ghost">
+              <Link href="/accounts">
+                <ArrowLeft size={16} />
+                返回账号列表
+              </Link>
+            </Button>
+          ) : null}
+          <h1 className={isModal ? "text-xl font-bold" : "mt-2 text-2xl font-bold"}>
             {accountId ? "编辑账号" : "新建账号"}
           </h1>
         </div>

@@ -20,56 +20,262 @@ import {
   TableHeader,
   TableRow,
 } from "@wuliuqi/ui/components/table";
-import { Edit, Plus, RefreshCw, Search, Trash2 } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  Edit,
+  Plus,
+  RefreshCw,
+  Search,
+  Trash2,
+} from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AccountStatusBadge } from "./status-badge";
 import {
   deleteAccount,
   fetchAccounts,
   updateAccountStatus,
 } from "../lib/client-api";
+import { ADMIN_ACCOUNTS_CHANGED_EVENT } from "../lib/events";
 import { formatDate, formatPrice } from "../lib/format";
+
+const ACCOUNT_PAGE_SIZE = 50;
+const MOBILE_VIEWPORT_QUERY = "(max-width: 639px)";
+
+type LoadMode = "append" | "replace";
+
+function isMobileViewport() {
+  return (
+    typeof window !== "undefined" &&
+    window.matchMedia(MOBILE_VIEWPORT_QUERY).matches
+  );
+}
 
 export function AccountsPage() {
   const [accounts, setAccounts] = useState<AdminAccount[]>([]);
+  const [searchValue, setSearchValue] = useState("");
   const [keyword, setKeyword] = useState("");
   const [status, setStatus] = useState("all");
   const [sort, setSort] = useState("latest");
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [total, setTotal] = useState(0);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  const loadingRef = useRef(false);
+  const pageRef = useRef(1);
+  const requestIdRef = useRef(0);
+  const totalPagesRef = useRef(0);
+  const errorRef = useRef("");
 
-  async function loadAccounts() {
+  const fetchAccountPage = useCallback(
+    (nextPage: number) =>
+      fetchAccounts({
+        keyword: keyword || undefined,
+        limit: ACCOUNT_PAGE_SIZE,
+        page: nextPage,
+        sort,
+        status: status === "all" ? undefined : Number(status),
+      }),
+    [keyword, sort, status],
+  );
+
+  const applyPagination = useCallback(
+    (pagination: {
+      page: number;
+      total: number;
+      totalPages: number;
+    }) => {
+      setPage(pagination.page);
+      pageRef.current = pagination.page;
+      setTotal(pagination.total);
+      setTotalPages(pagination.totalPages);
+      totalPagesRef.current = pagination.totalPages;
+    },
+    [],
+  );
+
+  const loadPage = useCallback(
+    async (nextPage: number, mode: LoadMode = "replace") => {
+      const requestId = ++requestIdRef.current;
+
+      loadingRef.current = true;
+      errorRef.current = "";
+      setLoading(true);
+      setError("");
+
+      try {
+        const result = await fetchAccountPage(nextPage);
+
+        if (requestId !== requestIdRef.current) {
+          return;
+        }
+
+        setAccounts((current) =>
+          mode === "append" ? [...current, ...result.list] : result.list,
+        );
+        applyPagination(result.pagination);
+      } catch (loadError) {
+        if (requestId !== requestIdRef.current) {
+          return;
+        }
+
+        const message =
+          loadError instanceof Error ? loadError.message : "加载失败";
+        errorRef.current = message;
+        setError(message);
+      } finally {
+        if (requestId === requestIdRef.current) {
+          loadingRef.current = false;
+          setLoading(false);
+        }
+      }
+    },
+    [applyPagination, fetchAccountPage],
+  );
+
+  const loadLoadedPages = useCallback(async () => {
+    const requestId = ++requestIdRef.current;
+
+    loadingRef.current = true;
+    errorRef.current = "";
     setLoading(true);
     setError("");
 
     try {
-      const result = await fetchAccounts({
-        keyword,
-        limit: 50,
-        page: 1,
-        sort,
-        status: status === "all" ? undefined : Number(status),
+      const firstResult = await fetchAccountPage(1);
+
+      if (requestId !== requestIdRef.current) {
+        return;
+      }
+
+      const nextTotalPages = firstResult.pagination.totalPages;
+      const targetPage = Math.min(
+        Math.max(pageRef.current, 1),
+        Math.max(nextTotalPages, 1),
+      );
+      const nextAccounts = [...firstResult.list];
+      let latestPagination = {
+        ...firstResult.pagination,
+        page: targetPage,
+      };
+
+      for (let nextPage = 2; nextPage <= targetPage; nextPage += 1) {
+        const result = await fetchAccountPage(nextPage);
+
+        if (requestId !== requestIdRef.current) {
+          return;
+        }
+
+        nextAccounts.push(...result.list);
+        latestPagination = result.pagination;
+      }
+
+      setAccounts(nextAccounts);
+      applyPagination({
+        page: targetPage,
+        total: firstResult.pagination.total,
+        totalPages: latestPagination.totalPages,
       });
-      setAccounts(result.list);
-      setTotal(result.pagination.total);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "加载失败");
+      if (requestId !== requestIdRef.current) {
+        return;
+      }
+
+      const message =
+        loadError instanceof Error ? loadError.message : "加载失败";
+      errorRef.current = message;
+      setError(message);
     } finally {
-      setLoading(false);
+      if (requestId === requestIdRef.current) {
+        loadingRef.current = false;
+        setLoading(false);
+      }
     }
-  }
+  }, [applyPagination, fetchAccountPage]);
+
+  const reloadCurrentView = useCallback(async () => {
+    if (isMobileViewport()) {
+      await loadLoadedPages();
+      return;
+    }
+
+    await loadPage(Math.max(pageRef.current, 1), "replace");
+  }, [loadLoadedPages, loadPage]);
 
   useEffect(() => {
-    void loadAccounts();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, sort]);
+    void loadPage(1, "replace");
+  }, [loadPage]);
+
+  useEffect(() => {
+    pageRef.current = page;
+    totalPagesRef.current = totalPages;
+    loadingRef.current = loading;
+    errorRef.current = error;
+  }, [error, loading, page, totalPages]);
+
+  useEffect(() => {
+    const node = loadMoreRef.current;
+
+    if (!node) {
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry?.isIntersecting || loadingRef.current || errorRef.current) {
+          return;
+        }
+
+        if (pageRef.current < totalPagesRef.current) {
+          void loadPage(pageRef.current + 1, "append");
+        }
+      },
+      { rootMargin: "420px 0px" },
+    );
+
+    observer.observe(node);
+
+    return () => observer.disconnect();
+  }, [loadPage]);
+
+  useEffect(() => {
+    function handleAccountsChanged() {
+      void reloadCurrentView();
+    }
+
+    window.addEventListener(ADMIN_ACCOUNTS_CHANGED_EVENT, handleAccountsChanged);
+
+    return () =>
+      window.removeEventListener(
+        ADMIN_ACCOUNTS_CHANGED_EVENT,
+        handleAccountsChanged,
+      );
+  }, [reloadCurrentView]);
+
+  function handleSearch() {
+    const nextKeyword = searchValue.trim();
+
+    if (nextKeyword === keyword) {
+      void loadPage(1, "replace");
+      return;
+    }
+
+    setKeyword(nextKeyword);
+  }
 
   async function toggleStatus(account: AdminAccount) {
-    await updateAccountStatus(account.id, account.status === 1 ? 2 : 1);
-    await loadAccounts();
+    try {
+      await updateAccountStatus(account.id, account.status === 1 ? 2 : 1);
+      await reloadCurrentView();
+    } catch (toggleError) {
+      setError(toggleError instanceof Error ? toggleError.message : "更新失败");
+    }
   }
 
   async function removeAccount(account: AdminAccount) {
@@ -77,8 +283,12 @@ export function AccountsPage() {
       return;
     }
 
-    await deleteAccount(account.id);
-    await loadAccounts();
+    try {
+      await deleteAccount(account.id);
+      await reloadCurrentView();
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : "删除失败");
+    }
   }
 
   return (
@@ -108,11 +318,11 @@ export function AccountsPage() {
             <Input
               className="pl-9"
               placeholder="搜索标题、序号、描述、邮箱"
-              value={keyword}
-              onChange={(event) => setKeyword(event.target.value)}
+              value={searchValue}
+              onChange={(event) => setSearchValue(event.target.value)}
               onKeyDown={(event) => {
                 if (event.key === "Enter") {
-                  void loadAccounts();
+                  handleSearch();
                 }
               }}
             />
@@ -137,7 +347,7 @@ export function AccountsPage() {
               <SelectItem value="price_asc">价格从低到高</SelectItem>
             </SelectContent>
           </Select>
-          <Button variant="outline" onClick={() => loadAccounts()}>
+          <Button type="button" variant="outline" onClick={handleSearch}>
             <RefreshCw size={16} />
             刷新
           </Button>
@@ -188,7 +398,7 @@ export function AccountsPage() {
             </div>
             <div className="mt-3 grid grid-cols-[1fr_1fr_auto] gap-2">
               <Button asChild size="sm" variant="outline">
-                <Link href={`/accounts/${account.id}/edit`}>
+                <Link href={`/accounts/${account.id}/edit`} scroll={false}>
                   <Edit size={15} />
                   编辑
                 </Link>
@@ -218,21 +428,31 @@ export function AccountsPage() {
             暂无账号
           </div>
         ) : null}
-        {loading ? (
-          <div className="rounded-md border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
-            加载中...
-          </div>
-        ) : null}
         {error ? (
           <div className="rounded-md border border-border bg-card px-4 py-3 text-sm text-destructive">
             {error}
           </div>
         ) : null}
+        <div
+          ref={loadMoreRef}
+          className="flex min-h-12 items-center justify-center py-4"
+        >
+          {loading && accounts.length > 0 ? (
+            <span className="text-sm text-muted-foreground">正在加载更多...</span>
+          ) : accounts.length > 0 && page >= totalPages ? (
+            <span className="text-sm text-muted-foreground">没有更多了</span>
+          ) : accounts.length > 0 ? (
+            <span className="text-sm text-muted-foreground">下滑加载更多</span>
+          ) : loading ? (
+            <span className="text-sm text-muted-foreground">加载中...</span>
+          ) : null}
+        </div>
       </div>
 
-      <Card className="hidden rounded-md shadow-none sm:block">
-        <Table>
-          <TableHeader>
+      <Card className="hidden overflow-hidden rounded-md shadow-none sm:block">
+        <div className="h-[calc(100dvh-22rem)] min-h-[420px] max-h-[620px] overflow-auto">
+          <Table>
+          <TableHeader className="sticky top-0 z-10 bg-card shadow-[0_1px_0_var(--border)]">
             <TableRow>
               <TableHead>账号</TableHead>
               <TableHead>价格</TableHead>
@@ -285,7 +505,7 @@ export function AccountsPage() {
                 <TableCell>
                   <div className="flex justify-end gap-1">
                     <Button asChild size="sm" variant="ghost">
-                      <Link href={`/accounts/${account.id}/edit`}>
+                      <Link href={`/accounts/${account.id}/edit`} scroll={false}>
                         <Edit size={15} />
                         编辑
                       </Link>
@@ -318,7 +538,8 @@ export function AccountsPage() {
               </TableRow>
             ) : null}
           </TableBody>
-        </Table>
+          </Table>
+        </div>
         {loading ? (
           <div className="border-t border-border px-4 py-3 text-sm text-muted-foreground">
             加载中...
@@ -329,7 +550,109 @@ export function AccountsPage() {
             {error}
           </div>
         ) : null}
+        {total > 0 ? (
+          <AccountsPagination
+            loading={loading}
+            page={page}
+            total={total}
+            totalPages={totalPages}
+            onPageChange={(nextPage) => loadPage(nextPage, "replace")}
+          />
+        ) : null}
       </Card>
     </div>
   );
+}
+
+function AccountsPagination({
+  loading,
+  onPageChange,
+  page,
+  total,
+  totalPages,
+}: {
+  loading: boolean;
+  onPageChange: (page: number) => void;
+  page: number;
+  total: number;
+  totalPages: number;
+}) {
+  const safeTotalPages = Math.max(totalPages, 1);
+  const pages = getPaginationPages(page, safeTotalPages);
+  const isFirstPage = page <= 1;
+  const isLastPage = page >= safeTotalPages;
+
+  return (
+    <div className="flex flex-col gap-3 border-t border-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="text-sm text-muted-foreground">
+        第 {page} / {safeTotalPages} 页，共 {total} 个账号
+      </div>
+      <div className="flex flex-wrap items-center gap-1">
+        <Button
+          aria-label="第一页"
+          disabled={loading || isFirstPage}
+          size="sm"
+          type="button"
+          variant="outline"
+          onClick={() => onPageChange(1)}
+        >
+          <ChevronsLeft size={15} />
+        </Button>
+        <Button
+          aria-label="上一页"
+          disabled={loading || isFirstPage}
+          size="sm"
+          type="button"
+          variant="outline"
+          onClick={() => onPageChange(Math.max(page - 1, 1))}
+        >
+          <ChevronLeft size={15} />
+        </Button>
+        {pages.map((pageNumber) => (
+          <Button
+            aria-current={pageNumber === page ? "page" : undefined}
+            disabled={loading || pageNumber === page}
+            key={pageNumber}
+            size="sm"
+            type="button"
+            variant={pageNumber === page ? "default" : "outline"}
+            onClick={() => onPageChange(pageNumber)}
+          >
+            {pageNumber}
+          </Button>
+        ))}
+        <Button
+          aria-label="下一页"
+          disabled={loading || isLastPage}
+          size="sm"
+          type="button"
+          variant="outline"
+          onClick={() => onPageChange(Math.min(page + 1, safeTotalPages))}
+        >
+          <ChevronRight size={15} />
+        </Button>
+        <Button
+          aria-label="最后一页"
+          disabled={loading || isLastPage}
+          size="sm"
+          type="button"
+          variant="outline"
+          onClick={() => onPageChange(safeTotalPages)}
+        >
+          <ChevronsRight size={15} />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function getPaginationPages(page: number, totalPages: number) {
+  const pageWindow = 5;
+  const halfWindow = Math.floor(pageWindow / 2);
+  let start = Math.max(1, page - halfWindow);
+  const end = Math.min(totalPages, start + pageWindow - 1);
+
+  start = Math.max(1, end - pageWindow + 1);
+
+  return Array.from({ length: end - start + 1 }, (_, index) => start + index);
 }

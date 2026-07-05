@@ -35,6 +35,7 @@ type EmailRecord = {
   prefix: string;
   postfix: string;
   bindStatus: number;
+  boundAccountId?: bigint | number | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -137,12 +138,20 @@ export function serializeCarousel(carousel: CarouselRecord): Carousel {
 }
 
 export function serializeEmail(email: EmailRecord): AdminEmail {
+  const boundAccountId =
+    typeof email.boundAccountId === "bigint"
+      ? bigintToNumber(email.boundAccountId)
+      : typeof email.boundAccountId === "number"
+        ? email.boundAccountId
+        : undefined;
+
   return {
     id: bigintToNumber(email.id),
     prefix: email.prefix,
     postfix: email.postfix,
     email: `${email.prefix}${email.postfix}`,
     bindStatus: email.bindStatus,
+    ...(boundAccountId === undefined ? {} : { boundAccountId }),
     createdAt: toIsoString(email.createdAt),
     updatedAt: toIsoString(email.updatedAt),
   };

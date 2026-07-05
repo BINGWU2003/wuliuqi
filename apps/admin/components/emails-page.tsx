@@ -133,7 +133,7 @@ export function EmailsPage() {
           >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <div className="break-all font-medium">{email.email}</div>
+                <EmailAddress email={email} />
                 <div className="mt-2 text-xs text-muted-foreground">
                   <span className="mr-2">更新</span>
                   {formatDate(email.updatedAt)}
@@ -190,7 +190,9 @@ export function EmailsPage() {
           <TableBody>
             {emails.map((email) => (
               <TableRow key={email.id}>
-                <TableCell className="font-medium">{email.email}</TableCell>
+                <TableCell>
+                  <EmailAddress email={email} />
+                </TableCell>
                 <TableCell>
                   <EmailBindStatusBadge bindStatus={email.bindStatus} />
                 </TableCell>
@@ -239,4 +241,20 @@ export function EmailsPage() {
       </Card>
     </div>
   );
+}
+
+function EmailAddress({ email }: { email: AdminEmail }) {
+  if (email.bindStatus === 1 && email.boundAccountId) {
+    return (
+      <Link
+        className="break-all font-medium text-primary underline-offset-4 hover:underline"
+        href={`/accounts/${email.boundAccountId}/edit`}
+        scroll={false}
+      >
+        {email.email}
+      </Link>
+    );
+  }
+
+  return <span className="break-all font-medium">{email.email}</span>;
 }

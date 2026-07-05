@@ -65,6 +65,7 @@ export interface AdminEmail {
   postfix: string;
   email: string;
   bindStatus: number;
+  boundAccountId?: number;
   createdAt?: string;
   updatedAt?: string;
 }
