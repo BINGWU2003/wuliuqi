@@ -35,6 +35,9 @@ importers:
       '@wuliuqi/ui':
         specifier: workspace:*
         version: link:../../packages/ui
+      '@wuliuqi/utils':
+        specifier: workspace:*
+        version: link:../../packages/utils
       '@wuliuqi/validators':
         specifier: workspace:*
         version: link:../../packages/validators
@@ -96,6 +99,9 @@ importers:
       '@wuliuqi/ui':
         specifier: workspace:*
         version: link:../../packages/ui
+      '@wuliuqi/utils':
+        specifier: workspace:*
+        version: link:../../packages/utils
       '@wuliuqi/validators':
         specifier: workspace:*
         version: link:../../packages/validators
@@ -359,6 +365,21 @@ importers:
       '@types/react-dom':
         specifier: 19.2.2
         version: 19.2.2(@types/react@19.2.2)
+      '@wuliuqi/eslint-config':
+        specifier: workspace:*
+        version: link:../eslint-config
+      '@wuliuqi/typescript-config':
+        specifier: workspace:*
+        version: link:../typescript-config
+      eslint:
+        specifier: ^9.39.1
+        version: 9.39.4(jiti@2.7.0)
+      typescript:
+        specifier: 5.9.2
+        version: 5.9.2
+
+  packages/utils:
+    devDependencies:
       '@wuliuqi/eslint-config':
         specifier: workspace:*
         version: link:../eslint-config

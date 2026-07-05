@@ -1,19 +1,35 @@
 "use client";
 
-import { Button } from "@wuliuqi/ui/components/button";
 import { ChevronLeft, ChevronRight, Download, X } from "lucide-react";
-import Image from "next/image";
 import type { MouseEvent, TouchEvent } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { downloadImageWithWatermark } from "../lib/watermark";
+import { Button } from "./button";
+
+export type ImageLightboxDownloadHandler = (
+  image: string,
+  index: number,
+) => Promise<void> | void;
+
+export interface ImageLightboxLabels {
+  close?: string;
+  previous?: string;
+  next?: string;
+  saveCurrent?: string;
+  saveAll?: string;
+  imageAlt?: string;
+}
 
 export function ImageLightbox({
+  downloadImage,
   images,
+  labels = {},
   onClose,
   open,
   startIndex,
 }: {
+  downloadImage?: ImageLightboxDownloadHandler;
   images: string[];
+  labels?: ImageLightboxLabels;
   onClose: () => void;
   open: boolean;
   startIndex: number;
@@ -22,6 +38,13 @@ export function ImageLightbox({
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const touchEndRef = useRef<{ x: number; y: number } | null>(null);
   const ignoreNextClickRef = useRef(false);
+
+  const closeLabel = labels.close ?? "关闭图片预览";
+  const previousLabel = labels.previous ?? "上一张";
+  const nextLabel = labels.next ?? "下一张";
+  const saveCurrentLabel = labels.saveCurrent ?? "保存当前";
+  const saveAllLabel = labels.saveAll ?? "保存全部";
+  const imageAlt = labels.imageAlt ?? "图片预览";
 
   const goPrevious = useCallback(() => {
     setIndex((current) => Math.max(0, current - 1));
@@ -33,9 +56,9 @@ export function ImageLightbox({
 
   useEffect(() => {
     if (open) {
-      setIndex(startIndex);
+      setIndex(Math.min(Math.max(startIndex, 0), Math.max(images.length - 1, 0)));
     }
-  }, [open, startIndex]);
+  }, [images.length, open, startIndex]);
 
   useEffect(() => {
     if (!open) {
@@ -66,7 +89,17 @@ export function ImageLightbox({
 
   async function saveCurrent() {
     if (currentImage) {
-      await downloadImageWithWatermark(currentImage);
+      await downloadImage?.(currentImage, index);
+    }
+  }
+
+  async function saveAll() {
+    if (!downloadImage) {
+      return;
+    }
+
+    for (const [imageIndex, image] of images.entries()) {
+      await downloadImage(image, imageIndex);
     }
   }
 
@@ -81,12 +114,6 @@ export function ImageLightbox({
     }
 
     onClose();
-  }
-
-  async function saveAll() {
-    for (const image of images) {
-      await downloadImageWithWatermark(image);
-    }
   }
 
   function handleTouchStart(event: TouchEvent<HTMLDivElement>) {
@@ -158,7 +185,7 @@ export function ImageLightbox({
           {index + 1} / {images.length}
         </span>
         <Button
-          aria-label="关闭图片预览"
+          aria-label={closeLabel}
           className="rounded-full bg-white/15 text-white hover:bg-white/25"
           size="icon"
           type="button"
@@ -168,19 +195,19 @@ export function ImageLightbox({
           <X size={21} />
         </Button>
       </div>
+
       {currentImage ? (
-        <Image
-          fill
-          className="pointer-events-none object-contain"
-          sizes="100vw"
+        <img
+          className="pointer-events-none h-full w-full object-contain"
           src={currentImage}
-          alt="账号截图预览"
-          unoptimized
+          alt={imageAlt}
+          draggable={false}
         />
       ) : null}
+
       {index > 0 ? (
         <Button
-          aria-label="上一张"
+          aria-label={previousLabel}
           className="absolute left-3 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white/15 text-white hover:bg-white/25"
           size="icon"
           type="button"
@@ -193,9 +220,10 @@ export function ImageLightbox({
           <ChevronLeft size={28} />
         </Button>
       ) : null}
+
       {index < images.length - 1 ? (
         <Button
-          aria-label="下一张"
+          aria-label={nextLabel}
           className="absolute right-3 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white/15 text-white hover:bg-white/25"
           size="icon"
           type="button"
@@ -208,29 +236,32 @@ export function ImageLightbox({
           <ChevronRight size={28} />
         </Button>
       ) : null}
-      <div
-        className="absolute bottom-5 right-3 z-10 flex gap-2"
-        onClick={stopClickPropagation}
-      >
-        <Button
-          className="rounded-full bg-white/15 text-white hover:bg-white/25"
-          type="button"
-          variant="ghost"
-          onClick={() => void saveCurrent()}
+
+      {downloadImage ? (
+        <div
+          className="absolute bottom-5 right-3 z-10 flex gap-2"
+          onClick={stopClickPropagation}
         >
-          <Download size={17} />
-          保存当前
-        </Button>
-        <Button
-          className="rounded-full bg-white/15 text-white hover:bg-white/25"
-          type="button"
-          variant="ghost"
-          onClick={() => void saveAll()}
-        >
-          <Download size={17} />
-          保存全部
-        </Button>
-      </div>
+          <Button
+            className="rounded-full bg-white/15 text-white hover:bg-white/25"
+            type="button"
+            variant="ghost"
+            onClick={() => void saveCurrent()}
+          >
+            <Download size={17} />
+            {saveCurrentLabel}
+          </Button>
+          <Button
+            className="rounded-full bg-white/15 text-white hover:bg-white/25"
+            type="button"
+            variant="ghost"
+            onClick={() => void saveAll()}
+          >
+            <Download size={17} />
+            {saveAllLabel}
+          </Button>
+        </div>
+      ) : null}
     </div>
   );
 }

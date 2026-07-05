@@ -8,9 +8,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@wuliuqi/ui/components/card";
+import { ImageLightbox } from "@wuliuqi/ui/components/image-lightbox";
 import { Input } from "@wuliuqi/ui/components/input";
 import { Skeleton } from "@wuliuqi/ui/components/skeleton";
 import { Spinner } from "@wuliuqi/ui/components/spinner";
+import { downloadImageWithWatermark } from "@wuliuqi/utils/browser/image-download";
 import { ArrowDown, ArrowUp, ImagePlus, Save, Trash2 } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
@@ -38,6 +40,8 @@ export function CarouselPage({ name }: { name: string }) {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState("");
+  const [previewIndex, setPreviewIndex] = useState(0);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   async function loadCarousel() {
     setLoading(true);
@@ -186,14 +190,24 @@ export function CarouselPage({ name }: { name: string }) {
                   }}
                 >
                   <div className="relative aspect-[16/9] overflow-hidden rounded-t-md bg-muted">
-                    <Image
-                      fill
-                      alt={`轮播图 ${index + 1}`}
-                      className="object-cover"
-                      sizes="360px"
-                      src={item.url}
-                      unoptimized
-                    />
+                    <button
+                      aria-label={`预览第 ${index + 1} 张轮播图`}
+                      className="relative size-full"
+                      type="button"
+                      onClick={() => {
+                        setPreviewIndex(index);
+                        setPreviewOpen(true);
+                      }}
+                    >
+                      <Image
+                        fill
+                        alt={`轮播图 ${index + 1}`}
+                        className="object-cover"
+                        sizes="360px"
+                        src={item.url}
+                        unoptimized
+                      />
+                    </button>
                   </div>
                   <div className="space-y-2 p-3">
                     <Input
@@ -267,6 +281,16 @@ export function CarouselPage({ name }: { name: string }) {
           )}
         </CardContent>
       </Card>
+      <ImageLightbox
+        downloadImage={(image) =>
+          downloadImageWithWatermark(image, { text: "© 567手游店" })
+        }
+        images={items.map((item) => item.url)}
+        labels={{ imageAlt: "轮播图预览" }}
+        open={previewOpen}
+        startIndex={previewIndex}
+        onClose={() => setPreviewOpen(false)}
+      />
     </div>
   );
 }

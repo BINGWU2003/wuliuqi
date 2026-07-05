@@ -9,9 +9,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@wuliuqi/ui/components/card";
+import { ImageLightbox } from "@wuliuqi/ui/components/image-lightbox";
 import { Separator } from "@wuliuqi/ui/components/separator";
 import { Skeleton } from "@wuliuqi/ui/components/skeleton";
 import { cn } from "@wuliuqi/ui/lib/utils";
+import { downloadImageWithWatermark } from "@wuliuqi/utils/browser/image-download";
 import {
   Camera,
   CheckCircle2,
@@ -31,7 +33,6 @@ import {
   getStatusLabel,
 } from "../lib/account-display";
 import { fetchAccount } from "../lib/client-api";
-import { ImageLightbox } from "./image-lightbox";
 
 type AccountDetailPresentation = "page" | "modal";
 
@@ -220,7 +221,11 @@ export function AccountDetail({
       </aside>
 
       <ImageLightbox
+        downloadImage={(image) =>
+          downloadImageWithWatermark(image, { text: "© 567手游店" })
+        }
         images={account.images}
+        labels={{ imageAlt: "账号截图预览" }}
         open={previewOpen}
         startIndex={previewIndex}
         onClose={() => setPreviewOpen(false)}

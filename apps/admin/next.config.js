@@ -7,6 +7,7 @@ const nextConfig = {
     "@wuliuqi/storage",
     "@wuliuqi/types",
     "@wuliuqi/ui",
+    "@wuliuqi/utils",
     "@wuliuqi/validators",
   ],
   images: {
