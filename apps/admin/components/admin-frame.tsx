@@ -8,6 +8,7 @@ import {
   LogOut,
   Mail,
   PackageSearch,
+  type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -15,12 +16,18 @@ import type { ReactNode } from "react";
 import { ThemeToggle } from "./theme-toggle";
 import { logout } from "../lib/client-api";
 
+type NavItem = {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+};
+
 const navItems = [
   { href: "/accounts", label: "账号", icon: PackageSearch },
   { href: "/emails", label: "邮箱", icon: Mail },
   { href: "/carousels/home_ads", label: "轮播", icon: GalleryHorizontalEnd },
   { href: "/sequence-counters", label: "计数器", icon: Hash },
-];
+] satisfies [NavItem, ...NavItem[]];
 
 export function AdminFrame({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -121,7 +128,7 @@ function TopNavLink({
   active: boolean;
   children: ReactNode;
   href: string;
-  icon: (typeof navItems)[number]["icon"];
+  icon: NavItem["icon"];
 }) {
   return (
     <Link
@@ -147,7 +154,7 @@ function BottomTabLink({
   active: boolean;
   children: ReactNode;
   href: string;
-  icon: (typeof navItems)[number]["icon"];
+  icon: NavItem["icon"];
 }) {
   return (
     <Link
