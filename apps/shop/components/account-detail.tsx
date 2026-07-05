@@ -46,7 +46,7 @@ export function AccountDetail({
   const [account, setAccount] = useState<ShopAccount | null>(null);
   const [loading, setLoading] = useState(Boolean(id));
   const [error, setError] = useState(id ? "" : "无效的账号ID");
-  const [previewIndex, setPreviewIndex] = useState(0);
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [previewOpen, setPreviewOpen] = useState(false);
 
   useEffect(() => {
@@ -58,7 +58,10 @@ export function AccountDetail({
     setError("");
 
     fetchAccount(id)
-      .then(setAccount)
+      .then((nextAccount) => {
+        setAccount(nextAccount);
+        setSelectedImageIndex(0);
+      })
       .catch((fetchError) =>
         setError(
           fetchError instanceof Error ? fetchError.message : "获取账号信息失败",
@@ -94,6 +97,9 @@ export function AccountDetail({
   const badges = getAccountBadges(account);
   const isModal = presentation === "modal";
   const Root = isModal ? "div" : "main";
+  const safeSelectedImageIndex = account.images[selectedImageIndex]
+    ? selectedImageIndex
+    : 0;
 
   return (
     <Root
@@ -105,10 +111,9 @@ export function AccountDetail({
       <section className="min-w-0 space-y-4">
         <AccountGallery
           account={account}
-          onPreview={(index) => {
-            setPreviewIndex(index);
-            setPreviewOpen(true);
-          }}
+          selectedIndex={safeSelectedImageIndex}
+          onPreview={() => setPreviewOpen(true)}
+          onSelect={setSelectedImageIndex}
         />
 
         <Card className="rounded-md shadow-none">
@@ -227,7 +232,7 @@ export function AccountDetail({
         images={account.images}
         labels={{ imageAlt: "账号截图预览" }}
         open={previewOpen}
-        startIndex={previewIndex}
+        startIndex={safeSelectedImageIndex}
         onClose={() => setPreviewOpen(false)}
       />
     </Root>
@@ -237,21 +242,25 @@ export function AccountDetail({
 function AccountGallery({
   account,
   onPreview,
+  onSelect,
+  selectedIndex,
 }: {
   account: ShopAccount;
-  onPreview: (index: number) => void;
+  onPreview: () => void;
+  onSelect: (index: number) => void;
+  selectedIndex: number;
 }) {
-  const mainImage = account.images[0];
+  const mainImage = account.images[selectedIndex] ?? account.images[0];
 
   return (
     <Card className="overflow-hidden rounded-md shadow-none">
       <div className="relative aspect-[4/3] bg-muted sm:aspect-[16/10]">
         {mainImage ? (
           <button
-            aria-label="预览账号主图"
+            aria-label="打开当前账号截图预览"
             className="relative size-full overflow-hidden"
             type="button"
-            onClick={() => onPreview(0)}
+            onClick={onPreview}
           >
             <Image
               fill
@@ -274,13 +283,13 @@ function AccountGallery({
           {account.images.slice(0, 12).map((image, index) => (
             <button
               key={`${image}-${index}`}
-              aria-label={`预览第 ${index + 1} 张账号截图`}
+              aria-label={`选择第 ${index + 1} 张账号截图`}
               className={cn(
                 "relative aspect-square overflow-hidden rounded-sm border border-border bg-muted transition-opacity active:opacity-80",
-                index === 0 && "ring-2 ring-foreground ring-offset-2",
+                index === selectedIndex && "ring-2 ring-foreground ring-offset-2",
               )}
               type="button"
-              onClick={() => onPreview(index)}
+              onClick={() => onSelect(index)}
             >
               <Image
                 fill
