@@ -13,10 +13,8 @@ import {
 
 export function ProductCard({
   account,
-  onOpen,
 }: {
   account: ShopAccount;
-  onOpen?: () => void;
 }) {
   const name = getAccountName(account);
   const badges = getAccountBadges(account);
@@ -24,9 +22,10 @@ export function ProductCard({
 
   return (
     <Link
+      id={`account-card-${account.id}`}
       className="group block"
       href={`/codm-account-info?id=${account.id}`}
-      onClick={onOpen}
+      scroll={false}
     >
       <Card className="h-full overflow-hidden rounded-md border-border/80 bg-card shadow-none transition-colors hover:border-foreground/30">
         <div className="relative aspect-[4/3] bg-muted">

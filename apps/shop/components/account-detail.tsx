@@ -33,7 +33,15 @@ import {
 import { fetchAccount } from "../lib/client-api";
 import { ImageLightbox } from "./image-lightbox";
 
-export function AccountDetail({ id }: { id: number | null }) {
+type AccountDetailPresentation = "page" | "modal";
+
+export function AccountDetail({
+  id,
+  presentation = "page",
+}: {
+  id: number | null;
+  presentation?: AccountDetailPresentation;
+}) {
   const [account, setAccount] = useState<ShopAccount | null>(null);
   const [loading, setLoading] = useState(Boolean(id));
   const [error, setError] = useState(id ? "" : "无效的账号ID");
@@ -59,7 +67,7 @@ export function AccountDetail({ id }: { id: number | null }) {
   }, [id]);
 
   if (loading) {
-    return <DetailSkeleton />;
+    return <DetailSkeleton presentation={presentation} />;
   }
 
   if (error) {
@@ -83,9 +91,16 @@ export function AccountDetail({ id }: { id: number | null }) {
   }
 
   const badges = getAccountBadges(account);
+  const isModal = presentation === "modal";
+  const Root = isModal ? "div" : "main";
 
   return (
-    <main className="mx-auto grid w-full max-w-6xl gap-5 lg:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
+    <Root
+      className={cn(
+        "mx-auto grid w-full gap-5 lg:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]",
+        isModal ? "max-w-none" : "max-w-6xl",
+      )}
+    >
       <section className="min-w-0 space-y-4">
         <AccountGallery
           account={account}
@@ -122,7 +137,12 @@ export function AccountDetail({ id }: { id: number | null }) {
         </Card>
       </section>
 
-      <aside className="space-y-4 lg:sticky lg:top-24 lg:self-start">
+      <aside
+        className={cn(
+          "space-y-4 lg:sticky lg:self-start",
+          isModal ? "lg:top-4" : "lg:top-24",
+        )}
+      >
         <Card className="rounded-md shadow-none">
           <CardHeader className="space-y-3 border-b border-border">
             <div className="flex items-start justify-between gap-3">
@@ -205,7 +225,7 @@ export function AccountDetail({ id }: { id: number | null }) {
         startIndex={previewIndex}
         onClose={() => setPreviewOpen(false)}
       />
-    </main>
+    </Root>
   );
 }
 
@@ -273,9 +293,21 @@ function AccountGallery({
   );
 }
 
-function DetailSkeleton() {
+function DetailSkeleton({
+  presentation = "page",
+}: {
+  presentation?: AccountDetailPresentation;
+}) {
+  const isModal = presentation === "modal";
+  const Root = isModal ? "div" : "main";
+
   return (
-    <main className="mx-auto grid w-full max-w-6xl gap-5 lg:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
+    <Root
+      className={cn(
+        "mx-auto grid w-full gap-5 lg:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]",
+        isModal ? "max-w-none" : "max-w-6xl",
+      )}
+    >
       <Card className="overflow-hidden rounded-md shadow-none">
         <Skeleton className="aspect-[4/3] rounded-none sm:aspect-[16/10]" />
         <CardContent className="grid grid-cols-4 gap-2 p-3 sm:grid-cols-6">
@@ -292,7 +324,7 @@ function DetailSkeleton() {
           <Skeleton className="h-11 w-full" />
         </CardContent>
       </Card>
-    </main>
+    </Root>
   );
 }
 

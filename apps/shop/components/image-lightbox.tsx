@@ -141,6 +141,7 @@ export function ImageLightbox({
 
   return (
     <div
+      data-account-image-lightbox="true"
       className="fixed inset-0 z-50 flex touch-none items-center justify-center bg-black/90 select-none"
       role="dialog"
       aria-modal="true"

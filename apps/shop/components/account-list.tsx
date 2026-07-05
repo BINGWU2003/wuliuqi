@@ -24,14 +24,11 @@ import {
 import { Skeleton } from "@wuliuqi/ui/components/skeleton";
 import { cn } from "@wuliuqi/ui/lib/utils";
 import { SlidersHorizontal, Sparkles, Search } from "lucide-react";
-import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchAccounts } from "../lib/client-api";
 import { ProductCard } from "./product-card";
 
 const PAGE_SIZE = 12;
-const LIST_STATE_VERSION = 1;
-const LIST_STATE_PREFIX = "wuliuqi-shop-account-list";
 
 const priceRanges = [
   { label: "全部价格", min: 0, max: 0 },
@@ -50,27 +47,6 @@ const sortOptions = [
 
 type SortValue = (typeof sortOptions)[number]["value"];
 
-type AccountListState = {
-  version: typeof LIST_STATE_VERSION;
-  accounts: ShopAccount[];
-  activeRange: number;
-  keyword: string;
-  page: number;
-  scrollY: number;
-  searchValue: string;
-  sort: SortValue;
-  total: number;
-  totalPages: number;
-};
-
-function clampNumber(value: number, min: number, max: number) {
-  return Math.min(Math.max(value, min), max);
-}
-
-function isSortValue(value: unknown): value is SortValue {
-  return sortOptions.some((option) => option.value === value);
-}
-
 type AccountListProps = {
   compactHeader?: boolean;
   eyebrow?: string;
@@ -82,8 +58,6 @@ export function AccountList({
   eyebrow = "CODM Marketplace",
   heading = "精选账号",
 }: AccountListProps) {
-  const pathname = usePathname();
-  const storageKey = `${LIST_STATE_PREFIX}:${pathname}`;
   const [activeRange, setActiveRange] = useState(0);
   const [sort, setSort] = useState<SortValue>("latest");
   const [searchValue, setSearchValue] = useState("");
@@ -94,40 +68,11 @@ export function AccountList({
   const [totalPages, setTotalPages] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [restored, setRestored] = useState(false);
-  const accountsRef = useRef<ShopAccount[]>([]);
-  const activeRangeRef = useRef(0);
-  const keywordRef = useRef("");
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const loadingRef = useRef(false);
   const pageRef = useRef(1);
-  const searchValueRef = useRef("");
-  const skipNextLoadRef = useRef(false);
-  const sortRef = useRef<SortValue>("latest");
-  const totalRef = useRef(0);
   const totalPagesRef = useRef(0);
   const errorRef = useRef("");
-
-  const saveListState = useCallback(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    const state: AccountListState = {
-      version: LIST_STATE_VERSION,
-      accounts: accountsRef.current,
-      activeRange: activeRangeRef.current,
-      keyword: keywordRef.current,
-      page: pageRef.current,
-      scrollY: window.scrollY,
-      searchValue: searchValueRef.current,
-      sort: sortRef.current,
-      total: totalRef.current,
-      totalPages: totalPagesRef.current,
-    };
-
-    window.sessionStorage.setItem(storageKey, JSON.stringify(state));
-  }, [storageKey]);
 
   const loadPage = useCallback(
     async (nextPage: number, replace: boolean) => {
@@ -177,132 +122,15 @@ export function AccountList({
   );
 
   useEffect(() => {
-    if (typeof window === "undefined") {
-      setRestored(true);
-      return;
-    }
-
-    const rawState = window.sessionStorage.getItem(storageKey);
-
-    if (!rawState) {
-      setRestored(true);
-      return;
-    }
-
-    try {
-      const state = JSON.parse(rawState) as Partial<AccountListState>;
-
-      if (
-        state.version !== LIST_STATE_VERSION ||
-        !Array.isArray(state.accounts) ||
-        state.accounts.length === 0 ||
-        !isSortValue(state.sort)
-      ) {
-        window.sessionStorage.removeItem(storageKey);
-        setRestored(true);
-        return;
-      }
-
-      const nextActiveRange = Number.isInteger(state.activeRange)
-        ? clampNumber(state.activeRange ?? 0, 0, priceRanges.length - 1)
-        : 0;
-      const nextPage = Number.isInteger(state.page)
-        ? Math.max(1, state.page ?? 1)
-        : 1;
-      const nextTotal = Number.isFinite(state.total) ? state.total ?? 0 : 0;
-      const nextTotalPages = Number.isInteger(state.totalPages)
-        ? Math.max(0, state.totalPages ?? 0)
-        : 0;
-
-      skipNextLoadRef.current = true;
-      accountsRef.current = state.accounts;
-      activeRangeRef.current = nextActiveRange;
-      keywordRef.current = state.keyword ?? "";
-      pageRef.current = nextPage;
-      searchValueRef.current = state.searchValue ?? "";
-      sortRef.current = state.sort;
-      totalRef.current = nextTotal;
-      totalPagesRef.current = nextTotalPages;
-
-      setAccounts(state.accounts);
-      setActiveRange(nextActiveRange);
-      setKeyword(state.keyword ?? "");
-      setPage(nextPage);
-      setSearchValue(state.searchValue ?? "");
-      setSort(state.sort);
-      setTotal(nextTotal);
-      setTotalPages(nextTotalPages);
-
-      const scrollY = Number.isFinite(state.scrollY) ? state.scrollY ?? 0 : 0;
-
-      window.requestAnimationFrame(() => {
-        window.requestAnimationFrame(() => window.scrollTo(0, scrollY));
-      });
-      window.setTimeout(() => window.scrollTo(0, scrollY), 250);
-    } catch {
-      window.sessionStorage.removeItem(storageKey);
-    } finally {
-      setRestored(true);
-    }
-  }, [storageKey]);
-
-  useEffect(() => {
-    if (!restored) {
-      return;
-    }
-
-    if (skipNextLoadRef.current) {
-      skipNextLoadRef.current = false;
-      return;
-    }
-
     void loadPage(1, true);
-  }, [loadPage, restored]);
+  }, [loadPage]);
 
   useEffect(() => {
-    accountsRef.current = accounts;
-    activeRangeRef.current = activeRange;
-    keywordRef.current = keyword;
     pageRef.current = page;
-    searchValueRef.current = searchValue;
-    sortRef.current = sort;
-    totalRef.current = total;
     totalPagesRef.current = totalPages;
     loadingRef.current = loading;
     errorRef.current = error;
-  }, [
-    accounts,
-    activeRange,
-    error,
-    keyword,
-    loading,
-    page,
-    searchValue,
-    sort,
-    total,
-    totalPages,
-  ]);
-
-  useEffect(() => {
-    function handlePageHide() {
-      saveListState();
-    }
-
-    function handleVisibilityChange() {
-      if (document.visibilityState === "hidden") {
-        saveListState();
-      }
-    }
-
-    window.addEventListener("pagehide", handlePageHide);
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-
-    return () => {
-      saveListState();
-      window.removeEventListener("pagehide", handlePageHide);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-    };
-  }, [saveListState]);
+  }, [error, loading, page, totalPages]);
 
   useEffect(() => {
     const node = loadMoreRef.current;
@@ -448,11 +276,7 @@ export function AccountList({
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
         {accounts.map((account) => (
-          <ProductCard
-            key={account.id}
-            account={account}
-            onOpen={saveListState}
-          />
+          <ProductCard key={account.id} account={account} />
         ))}
         {loading && accounts.length === 0
           ? Array.from({ length: 8 }).map((_, index) => (
