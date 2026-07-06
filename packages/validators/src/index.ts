@@ -97,25 +97,40 @@ export const adminEmailListQuerySchema = z.object({
   ),
 });
 
+const emailPrefixSchema = z.string().trim().min(1, "邮箱前缀为必填项").max(64);
+
+const newEmailPrefixSchema = emailPrefixSchema.refine(
+  (value) => !value.includes("@"),
+  "邮箱前缀不能包含 @",
+);
+
+const emailPostfixSchema = z
+  .string()
+  .trim()
+  .min(2, "邮箱后缀为必填项")
+  .max(255)
+  .refine((value) => value.startsWith("@"), "邮箱后缀必须以 @ 开头");
+
+const emailBindStatusFieldSchema = z.union([z.literal(1), z.literal(2)]);
+
 export const adminEmailCreateSchema = z.object({
-  prefix: z.string().trim().min(1, "邮箱前缀为必填项").max(64),
-  postfix: z
-    .string()
-    .trim()
-    .min(2, "邮箱后缀为必填项")
-    .max(255)
-    .refine((value) => value.startsWith("@"), "邮箱后缀必须以 @ 开头"),
-  bindStatus: z.union([z.literal(1), z.literal(2)]).default(2),
+  prefix: newEmailPrefixSchema,
+  postfix: emailPostfixSchema,
+  bindStatus: emailBindStatusFieldSchema.default(2),
 });
 
-export const adminEmailUpdateSchema = adminEmailCreateSchema
-  .partial()
+export const adminEmailUpdateSchema = z
+  .object({
+    prefix: emailPrefixSchema.optional(),
+    postfix: emailPostfixSchema.optional(),
+    bindStatus: emailBindStatusFieldSchema.optional(),
+  })
   .refine((data) => Object.keys(data).length > 0, {
     message: "请至少提供一个要更新的字段",
   });
 
 export const emailBindStatusSchema = z.object({
-  bindStatus: z.union([z.literal(1), z.literal(2)]),
+  bindStatus: emailBindStatusFieldSchema,
 });
 
 export const carouselItemSchema = z.object({

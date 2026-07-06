@@ -7,12 +7,12 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@wuliuqi/ui/components/sheet";
+import { ThemeToggle } from "@wuliuqi/ui/components/theme-toggle";
 import { Menu, Search } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { AskWidget } from "./ask-widget";
 import { DocsNav } from "./docs-nav";
-import { ThemeToggle } from "./theme-toggle";
 
 export function DocsShell({
   base,
@@ -65,7 +65,7 @@ export function DocsShell({
                 搜索
               </Link>
             </Button>
-            <ThemeToggle />
+            <ThemeToggle storageKey="wuliuqi-docs-theme" />
           </div>
         </div>
       </header>

@@ -11,7 +11,8 @@
     "check-types": "tsc --noEmit",
     "prisma": "prisma",
     "generate": "prisma generate",
-    "db:pull": "prisma db pull"
+    "db:pull": "prisma db pull",
+    "fix:email-bind-status": "node scripts/reconcile-email-bind-status.mjs"
   },
   "dependencies": {
     "@prisma/client": "6.19.2"

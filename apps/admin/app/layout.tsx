@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import localFont from "next/font/local";
 import Script from "next/script";
 import { Toaster } from "@wuliuqi/ui/components/sonner";
+import { getThemeInitScript } from "@wuliuqi/ui/lib/theme";
 import "./globals.css";
 
 const geistSans = localFont({
@@ -27,16 +28,7 @@ export default function RootLayout({
     <html lang="zh-CN" suppressHydrationWarning>
       <head>
         <Script id="theme-init" strategy="beforeInteractive">
-          {`
-            try {
-              var storedTheme = localStorage.getItem("wuliuqi-admin-theme");
-              var theme = storedTheme === "light" || storedTheme === "dark"
-                ? storedTheme
-                : "dark";
-              document.documentElement.classList.toggle("dark", theme === "dark");
-              document.documentElement.dataset.theme = theme;
-            } catch (_) {}
-          `}
+          {getThemeInitScript("wuliuqi-admin-theme")}
         </Script>
       </head>
       <body

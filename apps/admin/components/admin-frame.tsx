@@ -2,6 +2,7 @@
 
 import { Button } from "@wuliuqi/ui/components/button";
 import { Spinner } from "@wuliuqi/ui/components/spinner";
+import { ThemeToggle } from "@wuliuqi/ui/components/theme-toggle";
 import { cn } from "@wuliuqi/ui/lib/utils";
 import {
   GalleryHorizontalEnd,
@@ -15,7 +16,6 @@ import {
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
-import { ThemeToggle } from "@/components/theme-toggle";
 import { logout } from "@/lib/client-api";
 
 type NavItem = {
@@ -86,7 +86,7 @@ export function AdminFrame({ children }: { children: ReactNode }) {
             })}
           </nav>
           <div className="flex items-center justify-end gap-1">
-            <ThemeToggle />
+            <ThemeToggle storageKey="wuliuqi-admin-theme" />
             <Button
               aria-label="退出登录"
               disabled={loggingOut}

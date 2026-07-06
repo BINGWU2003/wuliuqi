@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import Script from "next/script";
+import { getThemeInitScript } from "@wuliuqi/ui/lib/theme";
 import { ShopFrame } from "@/components/shop-frame";
 import "./globals.css";
 
@@ -29,16 +30,7 @@ export default function RootLayout({
     <html lang="zh-CN" suppressHydrationWarning>
       <head>
         <Script id="theme-init" strategy="beforeInteractive">
-          {`
-            try {
-              var storedTheme = localStorage.getItem("wuliuqi-shop-theme");
-              var theme = storedTheme === "light" || storedTheme === "dark"
-                ? storedTheme
-                : "dark";
-              document.documentElement.classList.toggle("dark", theme === "dark");
-              document.documentElement.dataset.theme = theme;
-            } catch (_) {}
-          `}
+          {getThemeInitScript("wuliuqi-shop-theme")}
         </Script>
       </head>
       <body

@@ -27,6 +27,10 @@ import {
 
 type TransactionClient = Prisma.TransactionClient;
 
+const ACCOUNT_LISTED_STATUS = 1;
+const EMAIL_BOUND_STATUS = 1;
+const EMAIL_UNBOUND_STATUS = 2;
+
 export class DomainError extends Error {
   constructor(
     public readonly code: string,
@@ -45,12 +49,14 @@ function parseEmailAddress(
     return null;
   }
 
-  const [prefix, ...rest] = email.split("@");
-  const postfix = rest.join("@");
+  const separatorIndex = email.lastIndexOf("@");
 
-  if (!prefix || !postfix) {
+  if (separatorIndex <= 0 || separatorIndex === email.length - 1) {
     return null;
   }
+
+  const prefix = email.slice(0, separatorIndex);
+  const postfix = email.slice(separatorIndex + 1);
 
   return { prefix, postfix: `@${postfix}` };
 }
@@ -67,40 +73,93 @@ function assertValidOptionalUrl(url?: string): void {
   }
 }
 
-async function findEmailRecord(
+function composeEmailAddress(prefix: string, postfix: string): string {
+  return `${prefix}${postfix}`;
+}
+
+function assertNewEmailPrefix(prefix: string): void {
+  if (prefix.includes("@")) {
+    throw new DomainError("BAD_REQUEST", "邮箱前缀不能包含 @");
+  }
+}
+
+function assertEmailPrefixMutation(
+  existingPrefix: string,
+  nextPrefix: string,
+): void {
+  if (nextPrefix.includes("@") && nextPrefix !== existingPrefix) {
+    throw new DomainError("BAD_REQUEST", "邮箱前缀不能包含 @");
+  }
+}
+
+async function getExpectedEmailBindStatus(
+  tx: TransactionClient,
+  email?: string | null,
+): Promise<1 | 2> {
+  if (!email) {
+    return EMAIL_UNBOUND_STATUS;
+  }
+
+  const listedAccount = await tx.codmAccount.findFirst({
+    where: {
+      email,
+      status: ACCOUNT_LISTED_STATUS,
+    },
+    select: { id: true },
+  });
+
+  return listedAccount ? EMAIL_BOUND_STATUS : EMAIL_UNBOUND_STATUS;
+}
+
+async function syncEmailBindStatusFromAccounts(
   tx: TransactionClient,
   email?: string | null,
 ) {
   const parts = parseEmailAddress(email);
 
   if (!parts) {
-    return null;
-  }
-
-  return tx.codmEmail.findFirst({
-    where: {
-      prefix: parts.prefix,
-      postfix: parts.postfix,
-    },
-  });
-}
-
-async function setEmailBindStatus(
-  tx: TransactionClient,
-  email?: string | null,
-  bindStatus?: 1 | 2,
-) {
-  if (!email || bindStatus === undefined) {
     return;
   }
 
-  const record = await findEmailRecord(tx, email);
+  const bindStatus = await getExpectedEmailBindStatus(tx, email);
 
-  if (record && record.bindStatus !== bindStatus) {
-    await tx.codmEmail.update({
-      where: { id: record.id },
-      data: { bindStatus },
-    });
+  await tx.codmEmail.updateMany({
+    where: {
+      prefix: parts.prefix,
+      postfix: parts.postfix,
+      NOT: { bindStatus },
+    },
+    data: { bindStatus },
+  });
+}
+
+async function assertListedAccountCanUseEmail(
+  tx: TransactionClient,
+  email?: string | null,
+  currentAccountId?: number,
+) {
+  if (!email) {
+    throw new DomainError("EMAIL_REQUIRED", "上架账号必须绑定邮箱");
+  }
+
+  const boundAccount = await tx.codmAccount.findFirst({
+    where: {
+      email,
+      status: ACCOUNT_LISTED_STATUS,
+      ...(currentAccountId === undefined
+        ? {}
+        : { NOT: { id: currentAccountId } }),
+    },
+    select: {
+      serialNumber: true,
+    },
+  });
+
+  if (boundAccount) {
+    throw new DomainError(
+      "EMAIL_BOUND",
+      `该邮箱已被上架账号 ${boundAccount.serialNumber} 绑定，无法使用`,
+    );
   }
 }
 
@@ -206,6 +265,10 @@ export async function createAdminAccount(
   assertValidOptionalUrl(input.xianyuUrl);
 
   return prisma.$transaction(async (tx) => {
+    if (input.status === ACCOUNT_LISTED_STATUS) {
+      await assertListedAccountCanUseEmail(tx, input.email);
+    }
+
     const serialNumber =
       input.serialNumber ??
       `#CODM-${String(await getNextCounterValue(tx, "CODM_ACCOUNT"))}`;
@@ -216,12 +279,6 @@ export async function createAdminAccount(
 
     if (existingAccount) {
       throw new DomainError("DUPLICATE_SERIAL", "该序列号已存在");
-    }
-
-    const emailRecord = await findEmailRecord(tx, input.email);
-
-    if (emailRecord?.bindStatus === 1) {
-      throw new DomainError("EMAIL_BOUND", "该邮箱已被其他账号绑定，无法使用");
     }
 
     const account = await tx.codmAccount.create({
@@ -237,7 +294,7 @@ export async function createAdminAccount(
       },
     });
 
-    await setEmailBindStatus(tx, input.email, input.status === 1 ? 1 : 2);
+    await syncEmailBindStatusFromAccounts(tx, input.email);
 
     return serializeAccount(account);
   });
@@ -270,28 +327,23 @@ export async function updateAdminAccount(
     }
 
     const nextStatus = input.status ?? existingAccount.status;
-    const emailChanged =
-      input.email !== undefined && input.email !== existingAccount.email;
     const nextEmail =
       input.email !== undefined ? input.email : existingAccount.email;
 
-    if (emailChanged) {
-      const nextEmailRecord = await findEmailRecord(tx, nextEmail);
-
-      if (nextEmailRecord?.bindStatus === 1) {
-        throw new DomainError("EMAIL_BOUND", "该邮箱已被其他账号绑定，无法使用");
-      }
-
-      await setEmailBindStatus(tx, existingAccount.email, 2);
-      await setEmailBindStatus(tx, nextEmail, nextStatus === 1 ? 1 : 2);
-    } else if (input.status !== undefined) {
-      await setEmailBindStatus(tx, nextEmail, nextStatus === 1 ? 1 : 2);
+    if (nextStatus === ACCOUNT_LISTED_STATUS) {
+      await assertListedAccountCanUseEmail(tx, nextEmail, id);
     }
 
     const account = await tx.codmAccount.update({
       where: { id },
       data: accountWriteData(input),
     });
+
+    await syncEmailBindStatusFromAccounts(tx, existingAccount.email);
+
+    if (nextEmail !== existingAccount.email) {
+      await syncEmailBindStatusFromAccounts(tx, nextEmail);
+    }
 
     return serializeAccount(account);
   });
@@ -305,8 +357,8 @@ export async function deleteAdminAccount(id: number): Promise<void> {
       throw new DomainError("NOT_FOUND", "CODM账号未找到", 404);
     }
 
-    await setEmailBindStatus(tx, existingAccount.email, 2);
     await tx.codmAccount.delete({ where: { id } });
+    await syncEmailBindStatusFromAccounts(tx, existingAccount.email);
   });
 }
 
@@ -321,20 +373,16 @@ export async function updateAdminAccountStatus(
       throw new DomainError("NOT_FOUND", "CODM账号未找到", 404);
     }
 
-    if (status === 1 && existingAccount.email && existingAccount.status !== 1) {
-      const emailRecord = await findEmailRecord(tx, existingAccount.email);
-
-      if (emailRecord?.bindStatus === 1) {
-        throw new DomainError("EMAIL_BOUND", "该邮箱已被绑定，无法上架");
-      }
+    if (status === ACCOUNT_LISTED_STATUS) {
+      await assertListedAccountCanUseEmail(tx, existingAccount.email, id);
     }
-
-    await setEmailBindStatus(tx, existingAccount.email, status === 1 ? 1 : 2);
 
     const account = await tx.codmAccount.update({
       where: { id },
       data: { status },
     });
+
+    await syncEmailBindStatusFromAccounts(tx, existingAccount.email);
 
     return serializeAccount(account);
   });
@@ -413,100 +461,147 @@ export async function getAdminEmailById(id: number): Promise<AdminEmail | null> 
 export async function createAdminEmail(
   input: AdminEmailCreateInput,
 ): Promise<AdminEmail> {
-  const existingEmail = await prisma.codmEmail.findFirst({
-    where: { prefix: input.prefix, postfix: input.postfix },
+  assertNewEmailPrefix(input.prefix);
+
+  return prisma.$transaction(async (tx) => {
+    const existingEmail = await tx.codmEmail.findFirst({
+      where: { prefix: input.prefix, postfix: input.postfix },
+    });
+
+    if (existingEmail) {
+      throw new DomainError("DUPLICATE_EMAIL", "该邮箱已存在");
+    }
+
+    const bindStatus = await getExpectedEmailBindStatus(
+      tx,
+      composeEmailAddress(input.prefix, input.postfix),
+    );
+    const email = await tx.codmEmail.create({
+      data: {
+        prefix: input.prefix,
+        postfix: input.postfix,
+        bindStatus,
+      },
+    });
+
+    return serializeEmail(email);
   });
-
-  if (existingEmail) {
-    throw new DomainError("DUPLICATE_EMAIL", "该邮箱已存在");
-  }
-
-  const email = await prisma.codmEmail.create({
-    data: {
-      prefix: input.prefix,
-      postfix: input.postfix,
-      bindStatus: input.bindStatus,
-    },
-  });
-
-  return serializeEmail(email);
 }
 
 export async function updateAdminEmail(
   id: number,
   input: AdminEmailUpdateInput,
 ): Promise<AdminEmail> {
-  const existingEmail = await prisma.codmEmail.findUnique({ where: { id } });
+  return prisma.$transaction(async (tx) => {
+    const existingEmail = await tx.codmEmail.findUnique({ where: { id } });
 
-  if (!existingEmail) {
-    throw new DomainError("NOT_FOUND", "CODM邮箱未找到", 404);
-  }
+    if (!existingEmail) {
+      throw new DomainError("NOT_FOUND", "CODM邮箱未找到", 404);
+    }
 
-  const nextPrefix = input.prefix ?? existingEmail.prefix;
-  const nextPostfix = input.postfix ?? existingEmail.postfix;
-  const addressChanged =
-    nextPrefix !== existingEmail.prefix || nextPostfix !== existingEmail.postfix;
+    const nextPrefix = input.prefix ?? existingEmail.prefix;
+    const nextPostfix = input.postfix ?? existingEmail.postfix;
+    const existingAddress = composeEmailAddress(
+      existingEmail.prefix,
+      existingEmail.postfix,
+    );
+    const nextAddress = composeEmailAddress(nextPrefix, nextPostfix);
+    const addressChanged = nextAddress !== existingAddress;
 
-  if (existingEmail.bindStatus === 1 && addressChanged) {
-    throw new DomainError("EMAIL_BOUND", "该邮箱已绑定账号，无法修改邮箱地址");
-  }
+    assertEmailPrefixMutation(existingEmail.prefix, nextPrefix);
 
-  if (addressChanged) {
-    const conflictEmail = await prisma.codmEmail.findFirst({
-      where: {
-        prefix: nextPrefix,
-        postfix: nextPostfix,
-        NOT: { id },
+    if (
+      addressChanged &&
+      (await getExpectedEmailBindStatus(tx, existingAddress)) ===
+        EMAIL_BOUND_STATUS
+    ) {
+      throw new DomainError(
+        "EMAIL_BOUND",
+        "该邮箱已绑定账号，无法修改邮箱地址",
+      );
+    }
+
+    if (addressChanged) {
+      const conflictEmail = await tx.codmEmail.findFirst({
+        where: {
+          prefix: nextPrefix,
+          postfix: nextPostfix,
+          NOT: { id },
+        },
+      });
+
+      if (conflictEmail) {
+        throw new DomainError("DUPLICATE_EMAIL", "该邮箱已被其他记录使用");
+      }
+    }
+
+    const bindStatus = await getExpectedEmailBindStatus(tx, nextAddress);
+    const email = await tx.codmEmail.update({
+      where: { id },
+      data: {
+        prefix: input.prefix,
+        postfix: input.postfix,
+        bindStatus,
       },
     });
 
-    if (conflictEmail) {
-      throw new DomainError("DUPLICATE_EMAIL", "该邮箱已被其他记录使用");
-    }
-  }
-
-  const email = await prisma.codmEmail.update({
-    where: { id },
-    data: {
-      prefix: input.prefix,
-      postfix: input.postfix,
-      bindStatus: input.bindStatus,
-    },
+    return serializeEmail(email);
   });
-
-  return serializeEmail(email);
 }
 
 export async function deleteAdminEmail(id: number): Promise<void> {
-  const existingEmail = await prisma.codmEmail.findUnique({ where: { id } });
+  await prisma.$transaction(async (tx) => {
+    const existingEmail = await tx.codmEmail.findUnique({ where: { id } });
 
-  if (!existingEmail) {
-    throw new DomainError("NOT_FOUND", "CODM邮箱未找到", 404);
-  }
+    if (!existingEmail) {
+      throw new DomainError("NOT_FOUND", "CODM邮箱未找到", 404);
+    }
 
-  if (existingEmail.bindStatus === 1) {
-    throw new DomainError("EMAIL_BOUND", "该邮箱已绑定账号，无法删除");
-  }
+    const expectedBindStatus = await getExpectedEmailBindStatus(
+      tx,
+      composeEmailAddress(existingEmail.prefix, existingEmail.postfix),
+    );
 
-  await prisma.codmEmail.delete({ where: { id } });
+    if (expectedBindStatus === EMAIL_BOUND_STATUS) {
+      throw new DomainError("EMAIL_BOUND", "该邮箱已绑定账号，无法删除");
+    }
+
+    await tx.codmEmail.delete({ where: { id } });
+  });
 }
 
 export async function updateAdminEmailBindStatus(
   id: number,
   bindStatus: 1 | 2,
 ): Promise<AdminEmail> {
-  const existingEmail = await prisma.codmEmail.findUnique({ where: { id } });
+  return prisma.$transaction(async (tx) => {
+    const existingEmail = await tx.codmEmail.findUnique({ where: { id } });
 
-  if (!existingEmail) {
-    throw new DomainError("NOT_FOUND", "CODM邮箱未找到", 404);
-  }
+    if (!existingEmail) {
+      throw new DomainError("NOT_FOUND", "CODM邮箱未找到", 404);
+    }
 
-  const email = await prisma.codmEmail.update({
-    where: { id },
-    data: { bindStatus },
+    const expectedBindStatus = await getExpectedEmailBindStatus(
+      tx,
+      composeEmailAddress(existingEmail.prefix, existingEmail.postfix),
+    );
+
+    if (bindStatus !== expectedBindStatus) {
+      throw new DomainError(
+        "EMAIL_BIND_STATUS_CONFLICT",
+        expectedBindStatus === EMAIL_BOUND_STATUS
+          ? "该邮箱仍被上架账号使用，无法标记为未绑定"
+          : "该邮箱没有上架账号使用，无法标记为已绑定",
+      );
+    }
+
+    const email = await tx.codmEmail.update({
+      where: { id },
+      data: { bindStatus: expectedBindStatus },
+    });
+
+    return serializeEmail(email);
   });
-
-  return serializeEmail(email);
 }
 
 export async function updateCarouselByName(

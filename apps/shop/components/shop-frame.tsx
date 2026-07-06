@@ -1,12 +1,12 @@
 "use client";
 
 import { Button } from "@wuliuqi/ui/components/button";
+import { ThemeToggle } from "@wuliuqi/ui/components/theme-toggle";
 import { cn } from "@wuliuqi/ui/lib/utils";
 import { ArrowLeft, BookOpen, Gamepad2, Home, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import type { ReactNode } from "react";
-import { ThemeToggle } from "@/components/theme-toggle";
 
 const titleMap: Record<string, string> = {
   "/": "567手游店",
@@ -73,10 +73,10 @@ export function ShopFrame({ children }: { children: ReactNode }) {
               <ShieldCheck size={15} />
               闲鱼交易
             </div>
-            <ThemeToggle />
+            <ThemeToggle storageKey="wuliuqi-shop-theme" />
           </div>
           <div className="flex justify-end sm:hidden">
-            <ThemeToggle />
+            <ThemeToggle storageKey="wuliuqi-shop-theme" />
           </div>
         </div>
       </header>
