@@ -9,10 +9,12 @@ import {
 } from "@wuliuqi/ui/components/card";
 import { Input } from "@wuliuqi/ui/components/input";
 import { Spinner } from "@wuliuqi/ui/components/spinner";
+import { toast } from "@wuliuqi/ui/components/sonner";
 import { ShieldCheck } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { login } from "@/lib/client-api";
+import { errorMessage } from "@/lib/feedback";
 
 export function LoginForm() {
   const router = useRouter();
@@ -20,19 +22,22 @@ export function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    if (loading) {
+      return;
+    }
+
     setLoading(true);
-    setError("");
 
     try {
       await login(email, password);
       router.replace(searchParams.get("redirect") || "/accounts");
       router.refresh();
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : "登录失败");
+      toast.error(errorMessage(submitError, "登录失败"));
     } finally {
       setLoading(false);
     }
@@ -53,6 +58,7 @@ export function LoginForm() {
             <span className="text-sm font-medium">邮箱</span>
             <Input
               autoComplete="email"
+              disabled={loading}
               inputMode="email"
               required
               type="email"
@@ -64,17 +70,13 @@ export function LoginForm() {
             <span className="text-sm font-medium">密码</span>
             <Input
               autoComplete="current-password"
+              disabled={loading}
               required
               type="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
             />
           </label>
-          {error ? (
-            <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
-              {error}
-            </div>
-          ) : null}
           <Button className="w-full" disabled={loading} type="submit">
             {loading ? <Spinner /> : null}
             {loading ? "登录中..." : "登录"}

@@ -50,6 +50,7 @@ export function AccountDetailModal({ id }: { id: number | null }) {
             aria-label="关闭详情"
             className="size-9 rounded-md"
             size="icon"
+            title="关闭详情"
             type="button"
             variant="ghost"
             onClick={closeModal}

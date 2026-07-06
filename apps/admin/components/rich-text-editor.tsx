@@ -33,6 +33,7 @@ export function RichTextEditor({
         <Button
           aria-label="加粗"
           size="icon"
+          title="加粗"
           type="button"
           variant="ghost"
           onClick={() => command("bold")}
@@ -42,6 +43,7 @@ export function RichTextEditor({
         <Button
           aria-label="有序列表"
           size="icon"
+          title="有序列表"
           type="button"
           variant="ghost"
           onClick={() => command("insertOrderedList")}
@@ -51,6 +53,7 @@ export function RichTextEditor({
         <Button
           aria-label="清除格式"
           size="icon"
+          title="清除格式"
           type="button"
           variant="ghost"
           onClick={() => command("removeFormat")}

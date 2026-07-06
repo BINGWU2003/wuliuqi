@@ -17,12 +17,14 @@ import {
 } from "@wuliuqi/ui/components/select";
 import { Skeleton } from "@wuliuqi/ui/components/skeleton";
 import { Spinner } from "@wuliuqi/ui/components/spinner";
+import { toast } from "@wuliuqi/ui/components/sonner";
 import { ArrowLeft, Save } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createEmail, fetchEmail, updateEmail } from "@/lib/client-api";
 import { ADMIN_EMAILS_CHANGED_EVENT } from "@/lib/events";
+import { errorMessage } from "@/lib/feedback";
 
 const postfixOptions = [
   "@163.com",
@@ -38,9 +40,11 @@ type EmailFormPresentation = "page" | "modal";
 
 export function EmailForm({
   emailId,
+  onBusyChange,
   presentation = "page",
 }: {
   emailId?: number;
+  onBusyChange?: (busy: boolean) => void;
   presentation?: EmailFormPresentation;
 }) {
   const router = useRouter();
@@ -51,8 +55,14 @@ export function EmailForm({
   const [boundAccountId, setBoundAccountId] = useState<number | null>(null);
   const [loading, setLoading] = useState(Boolean(emailId));
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
+  const [loadFailed, setLoadFailed] = useState(false);
   const isLinkedToAccount = Boolean(emailId && boundAccountId);
+
+  useEffect(() => {
+    onBusyChange?.(saving);
+
+    return () => onBusyChange?.(false);
+  }, [onBusyChange, saving]);
 
   useEffect(() => {
     if (!emailId) {
@@ -66,22 +76,23 @@ export function EmailForm({
         setPostfix(email.postfix);
         setBindStatus(email.bindStatus === 1 ? 1 : 2);
         setBoundAccountId(email.boundAccountId ?? null);
+        setLoadFailed(false);
       })
-      .catch((loadError) =>
-        setError(loadError instanceof Error ? loadError.message : "加载失败"),
-      )
+      .catch((loadError) => {
+        setLoadFailed(true);
+        toast.error(errorMessage(loadError, "加载失败"));
+      })
       .finally(() => setLoading(false));
   }, [emailId]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (isLinkedToAccount) {
+    if (saving || isLinkedToAccount || loadFailed) {
       return;
     }
 
     setSaving(true);
-    setError("");
 
     try {
       if (emailId) {
@@ -90,6 +101,7 @@ export function EmailForm({
         await createEmail({ bindStatus, postfix, prefix });
       }
 
+      toast.success(emailId ? "邮箱已保存" : "邮箱已创建");
       window.dispatchEvent(new Event(ADMIN_EMAILS_CHANGED_EVENT));
 
       if (isModal) {
@@ -99,7 +111,7 @@ export function EmailForm({
         router.refresh();
       }
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : "保存失败");
+      toast.error(errorMessage(submitError, "保存失败"));
     } finally {
       setSaving(false);
     }
@@ -131,18 +143,13 @@ export function EmailForm({
         </div>
         <Button
           className="w-full sm:w-auto"
-          disabled={saving || isLinkedToAccount}
+          disabled={saving || isLinkedToAccount || loadFailed}
           type="submit"
         >
           {saving ? <Spinner /> : <Save size={16} />}
           {saving ? "保存中..." : "保存邮箱"}
         </Button>
       </div>
-      {error ? (
-        <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
-          {error}
-        </div>
-      ) : null}
       {isLinkedToAccount ? (
         <div className="rounded-md border border-border bg-muted px-3 py-2 text-sm text-muted-foreground">
           已关联账号{" "}

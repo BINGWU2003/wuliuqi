@@ -26,6 +26,7 @@ export function ProductCard({
       className="group block"
       href={`/codm-account-info?id=${account.id}`}
       scroll={false}
+      title={`查看账号详情：${account.serialNumber}`}
     >
       <Card className="h-full overflow-hidden rounded-md border-border/80 bg-card shadow-none transition-colors hover:border-foreground/30">
         <div className="relative aspect-[4/3] bg-muted">

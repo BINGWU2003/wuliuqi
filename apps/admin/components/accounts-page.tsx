@@ -29,6 +29,7 @@ import {
 } from "@wuliuqi/ui/components/select";
 import { Skeleton } from "@wuliuqi/ui/components/skeleton";
 import { Spinner } from "@wuliuqi/ui/components/spinner";
+import { toast } from "@wuliuqi/ui/components/sonner";
 import {
   Table,
   TableBody,
@@ -58,12 +59,16 @@ import {
   updateAccountStatus,
 } from "@/lib/client-api";
 import { ADMIN_ACCOUNTS_CHANGED_EVENT } from "@/lib/events";
+import { errorMessage } from "@/lib/feedback";
 import { formatDate, formatPrice } from "@/lib/format";
 
 const ACCOUNT_PAGE_SIZE = 50;
 const MOBILE_VIEWPORT_QUERY = "(max-width: 639px)";
 
 type LoadMode = "append" | "replace";
+type AccountPendingAction =
+  | { accountId: number; name: "delete" | "status" }
+  | null;
 
 function isMobileViewport() {
   return (
@@ -83,9 +88,9 @@ export function AccountsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [total, setTotal] = useState(0);
-  const [statusActionId, setStatusActionId] = useState<number | null>(null);
+  const [pendingAction, setPendingAction] =
+    useState<AccountPendingAction>(null);
   const [deleteTarget, setDeleteTarget] = useState<AdminAccount | null>(null);
-  const [deletingId, setDeletingId] = useState<number | null>(null);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const loadingRef = useRef(false);
   const pageRef = useRef(1);
@@ -141,10 +146,10 @@ export function AccountsPage() {
           return;
         }
 
-        const message =
-          loadError instanceof Error ? loadError.message : "加载失败";
+        const message = errorMessage(loadError, "加载失败");
         errorRef.current = message;
         setError(message);
+        toast.error(message);
       } finally {
         if (requestId === requestIdRef.current) {
           loadingRef.current = false;
@@ -203,10 +208,10 @@ export function AccountsPage() {
         return;
       }
 
-      const message =
-        loadError instanceof Error ? loadError.message : "加载失败";
+      const message = errorMessage(loadError, "加载失败");
       errorRef.current = message;
       setError(message);
+      toast.error(message);
     } finally {
       if (requestId === requestIdRef.current) {
         loadingRef.current = false;
@@ -293,44 +298,54 @@ export function AccountsPage() {
   }
 
   async function toggleStatus(account: AdminAccount) {
-    if (statusActionId !== null) {
+    if (pendingAction !== null) {
       return;
     }
 
-    setStatusActionId(account.id);
+    setPendingAction({ accountId: account.id, name: "status" });
     setError("");
 
     try {
       await updateAccountStatus(account.id, account.status === 1 ? 2 : 1);
       await reloadCurrentView();
+      toast.success(account.status === 1 ? "账号已下架" : "账号已上架");
     } catch (toggleError) {
-      setError(toggleError instanceof Error ? toggleError.message : "更新失败");
+      const message = errorMessage(toggleError, "更新失败");
+      setError(message);
+      toast.error(message);
     } finally {
-      setStatusActionId(null);
+      setPendingAction(null);
     }
   }
 
   async function confirmRemoveAccount() {
-    if (!deleteTarget || deletingId !== null) {
+    if (!deleteTarget || pendingAction !== null) {
       return;
     }
 
-    setDeletingId(deleteTarget.id);
+    setPendingAction({ accountId: deleteTarget.id, name: "delete" });
     setError("");
 
     try {
       await deleteAccount(deleteTarget.id);
       await reloadCurrentView();
       setDeleteTarget(null);
+      toast.success("账号已删除");
     } catch (deleteError) {
-      setError(deleteError instanceof Error ? deleteError.message : "删除失败");
-      setDeleteTarget(null);
+      const message = errorMessage(deleteError, "删除失败");
+      setError(message);
+      toast.error(message);
     } finally {
-      setDeletingId(null);
+      setPendingAction(null);
     }
   }
 
   const isInitialLoading = loading && accounts.length === 0;
+  const statusActionId =
+    pendingAction?.name === "status" ? pendingAction.accountId : null;
+  const deletingId =
+    pendingAction?.name === "delete" ? pendingAction.accountId : null;
+  const isMutating = pendingAction !== null;
 
   return (
     <div className="space-y-4">
@@ -451,7 +466,7 @@ export function AccountsPage() {
                 </Link>
               </Button>
               <Button
-                disabled={statusActionId !== null || deletingId !== null}
+                disabled={isMutating}
                 size="sm"
                 type="button"
                 variant="outline"
@@ -462,8 +477,9 @@ export function AccountsPage() {
               </Button>
               <Button
                 aria-label={`删除账号 ${account.serialNumber}`}
-                disabled={deletingId === account.id || statusActionId !== null}
+                disabled={isMutating}
                 size="sm"
+                title={`删除账号 ${account.serialNumber}`}
                 type="button"
                 variant="ghost"
                 onClick={() => setDeleteTarget(account)}
@@ -476,11 +492,6 @@ export function AccountsPage() {
         {!loading && accounts.length === 0 ? (
           <div className="rounded-md border border-border bg-card px-4 py-10 text-center text-sm text-muted-foreground">
             暂无账号
-          </div>
-        ) : null}
-        {error ? (
-          <div className="rounded-md border border-border bg-card px-4 py-3 text-sm text-destructive">
-            {error}
           </div>
         ) : null}
         <div
@@ -568,7 +579,7 @@ export function AccountsPage() {
                       </Button>
                       <Button
                         disabled={
-                          statusActionId !== null || deletingId !== null
+                          isMutating
                         }
                         size="sm"
                         type="button"
@@ -579,10 +590,12 @@ export function AccountsPage() {
                         {account.status === 1 ? "下架" : "上架"}
                       </Button>
                       <Button
+                        aria-label={`删除账号 ${account.serialNumber}`}
                         disabled={
-                          deletingId === account.id || statusActionId !== null
+                          isMutating
                         }
                         size="sm"
+                        title={`删除账号 ${account.serialNumber}`}
                         type="button"
                         variant="ghost"
                         onClick={() => setDeleteTarget(account)}
@@ -615,11 +628,6 @@ export function AccountsPage() {
             <LoadingLine
               label={accounts.length > 0 ? "正在刷新" : "加载账号"}
             />
-          </div>
-        ) : null}
-        {error ? (
-          <div className="border-t border-border px-4 py-3 text-sm text-destructive">
-            {error}
           </div>
         ) : null}
         {total > 0 ? (
@@ -660,7 +668,7 @@ export function AccountsPage() {
               }}
             >
               {deletingId !== null ? <Spinner /> : null}
-              删除账号
+              {deletingId !== null ? "删除中..." : "删除账号"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -762,6 +770,7 @@ function AccountsPagination({
           aria-label="第一页"
           disabled={loading || isFirstPage}
           size="sm"
+          title="第一页"
           type="button"
           variant="outline"
           onClick={() => onPageChange(1)}
@@ -772,6 +781,7 @@ function AccountsPagination({
           aria-label="上一页"
           disabled={loading || isFirstPage}
           size="sm"
+          title="上一页"
           type="button"
           variant="outline"
           onClick={() => onPageChange(Math.max(page - 1, 1))}
@@ -795,6 +805,7 @@ function AccountsPagination({
           aria-label="下一页"
           disabled={loading || isLastPage}
           size="sm"
+          title="下一页"
           type="button"
           variant="outline"
           onClick={() => onPageChange(Math.min(page + 1, safeTotalPages))}
@@ -805,6 +816,7 @@ function AccountsPagination({
           aria-label="最后一页"
           disabled={loading || isLastPage}
           size="sm"
+          title="最后一页"
           type="button"
           variant="outline"
           onClick={() => onPageChange(safeTotalPages)}

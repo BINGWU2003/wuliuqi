@@ -9,6 +9,7 @@ import {
 } from "@wuliuqi/ui/components/dialog";
 import { X } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { AccountForm } from "@/components/account-form";
 
 function preventOutsideDismiss(event: Event) {
@@ -17,8 +18,13 @@ function preventOutsideDismiss(event: Event) {
 
 export function AccountEditModal({ accountId }: { accountId: number | null }) {
   const router = useRouter();
+  const [formBusy, setFormBusy] = useState(false);
 
   function closeModal() {
+    if (formBusy) {
+      return;
+    }
+
     router.back();
   }
 
@@ -26,7 +32,7 @@ export function AccountEditModal({ accountId }: { accountId: number | null }) {
     <Dialog
       open
       onOpenChange={(open) => {
-        if (!open) {
+        if (!open && !formBusy) {
           closeModal();
         }
       }}
@@ -45,7 +51,9 @@ export function AccountEditModal({ accountId }: { accountId: number | null }) {
           <Button
             aria-label="关闭编辑"
             className="size-9 rounded-md"
+            disabled={formBusy}
             size="icon"
+            title={formBusy ? "保存中，暂不能关闭" : "关闭编辑"}
             type="button"
             variant="ghost"
             onClick={closeModal}
@@ -55,7 +63,11 @@ export function AccountEditModal({ accountId }: { accountId: number | null }) {
         </div>
         <div className="h-[calc(100%-3rem)] overflow-y-auto p-3 sm:p-5">
           {accountId ? (
-            <AccountForm accountId={accountId} presentation="modal" />
+            <AccountForm
+              accountId={accountId}
+              presentation="modal"
+              onBusyChange={setFormBusy}
+            />
           ) : (
             <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
               无效的账号ID

@@ -22,12 +22,19 @@ import {
   SheetTrigger,
 } from "@wuliuqi/ui/components/sheet";
 import { Skeleton } from "@wuliuqi/ui/components/skeleton";
+import { toast } from "@wuliuqi/ui/components/sonner";
 import { Spinner } from "@wuliuqi/ui/components/spinner";
 import { cn } from "@wuliuqi/ui/lib/utils";
-import { RotateCcw, Search, SlidersHorizontal, Sparkles } from "lucide-react";
+import {
+  RefreshCw,
+  RotateCcw,
+  Search,
+  SlidersHorizontal,
+  Sparkles,
+} from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { fetchAccounts } from "@/lib/client-api";
 import { ProductCard } from "@/components/product-card";
+import { fetchAccounts } from "@/lib/client-api";
 
 const PAGE_SIZE = 12;
 
@@ -47,7 +54,19 @@ const sortOptions = [
 ] as const;
 
 type SortValue = (typeof sortOptions)[number]["value"];
-type LoadingMode = "append" | "replace";
+type LoadingMode =
+  | "initial"
+  | "replace"
+  | "append"
+  | "search"
+  | "reset"
+  | "filter"
+  | "retry";
+type ReplaceLoadingMode = Exclude<LoadingMode, "append" | "retry">;
+type FailedLoad = {
+  page: number;
+  replace: boolean;
+};
 
 type AccountListProps = {
   compactHeader?: boolean;
@@ -68,17 +87,24 @@ export function AccountList({
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [loadingMode, setLoadingMode] = useState<LoadingMode | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadingMode, setLoadingMode] = useState<LoadingMode | null>("initial");
   const [error, setError] = useState("");
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const loadingRef = useRef(false);
+  const loadingModeRef = useRef<LoadingMode | null>("initial");
   const pageRef = useRef(1);
   const totalPagesRef = useRef(0);
   const errorRef = useRef("");
+  const requestIdRef = useRef(0);
+  const requestControllerRef = useRef<AbortController | null>(null);
+  const nextReplaceModeRef = useRef<ReplaceLoadingMode>("initial");
+  const failedLoadRef = useRef<FailedLoad | null>(null);
 
   const loadPage = useCallback(
-    async (nextPage: number, replace: boolean) => {
+    async (nextPage: number, mode: LoadingMode, replace: boolean) => {
+      const requestId = ++requestIdRef.current;
+      const controller = new AbortController();
       const range = priceRanges[activeRange];
       const params = new URLSearchParams({
         page: String(nextPage),
@@ -96,14 +122,29 @@ export function AccountList({
         params.set("max_price", String(range.max));
       }
 
+      requestControllerRef.current?.abort();
+      requestControllerRef.current = controller;
       loadingRef.current = true;
+      loadingModeRef.current = mode;
       errorRef.current = "";
       setLoading(true);
-      setLoadingMode(replace ? "replace" : "append");
-      setError("");
+      setLoadingMode(mode);
+
+      if (mode !== "retry") {
+        setError("");
+      }
 
       try {
-        const result = await fetchAccounts(params);
+        const result = await fetchAccounts(params, {
+          signal: controller.signal,
+        });
+
+        if (requestId !== requestIdRef.current) {
+          return;
+        }
+
+        failedLoadRef.current = null;
+        setError("");
         setAccounts((current) =>
           replace ? result.list : [...current, ...result.list],
         );
@@ -113,29 +154,54 @@ export function AccountList({
         setTotalPages(result.pagination.totalPages);
         totalPagesRef.current = result.pagination.totalPages;
       } catch (fetchError) {
+        if (
+          controller.signal.aborted ||
+          requestId !== requestIdRef.current ||
+          isAbortError(fetchError)
+        ) {
+          return;
+        }
+
         const message =
           fetchError instanceof Error ? fetchError.message : "加载失败";
+        failedLoadRef.current = { page: nextPage, replace };
         errorRef.current = message;
         setError(message);
+        toast.error(message);
       } finally {
-        loadingRef.current = false;
-        setLoading(false);
-        setLoadingMode(null);
+        if (requestId === requestIdRef.current) {
+          requestControllerRef.current = null;
+          loadingRef.current = false;
+          loadingModeRef.current = null;
+          setLoading(false);
+          setLoadingMode(null);
+        }
       }
     },
     [activeRange, keyword, sort],
   );
 
   useEffect(() => {
-    void loadPage(1, true);
+    const mode = nextReplaceModeRef.current;
+
+    nextReplaceModeRef.current = "replace";
+    void loadPage(1, mode, true);
   }, [loadPage]);
+
+  useEffect(() => {
+    return () => {
+      requestIdRef.current += 1;
+      requestControllerRef.current?.abort();
+    };
+  }, []);
 
   useEffect(() => {
     pageRef.current = page;
     totalPagesRef.current = totalPages;
     loadingRef.current = loading;
+    loadingModeRef.current = loadingMode;
     errorRef.current = error;
-  }, [error, loading, page, totalPages]);
+  }, [error, loading, loadingMode, page, totalPages]);
 
   useEffect(() => {
     const node = loadMoreRef.current;
@@ -151,7 +217,7 @@ export function AccountList({
         }
 
         if (pageRef.current < totalPagesRef.current) {
-          void loadPage(pageRef.current + 1, false);
+          void loadPage(pageRef.current + 1, "append", false);
         }
       },
       { rootMargin: "480px 0px" },
@@ -162,21 +228,88 @@ export function AccountList({
     return () => observer.disconnect();
   }, [loadPage]);
 
+  function isBlockingControls() {
+    return loadingRef.current && loadingModeRef.current !== "append";
+  }
+
   function handleSearch() {
-    setKeyword(searchValue.trim());
+    if (isBlockingControls()) {
+      return;
+    }
+
+    const nextKeyword = searchValue.trim();
+
+    if (nextKeyword === keyword) {
+      void loadPage(1, "search", true);
+      return;
+    }
+
+    nextReplaceModeRef.current = "search";
+    setKeyword(nextKeyword);
+  }
+
+  function handleRangeChange(nextRange: number) {
+    if (isBlockingControls()) {
+      return;
+    }
+
+    if (nextRange === activeRange) {
+      void loadPage(1, "filter", true);
+      return;
+    }
+
+    nextReplaceModeRef.current = "filter";
+    setActiveRange(nextRange);
+  }
+
+  function handleSortChange(nextSort: SortValue) {
+    if (isBlockingControls()) {
+      return;
+    }
+
+    if (nextSort === sort) {
+      void loadPage(1, "filter", true);
+      return;
+    }
+
+    nextReplaceModeRef.current = "filter";
+    setSort(nextSort);
   }
 
   function clearFilters() {
+    if (isBlockingControls()) {
+      return;
+    }
+
+    setSearchValue("");
+
+    if (activeRange === 0 && sort === "latest" && keyword === "") {
+      void loadPage(1, "reset", true);
+      return;
+    }
+
+    nextReplaceModeRef.current = "reset";
     setActiveRange(0);
     setSort("latest");
-    setSearchValue("");
     setKeyword("");
+  }
+
+  function retryLastLoad() {
+    if (loadingRef.current) {
+      return;
+    }
+
+    const failedLoad = failedLoadRef.current ?? { page: 1, replace: true };
+
+    void loadPage(failedLoad.page, "retry", failedLoad.replace);
   }
 
   const activeRangeLabel = priceRanges[activeRange]?.label ?? "全部价格";
   const activeSortLabel =
     sortOptions.find((option) => option.value === sort)?.label ?? "最新上架";
-  const isSearchLoading = loading && loadingMode === "replace";
+  const isReplaceLoading = loading && loadingMode !== "append";
+  const isRetryLoading = loading && loadingMode === "retry";
+  const controlsDisabled = isReplaceLoading;
 
   return (
     <section className="mx-auto flex w-full max-w-6xl flex-col gap-4">
@@ -200,7 +333,10 @@ export function AccountList({
             <Sheet>
               <SheetTrigger asChild>
                 <Button
+                  aria-label="打开账号筛选"
                   className="h-9 rounded-md md:hidden"
+                  disabled={controlsDisabled}
+                  title="打开账号筛选"
                   type="button"
                   variant="outline"
                 >
@@ -216,18 +352,25 @@ export function AccountList({
                   activeRange={activeRange}
                   activeSortLabel={activeSortLabel}
                   clearFilters={clearFilters}
+                  controlsDisabled={controlsDisabled}
+                  loadingMode={loadingMode}
                   searchValue={searchValue}
-                  loading={isSearchLoading}
-                  setActiveRange={setActiveRange}
                   setSearchValue={setSearchValue}
-                  setSort={setSort}
                   sort={sort}
                   stacked
+                  onRangeChange={handleRangeChange}
                   onSearch={handleSearch}
+                  onSortChange={handleSortChange}
                 />
                 <SheetClose asChild>
-                  <Button className="mt-4 w-full" type="button">
-                    查看结果
+                  <Button
+                    className="mt-4 w-full"
+                    disabled={isReplaceLoading}
+                    title="查看筛选结果"
+                    type="button"
+                  >
+                    {isReplaceLoading ? <Spinner /> : null}
+                    {isReplaceLoading ? "加载中..." : "查看结果"}
                   </Button>
                 </SheetClose>
               </SheetContent>
@@ -240,13 +383,14 @@ export function AccountList({
             activeRange={activeRange}
             activeSortLabel={activeSortLabel}
             clearFilters={clearFilters}
+            controlsDisabled={controlsDisabled}
+            loadingMode={loadingMode}
             searchValue={searchValue}
-            loading={isSearchLoading}
-            setActiveRange={setActiveRange}
             setSearchValue={setSearchValue}
-            setSort={setSort}
             sort={sort}
+            onRangeChange={handleRangeChange}
             onSearch={handleSearch}
+            onSortChange={handleSortChange}
           />
         </div>
 
@@ -263,14 +407,6 @@ export function AccountList({
         </div>
       </div>
 
-      {error ? (
-        <Card className="rounded-md border-destructive/30 bg-destructive/5 shadow-none">
-          <CardContent className="p-5 text-center text-sm font-medium text-destructive">
-            {error}
-          </CardContent>
-        </Card>
-      ) : null}
-
       {!error && accounts.length === 0 && !loading ? (
         <Card className="rounded-md shadow-none">
           <CardContent className="p-8 text-center text-sm text-muted-foreground">
@@ -283,7 +419,7 @@ export function AccountList({
         {accounts.map((account) => (
           <ProductCard key={account.id} account={account} />
         ))}
-        {loading && accounts.length === 0
+        {!error && loading && accounts.length === 0
           ? Array.from({ length: 8 }).map((_, index) => (
               <Card
                 key={index}
@@ -301,19 +437,27 @@ export function AccountList({
           : null}
       </div>
 
+      {error ? (
+        <LoadErrorState
+          loading={isRetryLoading}
+          message={error}
+          onRetry={retryLastLoad}
+        />
+      ) : null}
+
       <div
         ref={loadMoreRef}
         className="flex min-h-12 items-center justify-center py-4"
       >
-        {loading && accounts.length > 0 ? (
+        {loading && accounts.length > 0 && !error ? (
           <LoadingLine
             label={loadingMode === "append" ? "正在加载更多" : "正在刷新结果"}
           />
-        ) : accounts.length > 0 && page >= totalPages ? (
+        ) : accounts.length > 0 && !error && page >= totalPages ? (
           <span className="text-sm text-muted-foreground">没有更多了</span>
-        ) : accounts.length > 0 ? (
+        ) : accounts.length > 0 && !error ? (
           <span className="text-sm text-muted-foreground">下滑加载更多</span>
-        ) : loading ? (
+        ) : loading && !error ? (
           <LoadingLine label="加载账号" />
         ) : null}
       </div>
@@ -325,27 +469,33 @@ function FilterControls({
   activeRange,
   activeSortLabel,
   clearFilters,
-  loading = false,
+  controlsDisabled,
+  loadingMode,
+  onRangeChange,
   onSearch,
+  onSortChange,
   searchValue,
-  setActiveRange,
   setSearchValue,
-  setSort,
   sort,
   stacked = false,
 }: {
   activeRange: number;
   activeSortLabel: string;
   clearFilters: () => void;
-  loading?: boolean;
+  controlsDisabled: boolean;
+  loadingMode: LoadingMode | null;
+  onRangeChange: (value: number) => void;
   onSearch: () => void;
+  onSortChange: (value: SortValue) => void;
   searchValue: string;
-  setActiveRange: (value: number) => void;
   setSearchValue: (value: string) => void;
-  setSort: (value: SortValue) => void;
   sort: SortValue;
   stacked?: boolean;
 }) {
+  const isFilterLoading = loadingMode === "filter";
+  const isResetLoading = loadingMode === "reset";
+  const isSearchLoading = loadingMode === "search";
+
   return (
     <div
       className={cn(
@@ -375,9 +525,14 @@ function FilterControls({
             onChange={(event) => setSearchValue(event.target.value)}
           />
         </div>
-        <Button className="h-9 rounded-md" disabled={loading} type="submit">
-          {loading ? <Spinner /> : null}
-          搜索
+        <Button
+          className="h-9 rounded-md"
+          disabled={controlsDisabled}
+          title="搜索账号"
+          type="submit"
+        >
+          {isSearchLoading ? <Spinner /> : null}
+          {isSearchLoading ? "搜索中..." : "搜索"}
         </Button>
       </form>
 
@@ -394,21 +549,26 @@ function FilterControls({
             <Button
               key={range.label}
               className="h-9 rounded-md px-3 text-xs"
+              disabled={controlsDisabled}
+              title={`筛选${range.label}账号`}
               type="button"
               variant={activeRange === index ? "default" : "outline"}
-              onClick={() => setActiveRange(index)}
+              onClick={() => onRangeChange(index)}
             >
+              {isFilterLoading && activeRange === index ? <Spinner /> : null}
               {range.label}
             </Button>
           ))}
         </div>
         <Select
+          disabled={controlsDisabled}
           value={sort}
-          onValueChange={(value) => setSort(value as SortValue)}
+          onValueChange={(value) => onSortChange(value as SortValue)}
         >
           <SelectTrigger
             aria-label="排序"
             className={cn("h-9 rounded-md", stacked ? "w-full" : "w-[154px]")}
+            title="选择账号排序"
           >
             <SelectValue placeholder={activeSortLabel} />
           </SelectTrigger>
@@ -425,15 +585,51 @@ function FilterControls({
             "h-9 rounded-md border-border bg-background px-3 text-xs",
             stacked ? "w-full justify-center" : "shrink-0",
           )}
+          disabled={controlsDisabled}
+          title="重置账号筛选"
           type="button"
           variant="outline"
           onClick={clearFilters}
         >
-          <RotateCcw size={15} />
-          重置
+          {isResetLoading ? <Spinner /> : <RotateCcw size={15} />}
+          {isResetLoading ? "重置中..." : "重置"}
         </Button>
       </div>
     </div>
+  );
+}
+
+function LoadErrorState({
+  loading,
+  message,
+  onRetry,
+}: {
+  loading: boolean;
+  message: string;
+  onRetry: () => void;
+}) {
+  return (
+    <Card className="rounded-md border-destructive/30 bg-destructive/5 shadow-none">
+      <CardContent className="flex flex-col items-center gap-3 p-5 text-center sm:flex-row sm:justify-between sm:text-left">
+        <div className="min-w-0">
+          <div className="text-sm font-medium text-destructive">
+            账号加载失败
+          </div>
+          <div className="mt-1 text-sm text-muted-foreground">{message}</div>
+        </div>
+        <Button
+          className="h-9 rounded-md"
+          disabled={loading}
+          title="重新加载账号"
+          type="button"
+          variant="outline"
+          onClick={onRetry}
+        >
+          {loading ? <Spinner /> : <RefreshCw size={16} />}
+          {loading ? "重试中..." : "重新加载"}
+        </Button>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -444,4 +640,8 @@ function LoadingLine({ label }: { label: string }) {
       {label}
     </span>
   );
+}
+
+function isAbortError(error: unknown) {
+  return error instanceof Error && error.name === "AbortError";
 }

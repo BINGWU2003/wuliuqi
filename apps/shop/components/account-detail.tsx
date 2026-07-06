@@ -12,6 +12,8 @@ import {
 import { ImageLightbox } from "@wuliuqi/ui/components/image-lightbox";
 import { Separator } from "@wuliuqi/ui/components/separator";
 import { Skeleton } from "@wuliuqi/ui/components/skeleton";
+import { toast } from "@wuliuqi/ui/components/sonner";
+import { Spinner } from "@wuliuqi/ui/components/spinner";
 import { cn } from "@wuliuqi/ui/lib/utils";
 import { downloadImageWithWatermark } from "@wuliuqi/utils/browser/image-download";
 import {
@@ -20,6 +22,7 @@ import {
   Clock3,
   ExternalLink,
   Hash,
+  RefreshCw,
   ShieldCheck,
   Store,
 } from "lucide-react";
@@ -48,27 +51,55 @@ export function AccountDetail({
   const [error, setError] = useState(id ? "" : "无效的账号ID");
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [retryToken, setRetryToken] = useState(0);
 
   useEffect(() => {
     if (!id) {
+      setAccount(null);
+      setLoading(false);
+      setError("无效的账号ID");
       return;
     }
 
+    const controller = new AbortController();
+    let active = true;
+
+    setAccount(null);
     setLoading(true);
     setError("");
 
-    fetchAccount(id)
+    fetchAccount(id, { signal: controller.signal })
       .then((nextAccount) => {
+        if (!active) {
+          return;
+        }
+
         setAccount(nextAccount);
         setSelectedImageIndex(0);
       })
-      .catch((fetchError) =>
-        setError(
-          fetchError instanceof Error ? fetchError.message : "获取账号信息失败",
-        ),
-      )
-      .finally(() => setLoading(false));
-  }, [id]);
+      .catch((fetchError) => {
+        if (!active || controller.signal.aborted || isAbortError(fetchError)) {
+          return;
+        }
+
+        const message =
+          fetchError instanceof Error
+            ? fetchError.message
+            : "获取账号信息失败";
+        setError(message);
+        toast.error(message);
+      })
+      .finally(() => {
+        if (active) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, [id, retryToken]);
 
   if (loading) {
     return <DetailSkeleton presentation={presentation} />;
@@ -77,8 +108,27 @@ export function AccountDetail({
   if (error) {
     return (
       <Card className="mx-auto max-w-3xl rounded-md border-destructive/30 bg-destructive/5 shadow-none">
-        <CardContent className="p-8 text-center text-sm font-medium text-destructive">
-          {error}
+        <CardContent className="flex flex-col items-center gap-3 p-8 text-center">
+          <div>
+            <div className="text-sm font-medium text-destructive">{error}</div>
+            {id ? (
+              <div className="mt-1 text-sm text-muted-foreground">
+                可以重新加载账号详情。
+              </div>
+            ) : null}
+          </div>
+          {id ? (
+            <Button
+              className="h-9 rounded-md"
+              title="重新加载账号详情"
+              type="button"
+              variant="outline"
+              onClick={() => setRetryToken((current) => current + 1)}
+            >
+              {loading ? <Spinner /> : <RefreshCw size={16} />}
+              重新加载
+            </Button>
+          ) : null}
         </CardContent>
       </Card>
     );
@@ -194,8 +244,13 @@ export function AccountDetail({
 
             {account.xianyuUrl ? (
               <Button asChild className="h-11 w-full rounded-md">
-                <a href={account.xianyuUrl} rel="noreferrer" target="_blank">
-                  查看闲鱼商品
+                <a
+                  href={account.xianyuUrl}
+                  rel="noreferrer"
+                  target="_blank"
+                  title={`打开闲鱼商品：${account.serialNumber}`}
+                >
+                  打开闲鱼商品
                   <ExternalLink size={16} />
                 </a>
               </Button>
@@ -208,9 +263,17 @@ export function AccountDetail({
             <Separator />
 
             <div className="grid grid-cols-2 gap-3">
-              <Metric icon={<Camera size={16} />} label="截图" value={`${account.images.length} 张`} />
+              <Metric
+                icon={<Camera size={16} />}
+                label="截图"
+                value={`${account.images.length} 张`}
+              />
               <Metric icon={<Store size={16} />} label="店铺" value="567手游店" />
-              <Metric icon={<Clock3 size={16} />} label="更新" value={formatDate(account.updatedAt)} />
+              <Metric
+                icon={<Clock3 size={16} />}
+                label="更新"
+                value={formatDate(account.updatedAt)}
+              />
               <Metric icon={<ShieldCheck size={16} />} label="交易" value="闲鱼联系" />
             </div>
           </CardContent>
@@ -259,6 +322,7 @@ function AccountGallery({
           <button
             aria-label="打开当前账号截图预览"
             className="relative size-full overflow-hidden"
+            title="打开当前账号截图预览"
             type="button"
             onClick={onPreview}
           >
@@ -288,6 +352,7 @@ function AccountGallery({
                 "relative aspect-square overflow-hidden rounded-sm border border-border bg-muted transition-opacity active:opacity-80",
                 index === selectedIndex && "ring-2 ring-foreground ring-offset-2",
               )}
+              title={`选择第 ${index + 1} 张账号截图`}
               type="button"
               onClick={() => onSelect(index)}
             >
@@ -369,4 +434,8 @@ function TrustItem({ children }: { children: ReactNode }) {
       <span>{children}</span>
     </div>
   );
+}
+
+function isAbortError(error: unknown) {
+  return error instanceof Error && error.name === "AbortError";
 }

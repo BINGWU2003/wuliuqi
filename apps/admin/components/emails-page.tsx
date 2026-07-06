@@ -28,6 +28,7 @@ import {
 } from "@wuliuqi/ui/components/select";
 import { Skeleton } from "@wuliuqi/ui/components/skeleton";
 import { Spinner } from "@wuliuqi/ui/components/spinner";
+import { toast } from "@wuliuqi/ui/components/sonner";
 import {
   Table,
   TableBody,
@@ -52,12 +53,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { EmailBindStatusBadge } from "@/components/status-badge";
 import { deleteEmail, fetchEmails } from "@/lib/client-api";
 import { ADMIN_EMAILS_CHANGED_EVENT } from "@/lib/events";
+import { errorMessage } from "@/lib/feedback";
 import { formatDate } from "@/lib/format";
 
 const EMAIL_PAGE_SIZE = 50;
 const MOBILE_VIEWPORT_QUERY = "(max-width: 639px)";
 
 type LoadMode = "append" | "replace";
+type EmailPendingAction = { emailId: number; name: "delete" } | null;
 
 function isMobileViewport() {
   return (
@@ -77,7 +80,8 @@ export function EmailsPage() {
   const [error, setError] = useState("");
   const [total, setTotal] = useState(0);
   const [deleteTarget, setDeleteTarget] = useState<AdminEmail | null>(null);
-  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [pendingAction, setPendingAction] =
+    useState<EmailPendingAction>(null);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const loadingRef = useRef(false);
   const pageRef = useRef(1);
@@ -132,10 +136,10 @@ export function EmailsPage() {
           return;
         }
 
-        const message =
-          loadError instanceof Error ? loadError.message : "加载失败";
+        const message = errorMessage(loadError, "加载失败");
         errorRef.current = message;
         setError(message);
+        toast.error(message);
       } finally {
         if (requestId === requestIdRef.current) {
           loadingRef.current = false;
@@ -194,10 +198,10 @@ export function EmailsPage() {
         return;
       }
 
-      const message =
-        loadError instanceof Error ? loadError.message : "加载失败";
+      const message = errorMessage(loadError, "加载失败");
       errorRef.current = message;
       setError(message);
+      toast.error(message);
     } finally {
       if (requestId === requestIdRef.current) {
         loadingRef.current = false;
@@ -281,32 +285,37 @@ export function EmailsPage() {
   }
 
   async function confirmRemoveEmail() {
-    if (!deleteTarget || deletingId !== null) {
+    if (!deleteTarget || pendingAction !== null) {
       return;
     }
 
     if (isEmailLinked(deleteTarget)) {
-      setError("该邮箱已关联账号，无法删除");
+      toast.error("该邮箱已关联账号，无法删除");
       setDeleteTarget(null);
       return;
     }
 
-    setDeletingId(deleteTarget.id);
+    setPendingAction({ emailId: deleteTarget.id, name: "delete" });
     setError("");
 
     try {
       await deleteEmail(deleteTarget.id);
       await reloadCurrentView();
       setDeleteTarget(null);
+      toast.success("邮箱已删除");
     } catch (deleteError) {
-      setError(deleteError instanceof Error ? deleteError.message : "删除失败");
-      setDeleteTarget(null);
+      const message = errorMessage(deleteError, "删除失败");
+      setError(message);
+      toast.error(message);
     } finally {
-      setDeletingId(null);
+      setPendingAction(null);
     }
   }
 
   const isInitialLoading = loading && emails.length === 0;
+  const deletingId =
+    pendingAction?.name === "delete" ? pendingAction.emailId : null;
+  const isMutating = pendingAction !== null;
 
   return (
     <div className="space-y-4">
@@ -392,9 +401,13 @@ export function EmailsPage() {
               </Button>
               <Button
                 aria-label={`删除邮箱 ${email.email}`}
-                disabled={deletingId === email.id || isEmailLinked(email)}
+                disabled={isMutating || isEmailLinked(email)}
                 size="sm"
-                title={isEmailLinked(email) ? "已关联账号，无法删除" : undefined}
+                title={
+                  isEmailLinked(email)
+                    ? "已关联账号，无法删除"
+                    : `删除邮箱 ${email.email}`
+                }
                 type="button"
                 variant="ghost"
                 onClick={() => setDeleteTarget(email)}
@@ -407,11 +420,6 @@ export function EmailsPage() {
         {!loading && emails.length === 0 ? (
           <div className="rounded-md border border-border bg-card px-4 py-10 text-center text-sm text-muted-foreground">
             暂无邮箱
-          </div>
-        ) : null}
-        {error ? (
-          <div className="rounded-md border border-border bg-card px-4 py-3 text-sm text-destructive">
-            {error}
           </div>
         ) : null}
         <div
@@ -463,10 +471,13 @@ export function EmailsPage() {
                         </Link>
                       </Button>
                       <Button
-                        disabled={deletingId === email.id || isEmailLinked(email)}
+                        aria-label={`删除邮箱 ${email.email}`}
+                        disabled={isMutating || isEmailLinked(email)}
                         size="sm"
                         title={
-                          isEmailLinked(email) ? "已关联账号，无法删除" : undefined
+                          isEmailLinked(email)
+                            ? "已关联账号，无法删除"
+                            : `删除邮箱 ${email.email}`
                         }
                         type="button"
                         variant="ghost"
@@ -498,11 +509,6 @@ export function EmailsPage() {
         {loading ? (
           <div className="border-t border-border px-4 py-3">
             <LoadingLine label={emails.length > 0 ? "正在刷新" : "加载邮箱"} />
-          </div>
-        ) : null}
-        {error ? (
-          <div className="border-t border-border px-4 py-3 text-sm text-destructive">
-            {error}
           </div>
         ) : null}
         {total > 0 ? (
@@ -543,7 +549,7 @@ export function EmailsPage() {
               }}
             >
               {deletingId !== null ? <Spinner /> : null}
-              删除邮箱
+              {deletingId !== null ? "删除中..." : "删除邮箱"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -629,6 +635,7 @@ function EmailsPagination({
           aria-label="第一页"
           disabled={loading || isFirstPage}
           size="sm"
+          title="第一页"
           type="button"
           variant="outline"
           onClick={() => onPageChange(1)}
@@ -639,6 +646,7 @@ function EmailsPagination({
           aria-label="上一页"
           disabled={loading || isFirstPage}
           size="sm"
+          title="上一页"
           type="button"
           variant="outline"
           onClick={() => onPageChange(Math.max(page - 1, 1))}
@@ -662,6 +670,7 @@ function EmailsPagination({
           aria-label="下一页"
           disabled={loading || isLastPage}
           size="sm"
+          title="下一页"
           type="button"
           variant="outline"
           onClick={() => onPageChange(Math.min(page + 1, safeTotalPages))}
@@ -672,6 +681,7 @@ function EmailsPagination({
           aria-label="最后一页"
           disabled={loading || isLastPage}
           size="sm"
+          title="最后一页"
           type="button"
           variant="outline"
           onClick={() => onPageChange(safeTotalPages)}

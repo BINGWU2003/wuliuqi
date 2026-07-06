@@ -19,6 +19,7 @@ import {
 } from "@wuliuqi/ui/components/select";
 import { Skeleton } from "@wuliuqi/ui/components/skeleton";
 import { Spinner } from "@wuliuqi/ui/components/spinner";
+import { toast } from "@wuliuqi/ui/components/sonner";
 import { ArrowLeft, Save, Search } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -33,6 +34,7 @@ import {
   updateAccount,
 } from "@/lib/client-api";
 import { ADMIN_ACCOUNTS_CHANGED_EVENT } from "@/lib/events";
+import { errorMessage } from "@/lib/feedback";
 
 type AccountFormState = {
   serialNumber: string;
@@ -60,9 +62,11 @@ type AccountFormPresentation = "page" | "modal";
 
 export function AccountForm({
   accountId,
+  onBusyChange,
   presentation = "page",
 }: {
   accountId?: number;
+  onBusyChange?: (busy: boolean) => void;
   presentation?: AccountFormPresentation;
 }) {
   const router = useRouter();
@@ -73,7 +77,14 @@ export function AccountForm({
   const [loading, setLoading] = useState(Boolean(accountId));
   const [saving, setSaving] = useState(false);
   const [searchingEmails, setSearchingEmails] = useState(false);
-  const [error, setError] = useState("");
+  const [imageUploading, setImageUploading] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
+
+  useEffect(() => {
+    onBusyChange?.(saving || imageUploading);
+
+    return () => onBusyChange?.(false);
+  }, [imageUploading, onBusyChange, saving]);
 
   useEffect(() => {
     if (!accountId) {
@@ -94,9 +105,11 @@ export function AccountForm({
           status: account.status === 2 ? 2 : 1,
         }),
       )
-      .catch((loadError) =>
-        setError(loadError instanceof Error ? loadError.message : "加载失败"),
-      )
+      .then(() => setLoadFailed(false))
+      .catch((loadError) => {
+        setLoadFailed(true);
+        toast.error(errorMessage(loadError, "加载失败"));
+      })
       .finally(() => setLoading(false));
   }, [accountId]);
 
@@ -110,7 +123,6 @@ export function AccountForm({
     }
 
     setSearchingEmails(true);
-    setError("");
 
     try {
       const result = await fetchEmails({
@@ -120,7 +132,7 @@ export function AccountForm({
       });
       setEmailOptions(result.list);
     } catch (searchError) {
-      setError(searchError instanceof Error ? searchError.message : "搜索失败");
+      toast.error(errorMessage(searchError, "搜索失败"));
     } finally {
       setSearchingEmails(false);
     }
@@ -128,8 +140,12 @@ export function AccountForm({
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    if (saving || imageUploading || loadFailed) {
+      return;
+    }
+
     setSaving(true);
-    setError("");
 
     try {
       const payload = {
@@ -145,6 +161,7 @@ export function AccountForm({
         await createAccount(payload);
       }
 
+      toast.success(accountId ? "账号已保存" : "账号已创建");
       window.dispatchEvent(new Event(ADMIN_ACCOUNTS_CHANGED_EVENT));
 
       if (isModal) {
@@ -154,7 +171,7 @@ export function AccountForm({
         router.refresh();
       }
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : "保存失败");
+      toast.error(errorMessage(submitError, "保存失败"));
     } finally {
       setSaving(false);
     }
@@ -184,17 +201,15 @@ export function AccountForm({
             {accountId ? "编辑账号" : "新建账号"}
           </h1>
         </div>
-        <Button className="w-full sm:w-auto" disabled={saving} type="submit">
+        <Button
+          className="w-full sm:w-auto"
+          disabled={saving || imageUploading || loadFailed}
+          type="submit"
+        >
           {saving ? <Spinner /> : <Save size={16} />}
           {saving ? "保存中..." : "保存账号"}
         </Button>
       </div>
-
-      {error ? (
-        <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
-          {error}
-        </div>
-      ) : null}
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
         <div className="order-2 space-y-4 lg:order-1">
@@ -207,6 +222,7 @@ export function AccountForm({
                 folder="codm-accounts/"
                 images={form.images}
                 maxCount={10}
+                onUploadingChange={setImageUploading}
                 onChange={(images) => updateForm({ images })}
               />
             </CardContent>
@@ -307,6 +323,8 @@ export function AccountForm({
                 />
                 <Button
                   disabled={searchingEmails}
+                  aria-label="搜索邮箱"
+                  title="搜索邮箱"
                   type="button"
                   variant="outline"
                   onClick={searchEmails}

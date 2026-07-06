@@ -4,26 +4,29 @@ import { Button } from "@wuliuqi/ui/components/button";
 import { ImageLightbox } from "@wuliuqi/ui/components/image-lightbox";
 import { Input } from "@wuliuqi/ui/components/input";
 import { Spinner } from "@wuliuqi/ui/components/spinner";
+import { toast } from "@wuliuqi/ui/components/sonner";
 import { downloadImageWithWatermark } from "@wuliuqi/utils/browser/image-download";
 import { ImagePlus, Trash2 } from "lucide-react";
 import Image from "next/image";
 import { useRef, useState } from "react";
 import { uploadImage } from "@/lib/client-api";
+import { errorMessage } from "@/lib/feedback";
 
 export function ImageUploader({
   folder,
   images,
   maxCount = 10,
   onChange,
+  onUploadingChange,
 }: {
   folder: string;
   images: string[];
   maxCount?: number;
   onChange: (images: string[]) => void;
+  onUploadingChange?: (uploading: boolean) => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState("");
   const [previewIndex, setPreviewIndex] = useState(0);
   const [previewOpen, setPreviewOpen] = useState(false);
 
@@ -33,7 +36,7 @@ export function ImageUploader({
     }
 
     setUploading(true);
-    setError("");
+    onUploadingChange?.(true);
 
     try {
       const nextImages = [...images];
@@ -48,10 +51,12 @@ export function ImageUploader({
       }
 
       onChange(nextImages);
+      toast.success("图片已上传");
     } catch (uploadError) {
-      setError(uploadError instanceof Error ? uploadError.message : "上传失败");
+      toast.error(errorMessage(uploadError, "上传失败"));
     } finally {
       setUploading(false);
+      onUploadingChange?.(false);
       if (inputRef.current) {
         inputRef.current.value = "";
       }
@@ -69,6 +74,7 @@ export function ImageUploader({
             <button
               aria-label={`预览第 ${index + 1} 张图片`}
               className="relative size-full"
+              title={`预览第 ${index + 1} 张图片`}
               type="button"
               onClick={() => {
                 setPreviewIndex(index);
@@ -88,6 +94,7 @@ export function ImageUploader({
               aria-label="删除图片"
               className="absolute right-1 top-1 size-8 bg-background/90 sm:opacity-0 sm:group-hover:opacity-100"
               size="icon"
+              title="删除图片"
               type="button"
               variant="ghost"
               onClick={(event) => {
@@ -101,8 +108,10 @@ export function ImageUploader({
         ))}
         {images.length < maxCount ? (
           <button
+            aria-label="添加图片"
             className="flex aspect-square flex-col items-center justify-center gap-2 rounded-md border border-dashed border-input bg-background text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
             disabled={uploading}
+            title="添加图片"
             type="button"
             onClick={() => inputRef.current?.click()}
           >
@@ -123,7 +132,6 @@ export function ImageUploader({
         type="file"
         onChange={(event) => handleFiles(event.target.files)}
       />
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
       <ImageLightbox
         downloadImage={(image) =>
           downloadImageWithWatermark(image, { text: "© 567手游店" })

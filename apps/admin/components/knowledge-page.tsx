@@ -64,6 +64,7 @@ import {
 } from "lucide-react";
 import type { FormEvent } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { errorMessage } from "@/lib/feedback";
 
 type KnowledgeState = {
   bases: KnowledgeBase[];
@@ -134,10 +135,6 @@ async function requestJson<T>(
   }
 
   return payload.data;
-}
-
-function errorMessage(error: unknown, fallback: string) {
-  return error instanceof Error ? error.message : fallback;
 }
 
 function contentTypeLabel(type: ContentType) {
@@ -641,10 +638,10 @@ export function KnowledgePage() {
                         </div>
                       </div>
                       <Button
-                        aria-label="删除分类"
+                        aria-label={`删除分类 ${category.name}`}
                         disabled={isMutating}
                         size="icon"
-                        title="删除分类"
+                        title={`删除分类 ${category.name}`}
                         type="button"
                         variant="ghost"
                         onClick={() => requestDeleteCategory(category)}
@@ -813,7 +810,7 @@ export function KnowledgePage() {
               }}
             >
               {deletePending ? <Spinner /> : null}
-              删除{deleteTypeLabel}
+              {deletePending ? "删除中..." : `删除${deleteTypeLabel}`}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -846,7 +843,7 @@ export function KnowledgePage() {
               }}
             >
               {categoryDeletePending ? <Spinner /> : null}
-              删除分类
+              {categoryDeletePending ? "删除中..." : "删除分类"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1292,13 +1289,18 @@ function KnowledgeEditDialog({
           <DialogFooter className="border-t border-border p-4">
             <Button
               disabled={submitting}
+              title="取消编辑"
               type="button"
               variant="outline"
-              onClick={onClose}
+              onClick={() => {
+                if (!submitting) {
+                  onClose();
+                }
+              }}
             >
               取消
             </Button>
-            <Button disabled={submitting} type="submit">
+            <Button disabled={submitting} title="保存编辑" type="submit">
               {submitting ? <Spinner /> : null}
               {submitting ? "保存中..." : "保存"}
             </Button>

@@ -21,6 +21,7 @@ import {
 import { Input } from "@wuliuqi/ui/components/input";
 import { Skeleton } from "@wuliuqi/ui/components/skeleton";
 import { Spinner } from "@wuliuqi/ui/components/spinner";
+import { toast } from "@wuliuqi/ui/components/sonner";
 import {
   Table,
   TableBody,
@@ -37,11 +38,16 @@ import {
   nextSequenceCounterValue,
   resetSequenceCounterValue,
 } from "@/lib/client-api";
+import { errorMessage } from "@/lib/feedback";
 import { formatDate } from "@/lib/format";
 
 type CounterConfirmTarget =
   | { type: "next"; counterName: string }
   | { type: "reset"; counterName: string; value: number };
+type CounterPendingAction =
+  | { name: "create" }
+  | { counterName: string; name: "next" | "reset" }
+  | null;
 
 export function SequenceCountersPage() {
   const [counters, setCounters] = useState<SequenceCounter[]>([]);
@@ -49,20 +55,18 @@ export function SequenceCountersPage() {
   const [currentValue, setCurrentValue] = useState(0);
   const [resetValues, setResetValues] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
-  const [creating, setCreating] = useState(false);
-  const [message, setMessage] = useState("");
+  const [pendingAction, setPendingAction] =
+    useState<CounterPendingAction>(null);
   const [confirmTarget, setConfirmTarget] =
     useState<CounterConfirmTarget | null>(null);
-  const [counterAction, setCounterAction] = useState<string | null>(null);
 
   async function loadCounters() {
     setLoading(true);
-    setMessage("");
 
     try {
       setCounters(await fetchSequenceCounters());
     } catch (loadError) {
-      setMessage(loadError instanceof Error ? loadError.message : "加载失败");
+      toast.error(errorMessage(loadError, "加载失败"));
     } finally {
       setLoading(false);
     }
@@ -74,35 +78,34 @@ export function SequenceCountersPage() {
 
   async function createCounter(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (creating) {
+    if (pendingAction !== null) {
       return;
     }
 
-    setCreating(true);
-    setMessage("");
+    setPendingAction({ name: "create" });
 
     try {
       await createSequenceCounter(counterName, currentValue);
       setCounterName("");
       setCurrentValue(0);
       await loadCounters();
+      toast.success("计数器已创建");
     } catch (createError) {
-      setMessage(
-        createError instanceof Error ? createError.message : "创建失败",
-      );
+      toast.error(errorMessage(createError, "创建失败"));
     } finally {
-      setCreating(false);
+      setPendingAction(null);
     }
   }
 
   async function confirmCounterAction() {
-    if (!confirmTarget || counterAction !== null) {
+    if (!confirmTarget || pendingAction !== null) {
       return;
     }
 
-    const actionKey = `${confirmTarget.type}:${confirmTarget.counterName}`;
-    setCounterAction(actionKey);
-    setMessage("");
+    setPendingAction({
+      counterName: confirmTarget.counterName,
+      name: confirmTarget.type,
+    });
 
     try {
       if (confirmTarget.type === "next") {
@@ -110,27 +113,30 @@ export function SequenceCountersPage() {
           confirmTarget.counterName,
         );
         await loadCounters();
-        setMessage(`${result.counterName} 下一个值：${result.nextValue}`);
+        toast.success(`${result.counterName} 下一个值：${result.nextValue}`);
       } else {
         await resetSequenceCounterValue(
           confirmTarget.counterName,
           confirmTarget.value,
         );
         await loadCounters();
+        toast.success("计数器已重置");
       }
 
       setConfirmTarget(null);
     } catch (actionError) {
       const fallback = confirmTarget.type === "reset" ? "重置失败" : "操作失败";
-      setMessage(actionError instanceof Error ? actionError.message : fallback);
-      setConfirmTarget(null);
+      toast.error(errorMessage(actionError, fallback));
     } finally {
-      setCounterAction(null);
+      setPendingAction(null);
     }
   }
 
   const isInitialLoading = loading && counters.length === 0;
-  const confirmPending = counterAction !== null;
+  const creating = pendingAction?.name === "create";
+  const confirmPending =
+    pendingAction?.name === "next" || pendingAction?.name === "reset";
+  const isMutating = pendingAction !== null;
   const confirmDescription =
     confirmTarget?.type === "reset"
       ? `确认将 ${confirmTarget.counterName} 重置为 ${confirmTarget.value}？这会立即写入服务端。`
@@ -157,12 +163,6 @@ export function SequenceCountersPage() {
         </Button>
       </div>
 
-      {message ? (
-        <div className="rounded-md border border-border bg-card px-3 py-2 text-sm">
-          {message}
-        </div>
-      ) : null}
-
       <Card className="rounded-md shadow-none">
         <CardHeader className="border-b border-border">
           <CardTitle className="text-base">新建计数器</CardTitle>
@@ -173,12 +173,14 @@ export function SequenceCountersPage() {
             onSubmit={createCounter}
           >
             <Input
+              disabled={isMutating}
               required
               placeholder="计数器名称"
               value={counterName}
               onChange={(event) => setCounterName(event.target.value)}
             />
             <Input
+              disabled={isMutating}
               min={0}
               type="number"
               value={currentValue}
@@ -186,7 +188,7 @@ export function SequenceCountersPage() {
             />
             <Button
               className="w-full sm:w-auto"
-              disabled={creating}
+              disabled={isMutating}
               type="submit"
             >
               {creating ? <Spinner /> : <Plus size={16} />}
@@ -219,6 +221,7 @@ export function SequenceCountersPage() {
             </div>
             <div className="mt-3 grid gap-2 border-t border-border pt-3">
               <Input
+                disabled={isMutating}
                 min={0}
                 type="number"
                 value={resetValues[counter.counterName] ?? 0}
@@ -231,8 +234,10 @@ export function SequenceCountersPage() {
               />
               <div className="grid grid-cols-2 gap-2">
                 <Button
-                  disabled={confirmPending}
+                  aria-label={`重置计数器 ${counter.counterName}`}
+                  disabled={isMutating}
                   size="sm"
+                  title={`重置计数器 ${counter.counterName}`}
                   type="button"
                   variant="outline"
                   onClick={() =>
@@ -243,7 +248,11 @@ export function SequenceCountersPage() {
                     })
                   }
                 >
-                  {counterAction === `reset:${counter.counterName}` ? (
+                  {isPendingCounterAction(
+                    pendingAction,
+                    "reset",
+                    counter.counterName,
+                  ) ? (
                     <Spinner />
                   ) : (
                     <RotateCcw size={15} />
@@ -251,8 +260,10 @@ export function SequenceCountersPage() {
                   重置
                 </Button>
                 <Button
-                  disabled={confirmPending}
+                  aria-label={`获取 ${counter.counterName} 的下一个值`}
+                  disabled={isMutating}
                   size="sm"
+                  title={`获取 ${counter.counterName} 的下一个值`}
                   type="button"
                   onClick={() =>
                     setConfirmTarget({
@@ -261,7 +272,11 @@ export function SequenceCountersPage() {
                     })
                   }
                 >
-                  {counterAction === `next:${counter.counterName}` ? (
+                  {isPendingCounterAction(
+                    pendingAction,
+                    "next",
+                    counter.counterName,
+                  ) ? (
                     <Spinner />
                   ) : null}
                   下一个
@@ -311,6 +326,7 @@ export function SequenceCountersPage() {
                   <div className="flex justify-end gap-2">
                     <Input
                       className="h-8 w-24"
+                      disabled={isMutating}
                       min={0}
                       type="number"
                       value={resetValues[counter.counterName] ?? 0}
@@ -322,8 +338,10 @@ export function SequenceCountersPage() {
                       }
                     />
                     <Button
-                      disabled={confirmPending}
+                      aria-label={`重置计数器 ${counter.counterName}`}
+                      disabled={isMutating}
                       size="sm"
+                      title={`重置计数器 ${counter.counterName}`}
                       type="button"
                       variant="outline"
                       onClick={() =>
@@ -334,7 +352,11 @@ export function SequenceCountersPage() {
                         })
                       }
                     >
-                      {counterAction === `reset:${counter.counterName}` ? (
+                      {isPendingCounterAction(
+                        pendingAction,
+                        "reset",
+                        counter.counterName,
+                      ) ? (
                         <Spinner />
                       ) : (
                         <RotateCcw size={15} />
@@ -342,8 +364,10 @@ export function SequenceCountersPage() {
                       重置
                     </Button>
                     <Button
-                      disabled={confirmPending}
+                      aria-label={`获取 ${counter.counterName} 的下一个值`}
+                      disabled={isMutating}
                       size="sm"
+                      title={`获取 ${counter.counterName} 的下一个值`}
                       type="button"
                       onClick={() =>
                         setConfirmTarget({
@@ -352,7 +376,11 @@ export function SequenceCountersPage() {
                         })
                       }
                     >
-                      {counterAction === `next:${counter.counterName}` ? (
+                      {isPendingCounterAction(
+                        pendingAction,
+                        "next",
+                        counter.counterName,
+                      ) ? (
                         <Spinner />
                       ) : null}
                       下一个
@@ -384,7 +412,7 @@ export function SequenceCountersPage() {
       <AlertDialog
         open={Boolean(confirmTarget)}
         onOpenChange={(open) => {
-          if (!open && counterAction === null) {
+          if (!open && !confirmPending) {
             setConfirmTarget(null);
           }
         }}
@@ -410,12 +438,26 @@ export function SequenceCountersPage() {
               }}
             >
               {confirmPending ? <Spinner /> : null}
-              确认
+              {confirmPending
+                ? confirmTarget?.type === "reset"
+                  ? "重置中..."
+                  : "获取中..."
+                : "确认"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  );
+}
+
+function isPendingCounterAction(
+  pendingAction: CounterPendingAction,
+  name: "next" | "reset",
+  counterName: string,
+) {
+  return (
+    pendingAction?.name === name && pendingAction.counterName === counterName
   );
 }
 

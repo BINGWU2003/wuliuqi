@@ -12,11 +12,13 @@ import { ImageLightbox } from "@wuliuqi/ui/components/image-lightbox";
 import { Input } from "@wuliuqi/ui/components/input";
 import { Skeleton } from "@wuliuqi/ui/components/skeleton";
 import { Spinner } from "@wuliuqi/ui/components/spinner";
+import { toast } from "@wuliuqi/ui/components/sonner";
 import { downloadImageWithWatermark } from "@wuliuqi/utils/browser/image-download";
 import { ArrowDown, ArrowUp, ImagePlus, Save, Trash2 } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { fetchCarousel, updateCarousel, uploadImage } from "@/lib/client-api";
+import { errorMessage } from "@/lib/feedback";
 
 const MAX_IMAGES = 6;
 
@@ -39,19 +41,17 @@ export function CarouselPage({ name }: { name: string }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [message, setMessage] = useState("");
   const [previewIndex, setPreviewIndex] = useState(0);
   const [previewOpen, setPreviewOpen] = useState(false);
 
   async function loadCarousel() {
     setLoading(true);
-    setMessage("");
 
     try {
       const carousel = await fetchCarousel(name);
       setItems(carousel.items);
     } catch (loadError) {
-      setMessage(loadError instanceof Error ? loadError.message : "加载失败");
+      toast.error(errorMessage(loadError, "加载失败"));
     } finally {
       setLoading(false);
     }
@@ -63,12 +63,11 @@ export function CarouselPage({ name }: { name: string }) {
   }, [name]);
 
   async function handleFiles(files: FileList | null) {
-    if (!files?.length || uploading || items.length >= MAX_IMAGES) {
+    if (!files?.length || uploading || saving || items.length >= MAX_IMAGES) {
       return;
     }
 
     setUploading(true);
-    setMessage("");
 
     try {
       const nextItems = [...items];
@@ -86,10 +85,9 @@ export function CarouselPage({ name }: { name: string }) {
       }
 
       setItems(nextItems);
+      toast.success("图片已上传");
     } catch (uploadError) {
-      setMessage(
-        uploadError instanceof Error ? uploadError.message : "上传失败",
-      );
+      toast.error(errorMessage(uploadError, "上传失败"));
     } finally {
       setUploading(false);
       if (fileInputRef.current) {
@@ -99,8 +97,11 @@ export function CarouselPage({ name }: { name: string }) {
   }
 
   async function save() {
+    if (saving || uploading) {
+      return;
+    }
+
     setSaving(true);
-    setMessage("");
 
     try {
       const normalizedItems = items.map((item, index) => ({
@@ -109,13 +110,15 @@ export function CarouselPage({ name }: { name: string }) {
       }));
       await updateCarousel(name, normalizedItems);
       setItems(normalizedItems);
-      setMessage("保存成功");
+      toast.success("轮播图已保存");
     } catch (saveError) {
-      setMessage(saveError instanceof Error ? saveError.message : "保存失败");
+      toast.error(errorMessage(saveError, "保存失败"));
     } finally {
       setSaving(false);
     }
   }
+
+  const isBusy = saving || uploading;
 
   return (
     <div className="space-y-4">
@@ -129,7 +132,8 @@ export function CarouselPage({ name }: { name: string }) {
         <div className="grid gap-2 sm:flex">
           <Button
             className="w-full sm:w-auto"
-            disabled={uploading || items.length >= MAX_IMAGES}
+            disabled={isBusy || items.length >= MAX_IMAGES}
+            title="添加图片"
             type="button"
             variant="outline"
             onClick={() => fileInputRef.current?.click()}
@@ -139,7 +143,8 @@ export function CarouselPage({ name }: { name: string }) {
           </Button>
           <Button
             className="w-full sm:w-auto"
-            disabled={saving || items.length === 0}
+            disabled={isBusy || items.length === 0}
+            title="保存轮播图"
             type="button"
             onClick={save}
           >
@@ -148,12 +153,6 @@ export function CarouselPage({ name }: { name: string }) {
           </Button>
         </div>
       </div>
-
-      {message ? (
-        <div className="rounded-md border border-border bg-card px-3 py-2 text-sm">
-          {message}
-        </div>
-      ) : null}
 
       <Input
         ref={fileInputRef}
@@ -177,12 +176,22 @@ export function CarouselPage({ name }: { name: string }) {
                 <div
                   key={`${item.url}-${index}`}
                   className="rounded-md border border-border bg-background"
-                  draggable
-                  onDragOver={(event) => event.preventDefault()}
+                  draggable={!isBusy}
+                  onDragOver={(event) => {
+                    if (!isBusy) {
+                      event.preventDefault();
+                    }
+                  }}
                   onDragStart={() => {
+                    if (isBusy) {
+                      return;
+                    }
                     dragIndexRef.current = index;
                   }}
                   onDrop={() => {
+                    if (isBusy) {
+                      return;
+                    }
                     if (dragIndexRef.current !== null) {
                       setItems(reorder(items, dragIndexRef.current, index));
                     }
@@ -193,6 +202,7 @@ export function CarouselPage({ name }: { name: string }) {
                     <button
                       aria-label={`预览第 ${index + 1} 张轮播图`}
                       className="relative size-full"
+                      title={`预览第 ${index + 1} 张轮播图`}
                       type="button"
                       onClick={() => {
                         setPreviewIndex(index);
@@ -211,6 +221,7 @@ export function CarouselPage({ name }: { name: string }) {
                   </div>
                   <div className="space-y-2 p-3">
                     <Input
+                      disabled={isBusy}
                       placeholder="跳转链接，可选"
                       value={item.linkUrl ?? ""}
                       onChange={(event) =>
@@ -227,8 +238,9 @@ export function CarouselPage({ name }: { name: string }) {
                       <div className="flex gap-1">
                         <Button
                           aria-label="上移"
-                          disabled={index === 0}
+                          disabled={isBusy || index === 0}
                           size="icon"
+                          title="上移"
                           type="button"
                           variant="ghost"
                           onClick={() =>
@@ -239,8 +251,9 @@ export function CarouselPage({ name }: { name: string }) {
                         </Button>
                         <Button
                           aria-label="下移"
-                          disabled={index === items.length - 1}
+                          disabled={isBusy || index === items.length - 1}
                           size="icon"
+                          title="下移"
                           type="button"
                           variant="ghost"
                           onClick={() =>
@@ -252,7 +265,9 @@ export function CarouselPage({ name }: { name: string }) {
                       </div>
                       <Button
                         aria-label="删除"
+                        disabled={isBusy}
                         size="icon"
+                        title="删除"
                         type="button"
                         variant="ghost"
                         onClick={() =>

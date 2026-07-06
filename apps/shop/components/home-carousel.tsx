@@ -1,9 +1,12 @@
 "use client";
 
 import type { CarouselItem } from "@wuliuqi/types";
+import { Button } from "@wuliuqi/ui/components/button";
 import { Skeleton } from "@wuliuqi/ui/components/skeleton";
+import { toast } from "@wuliuqi/ui/components/sonner";
 import { Spinner } from "@wuliuqi/ui/components/spinner";
 import { cn } from "@wuliuqi/ui/lib/utils";
+import { RefreshCw } from "lucide-react";
 import Image from "next/image";
 import {
   useCallback,
@@ -20,16 +23,66 @@ const SWIPE_THRESHOLD = 48;
 export function HomeCarousel() {
   const [items, setItems] = useState<CarouselItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [active, setActive] = useState(0);
   const dragStartXRef = useRef<number | null>(null);
   const dragPointerIdRef = useRef<number | null>(null);
+  const requestIdRef = useRef(0);
+  const requestControllerRef = useRef<AbortController | null>(null);
+
+  const loadCarousel = useCallback(async (retry = false) => {
+    const requestId = ++requestIdRef.current;
+    const controller = new AbortController();
+
+    requestControllerRef.current?.abort();
+    requestControllerRef.current = controller;
+    setLoading(true);
+
+    if (!retry) {
+      setError("");
+    }
+
+    try {
+      const carousel = await fetchCarousel(CAROUSEL_NAME, {
+        signal: controller.signal,
+      });
+
+      if (requestId !== requestIdRef.current) {
+        return;
+      }
+
+      setItems(carousel.items);
+      setError("");
+    } catch (loadError) {
+      if (
+        controller.signal.aborted ||
+        requestId !== requestIdRef.current ||
+        isAbortError(loadError)
+      ) {
+        return;
+      }
+
+      const message =
+        loadError instanceof Error ? loadError.message : "轮播图加载失败";
+      setItems([]);
+      setError(message);
+      toast.error(message);
+    } finally {
+      if (requestId === requestIdRef.current) {
+        requestControllerRef.current = null;
+        setLoading(false);
+      }
+    }
+  }, []);
 
   useEffect(() => {
-    fetchCarousel(CAROUSEL_NAME)
-      .then((carousel) => setItems(carousel.items))
-      .catch(() => setItems([]))
-      .finally(() => setLoading(false));
-  }, []);
+    void loadCarousel();
+
+    return () => {
+      requestIdRef.current += 1;
+      requestControllerRef.current?.abort();
+    };
+  }, [loadCarousel]);
 
   useEffect(() => {
     if (items.length < 2) {
@@ -102,7 +155,7 @@ export function HomeCarousel() {
     dragPointerIdRef.current = null;
   }
 
-  if (loading) {
+  if (loading && !error) {
     return (
       <section
         aria-label="首页轮播图加载中"
@@ -114,6 +167,33 @@ export function HomeCarousel() {
             <Spinner />
             加载轮播图
           </span>
+        </div>
+      </section>
+    );
+  }
+
+  if (error) {
+    return (
+      <section
+        aria-label="首页轮播图加载失败"
+        className="relative mx-auto flex aspect-[16/6] min-h-[150px] w-full max-w-6xl items-center justify-center overflow-hidden rounded-md border border-border bg-card p-4 text-center shadow-xs"
+      >
+        <div className="flex flex-col items-center gap-3">
+          <div className="space-y-1">
+            <div className="text-sm font-medium">轮播图加载失败</div>
+            <div className="text-sm text-muted-foreground">{error}</div>
+          </div>
+          <Button
+            className="h-9 rounded-md"
+            disabled={loading}
+            title="重新加载轮播图"
+            type="button"
+            variant="outline"
+            onClick={() => void loadCarousel(true)}
+          >
+            {loading ? <Spinner /> : <RefreshCw size={16} />}
+            {loading ? "重试中..." : "重新加载"}
+          </Button>
         </div>
       </section>
     );
@@ -158,6 +238,7 @@ export function HomeCarousel() {
                 "h-1.5 w-1.5 cursor-pointer rounded-full bg-white/65 transition-all hover:bg-white",
                 index === active && "w-5 bg-white",
               )}
+              title={`切换到第 ${index + 1} 张轮播图`}
               type="button"
               onClick={() => setActive(index)}
               onPointerDown={(event) => event.stopPropagation()}
@@ -167,4 +248,8 @@ export function HomeCarousel() {
       ) : null}
     </section>
   );
+}
+
+function isAbortError(error: unknown) {
+  return error instanceof Error && error.name === "AbortError";
 }

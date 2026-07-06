@@ -2,6 +2,7 @@
 
 import { Button } from "@wuliuqi/ui/components/button";
 import { Spinner } from "@wuliuqi/ui/components/spinner";
+import { toast } from "@wuliuqi/ui/components/sonner";
 import { ThemeToggle } from "@wuliuqi/ui/components/theme-toggle";
 import { cn } from "@wuliuqi/ui/lib/utils";
 import {
@@ -17,6 +18,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import { logout } from "@/lib/client-api";
+import { errorMessage } from "@/lib/feedback";
 
 type NavItem = {
   href: string;
@@ -47,9 +49,11 @@ export function AdminFrame({ children }: { children: ReactNode }) {
     setLoggingOut(true);
 
     try {
-      await logout().catch(() => undefined);
+      await logout();
       router.replace("/login");
       router.refresh();
+    } catch (logoutError) {
+      toast.error(errorMessage(logoutError, "退出登录失败"));
     } finally {
       setLoggingOut(false);
     }
@@ -91,6 +95,7 @@ export function AdminFrame({ children }: { children: ReactNode }) {
               aria-label="退出登录"
               disabled={loggingOut}
               size="icon"
+              title={loggingOut ? "退出中..." : "退出登录"}
               type="button"
               variant="ghost"
               onClick={handleLogout}

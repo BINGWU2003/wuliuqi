@@ -36,6 +36,7 @@ export function ShopFrame({ children }: { children: ReactNode }) {
               <Button
                 aria-label="返回"
                 size="icon"
+                title="返回"
                 type="button"
                 variant="ghost"
                 onClick={() => router.back()}

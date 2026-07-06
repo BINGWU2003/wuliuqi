@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import Script from "next/script";
+import { Toaster } from "@wuliuqi/ui/components/sonner";
 import { getThemeInitScript } from "@wuliuqi/ui/lib/theme";
 import { ShopFrame } from "@/components/shop-frame";
 import "./globals.css";
@@ -38,6 +39,7 @@ export default function RootLayout({
       >
         <ShopFrame>{children}</ShopFrame>
         {modal}
+        <Toaster />
       </body>
     </html>
   );
