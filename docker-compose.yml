@@ -1,0 +1,70 @@
+name: wuliuqi
+
+services:
+  shop:
+    image: wuliuqi-shop:latest
+    container_name: wuliuqi-shop
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.app
+      args:
+        APP_NAME: shop
+        APP_PORT: 3000
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL:-}
+    ports:
+      - "${SHOP_PORT:-3000}:3000"
+
+  admin:
+    image: wuliuqi-admin:latest
+    container_name: wuliuqi-admin
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.app
+      args:
+        APP_NAME: admin
+        APP_PORT: 3001
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL:-}
+      JWT_SECRET: ${JWT_SECRET:-}
+      ADMIN_SESSION_SECRET: ${ADMIN_SESSION_SECRET:-}
+      COS_SECRET_ID: ${COS_SECRET_ID:-}
+      COS_SECRET_KEY: ${COS_SECRET_KEY:-}
+      COS_BUCKET: ${COS_BUCKET:-}
+      COS_REGION: ${COS_REGION:-}
+      COS_PUBLIC_BASE_URL: ${COS_PUBLIC_BASE_URL:-}
+      RAG_DATABASE_URL: ${RAG_DATABASE_URL:-}
+      RAG_DB_POOL_SIZE: ${RAG_DB_POOL_SIZE:-5}
+      RAG_MODEL_PROVIDER: ${RAG_MODEL_PROVIDER:-gemini}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_CHAT_MODEL: ${GEMINI_CHAT_MODEL:-gemini-3.5-flash}
+      GEMINI_EMBEDDING_MODEL: ${GEMINI_EMBEDDING_MODEL:-gemini-embedding-2}
+      GEMINI_EMBEDDING_DIMENSIONS: ${GEMINI_EMBEDDING_DIMENSIONS:-768}
+    ports:
+      - "${ADMIN_PORT:-3001}:3001"
+
+  docs:
+    image: wuliuqi-docs:latest
+    container_name: wuliuqi-docs
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.app
+      args:
+        APP_NAME: docs
+        APP_PORT: 3002
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      RAG_DATABASE_URL: ${RAG_DATABASE_URL:-}
+      RAG_DB_POOL_SIZE: ${RAG_DB_POOL_SIZE:-5}
+      RAG_MODEL_PROVIDER: ${RAG_MODEL_PROVIDER:-gemini}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_CHAT_MODEL: ${GEMINI_CHAT_MODEL:-gemini-3.5-flash}
+      GEMINI_EMBEDDING_MODEL: ${GEMINI_EMBEDDING_MODEL:-gemini-embedding-2}
+      GEMINI_EMBEDDING_DIMENSIONS: ${GEMINI_EMBEDDING_DIMENSIONS:-768}
+    ports:
+      - "${DOCS_PORT:-3002}:3002"
