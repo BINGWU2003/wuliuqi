@@ -7,9 +7,10 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@wuliuqi/ui/components/sheet";
-import { Bot, Menu, Search } from "lucide-react";
+import { Menu, Search } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { AskWidget } from "./ask-widget";
 import { DocsNav } from "./docs-nav";
 import { ThemeToggle } from "./theme-toggle";
 
@@ -64,12 +65,6 @@ export function DocsShell({
                 搜索
               </Link>
             </Button>
-            <Button asChild>
-              <Link href={`/kb/${base.slug}/ask`}>
-                <Bot size={16} />
-                AI 问答
-              </Link>
-            </Button>
             <ThemeToggle />
           </div>
         </div>
@@ -81,6 +76,7 @@ export function DocsShell({
         <main className="min-w-0">{children}</main>
         <aside className="hidden min-w-0 lg:block">{aside}</aside>
       </div>
+      <AskWidget kbSlug={base.slug} />
     </div>
   );
 }
