@@ -6,7 +6,7 @@ RUN corepack enable && corepack prepare pnpm@10.34.4 --activate
 WORKDIR /app
 
 ARG APP_NAME
-ARG APP_PORT
+ARG APP_PORT=10000
 
 ENV NEXT_TELEMETRY_DISABLED=1
 
@@ -32,6 +32,7 @@ RUN pnpm install --frozen-lockfile
 
 COPY . .
 
+RUN if [ -z "${APP_NAME}" ]; then echo "APP_NAME build arg is required"; exit 1; fi
 RUN pnpm --filter @wuliuqi/db generate
 RUN pnpm --filter ${APP_NAME} build
 
@@ -43,15 +44,15 @@ RUN corepack enable && corepack prepare pnpm@10.34.4 --activate
 WORKDIR /app
 
 ARG APP_NAME
-ARG APP_PORT
+ARG APP_PORT=10000
 
 ENV APP_NAME=${APP_NAME}
+ENV APP_PORT=${APP_PORT}
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
-ENV PORT=${APP_PORT}
 
 COPY --from=builder /app /app
 
 EXPOSE ${APP_PORT}
 
-CMD ["sh", "-c", "pnpm --filter ${APP_NAME} start"]
+CMD ["sh", "-c", "pnpm --filter \"$APP_NAME\" exec next start --hostname 0.0.0.0 --port \"${PORT:-$APP_PORT}\""]
