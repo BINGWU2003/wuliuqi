@@ -97,3 +97,119 @@ export interface UploadResult {
   size: number;
   contentType: string;
 }
+
+export type KnowledgeStatus = "draft" | "published" | "archived";
+export type KnowledgeVisibility = "public" | "private";
+export type KnowledgeIndexStatus =
+  | "pending"
+  | "indexing"
+  | "indexed"
+  | "failed";
+
+export interface KnowledgeBase {
+  id: string;
+  slug: string;
+  name: string;
+  description?: string;
+  visibility: KnowledgeVisibility;
+  status: KnowledgeStatus;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface KnowledgeCategory {
+  id: string;
+  knowledgeBaseId: string;
+  name: string;
+  slug: string;
+  description?: string;
+  sortOrder: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface KnowledgeArticle {
+  id: string;
+  knowledgeBaseId: string;
+  categoryId?: string;
+  title: string;
+  slug: string;
+  excerpt?: string;
+  content: string;
+  status: KnowledgeStatus;
+  indexStatus: KnowledgeIndexStatus;
+  indexError?: string;
+  tags: string[];
+  sortOrder: number;
+  publishedAt?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface FaqItem {
+  id: string;
+  knowledgeBaseId: string;
+  categoryId?: string;
+  question: string;
+  answer: string;
+  aliases: string[];
+  status: KnowledgeStatus;
+  indexStatus: KnowledgeIndexStatus;
+  indexError?: string;
+  tags: string[];
+  sortOrder: number;
+  publishedAt?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface KnowledgeChunk {
+  id: string;
+  knowledgeBaseId: string;
+  sourceType: "article" | "faq";
+  sourceId: string;
+  title: string;
+  content: string;
+  score: number;
+  metadata: Record<string, unknown>;
+  createdAt?: string;
+}
+
+export interface KnowledgeSearchResult {
+  id: string;
+  type: "article" | "faq";
+  title: string;
+  excerpt?: string;
+  categoryName?: string;
+  href: string;
+}
+
+export interface RagMessageSource {
+  title: string;
+  href: string;
+  sourceType: "article" | "faq";
+  sourceId: string;
+  score?: number;
+}
+
+export interface RagConversation {
+  id: string;
+  knowledgeBaseId: string;
+  title?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface RagMessage {
+  id: string;
+  conversationId: string;
+  role: "user" | "assistant" | "system";
+  content: string;
+  sources: RagMessageSource[];
+  createdAt?: string;
+}
+
+export interface ChatMessageInput {
+  role: "user" | "assistant" | "system";
+  content: string;
+}

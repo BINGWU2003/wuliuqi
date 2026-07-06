@@ -10,7 +10,14 @@
     "COS_SECRET_KEY",
     "COS_BUCKET",
     "COS_REGION",
-    "COS_PUBLIC_BASE_URL"
+    "COS_PUBLIC_BASE_URL",
+    "RAG_DATABASE_URL",
+    "RAG_DB_POOL_SIZE",
+    "RAG_MODEL_PROVIDER",
+    "GEMINI_API_KEY",
+    "GEMINI_CHAT_MODEL",
+    "GEMINI_EMBEDDING_MODEL",
+    "GEMINI_EMBEDDING_DIMENSIONS"
   ],
   "globalDependencies": ["packages/db/prisma/schema.prisma"],
   "tasks": {

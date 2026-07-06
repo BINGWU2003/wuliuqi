@@ -4,6 +4,8 @@ const nextConfig = {
     "@wuliuqi/auth",
     "@wuliuqi/db",
     "@wuliuqi/domain",
+    "@wuliuqi/rag",
+    "@wuliuqi/rag-db",
     "@wuliuqi/storage",
     "@wuliuqi/types",
     "@wuliuqi/ui",
