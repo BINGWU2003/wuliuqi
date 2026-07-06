@@ -1,36 +1,69 @@
 "use client";
 
-import * as AlertDialogPrimitive from "@radix-ui/react-alert-dialog";
+import { AlertDialog as AlertDialogPrimitive } from "@base-ui/react/alert-dialog";
+import type {
+  AlertDialogBackdropProps,
+  AlertDialogCloseProps,
+  AlertDialogDescriptionProps,
+  AlertDialogPopupProps,
+  AlertDialogPortalProps,
+  AlertDialogRootProps,
+  AlertDialogTitleProps,
+  AlertDialogTriggerProps,
+} from "@base-ui/react/alert-dialog";
 import * as React from "react";
-import { buttonVariants } from "./button";
 import { cn } from "../lib/utils";
+import { buttonVariants } from "./button";
 
-function AlertDialog({
+type AsChildProps = {
+  asChild?: boolean;
+};
+
+type AlertDialogCloseClickEvent = Parameters<
+  NonNullable<AlertDialogCloseProps["onClick"]>
+>[0];
+
+function renderFromAsChild(
+  asChild: boolean | undefined,
+  children: React.ReactNode,
+) {
+  return asChild && React.isValidElement(children) ? children : undefined;
+}
+
+function AlertDialog<Payload>({
   ...props
-}: React.ComponentProps<typeof AlertDialogPrimitive.Root>) {
+}: AlertDialogRootProps<Payload>) {
   return <AlertDialogPrimitive.Root {...props} />;
 }
 
-function AlertDialogTrigger({
+function AlertDialogTrigger<Payload>({
+  asChild,
+  children,
+  render,
   ...props
-}: React.ComponentProps<typeof AlertDialogPrimitive.Trigger>) {
-  return <AlertDialogPrimitive.Trigger {...props} />;
+}: AlertDialogTriggerProps<Payload> & AsChildProps) {
+  return (
+    <AlertDialogPrimitive.Trigger
+      render={render ?? renderFromAsChild(asChild, children)}
+      {...props}
+    >
+      {asChild ? undefined : children}
+    </AlertDialogPrimitive.Trigger>
+  );
 }
 
-function AlertDialogPortal({
-  ...props
-}: React.ComponentProps<typeof AlertDialogPrimitive.Portal>) {
+function AlertDialogPortal({ ...props }: AlertDialogPortalProps) {
   return <AlertDialogPrimitive.Portal {...props} />;
 }
 
 function AlertDialogOverlay({
   className,
   ...props
-}: React.ComponentProps<typeof AlertDialogPrimitive.Overlay>) {
+}: Omit<AlertDialogBackdropProps, "className"> & { className?: string }) {
   return (
-    <AlertDialogPrimitive.Overlay
+    <AlertDialogPrimitive.Backdrop
       className={cn(
-        "fixed inset-0 z-50 bg-black/80 data-[state=closed]:animate-out data-[state=open]:animate-in",
+        "fixed inset-0 z-50 bg-black/80 data-[ending-style]:animate-out data-[starting-style]:animate-in",
         className,
       )}
       {...props}
@@ -38,16 +71,23 @@ function AlertDialogOverlay({
   );
 }
 
+type AlertDialogContentProps = Omit<AlertDialogPopupProps, "className"> & {
+  className?: string;
+  size?: "default" | "sm";
+};
+
 function AlertDialogContent({
   className,
+  size = "default",
   ...props
-}: React.ComponentProps<typeof AlertDialogPrimitive.Content>) {
+}: AlertDialogContentProps) {
   return (
     <AlertDialogPortal>
       <AlertDialogOverlay />
-      <AlertDialogPrimitive.Content
+      <AlertDialogPrimitive.Popup
         className={cn(
-          "fixed left-1/2 top-1/2 z-50 grid w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 rounded-lg border bg-background p-6 shadow-lg",
+          "fixed left-1/2 top-1/2 z-50 grid w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-lg border bg-background p-6 shadow-lg outline-none data-[ending-style]:animate-out data-[starting-style]:animate-in",
+          size === "sm" ? "max-w-sm" : "max-w-lg",
           className,
         )}
         {...props}
@@ -86,7 +126,7 @@ function AlertDialogFooter({
 function AlertDialogTitle({
   className,
   ...props
-}: React.ComponentProps<typeof AlertDialogPrimitive.Title>) {
+}: Omit<AlertDialogTitleProps, "className"> & { className?: string }) {
   return (
     <AlertDialogPrimitive.Title
       className={cn("text-lg font-semibold leading-none", className)}
@@ -98,7 +138,7 @@ function AlertDialogTitle({
 function AlertDialogDescription({
   className,
   ...props
-}: React.ComponentProps<typeof AlertDialogPrimitive.Description>) {
+}: Omit<AlertDialogDescriptionProps, "className"> & { className?: string }) {
   return (
     <AlertDialogPrimitive.Description
       className={cn("text-sm text-muted-foreground", className)}
@@ -108,26 +148,64 @@ function AlertDialogDescription({
 }
 
 function AlertDialogAction({
+  asChild,
+  children,
   className,
+  onClick,
+  render,
   ...props
-}: React.ComponentProps<typeof AlertDialogPrimitive.Action>) {
+}: Omit<AlertDialogCloseProps, "className"> &
+  AsChildProps & {
+    className?: string;
+  }) {
+  function handleClick(event: AlertDialogCloseClickEvent) {
+    onClick?.(event);
+
+    if (event.defaultPrevented) {
+      event.preventBaseUIHandler();
+    }
+  }
+
   return (
-    <AlertDialogPrimitive.Action
+    <AlertDialogPrimitive.Close
       className={cn(buttonVariants(), className)}
+      onClick={handleClick}
+      render={render ?? renderFromAsChild(asChild, children)}
       {...props}
-    />
+    >
+      {asChild ? undefined : children}
+    </AlertDialogPrimitive.Close>
   );
 }
 
 function AlertDialogCancel({
+  asChild,
+  children,
   className,
+  onClick,
+  render,
   ...props
-}: React.ComponentProps<typeof AlertDialogPrimitive.Cancel>) {
+}: Omit<AlertDialogCloseProps, "className"> &
+  AsChildProps & {
+    className?: string;
+  }) {
+  function handleClick(event: AlertDialogCloseClickEvent) {
+    onClick?.(event);
+
+    if (event.defaultPrevented) {
+      event.preventBaseUIHandler();
+    }
+  }
+
   return (
-    <AlertDialogPrimitive.Cancel
+    <AlertDialogPrimitive.Close
       className={cn(buttonVariants({ variant: "outline" }), className)}
+      onClick={handleClick}
+      render={render ?? renderFromAsChild(asChild, children)}
       {...props}
-    />
+    >
+      {asChild ? undefined : children}
+    </AlertDialogPrimitive.Close>
   );
 }
 

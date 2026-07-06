@@ -16,15 +16,16 @@
     "check-types": "tsc --noEmit"
   },
   "devDependencies": {
-    "@wuliuqi/eslint-config": "workspace:*",
-    "@wuliuqi/typescript-config": "workspace:*",
     "@types/node": "^22.15.3",
     "@types/react": "19.2.2",
     "@types/react-dom": "19.2.2",
+    "@wuliuqi/eslint-config": "workspace:*",
+    "@wuliuqi/typescript-config": "workspace:*",
     "eslint": "^9.39.1",
     "typescript": "5.9.2"
   },
   "dependencies": {
+    "@base-ui/react": "^1.6.0",
     "@radix-ui/react-accordion": "^1.2.12",
     "@radix-ui/react-alert-dialog": "^1.1.18",
     "@radix-ui/react-dialog": "^1.1.15",
