@@ -13,14 +13,14 @@
   "dependencies": {
     "@wuliuqi/db": "workspace:*",
     "@wuliuqi/types": "workspace:*",
-    "bcryptjs": "^3.0.3",
-    "jose": "^6.2.3"
+    "bcryptjs": "catalog:",
+    "jose": "catalog:"
   },
   "devDependencies": {
-    "@types/node": "^22.15.3",
+    "@types/node": "catalog:",
     "@wuliuqi/eslint-config": "workspace:*",
     "@wuliuqi/typescript-config": "workspace:*",
-    "eslint": "^9.39.1",
-    "typescript": "5.9.2"
+    "eslint": "catalog:",
+    "typescript": "catalog:"
   }
 }

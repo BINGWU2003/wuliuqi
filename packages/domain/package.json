@@ -16,11 +16,11 @@
     "@wuliuqi/validators": "workspace:*"
   },
   "devDependencies": {
-    "@prisma/client": "6.19.2",
+    "@prisma/client": "catalog:",
     "@wuliuqi/eslint-config": "workspace:*",
     "@wuliuqi/typescript-config": "workspace:*",
-    "@types/node": "^22.15.3",
-    "eslint": "^9.39.1",
-    "typescript": "5.9.2"
+    "@types/node": "catalog:",
+    "eslint": "catalog:",
+    "typescript": "catalog:"
   }
 }

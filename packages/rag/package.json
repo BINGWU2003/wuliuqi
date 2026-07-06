@@ -11,16 +11,16 @@
     "check-types": "tsc --noEmit"
   },
   "dependencies": {
-    "@ai-sdk/google": "^4.0.8",
+    "@ai-sdk/google": "catalog:",
     "@wuliuqi/rag-db": "workspace:*",
     "@wuliuqi/types": "workspace:*",
-    "ai": "^7.0.15"
+    "ai": "catalog:"
   },
   "devDependencies": {
     "@wuliuqi/eslint-config": "workspace:*",
     "@wuliuqi/typescript-config": "workspace:*",
-    "@types/node": "^22.15.3",
-    "eslint": "^9.39.1",
-    "typescript": "5.9.2"
+    "@types/node": "catalog:",
+    "eslint": "catalog:",
+    "typescript": "catalog:"
   }
 }
