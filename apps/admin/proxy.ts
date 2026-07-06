@@ -1,4 +1,4 @@
-import { ADMIN_SESSION_COOKIE } from "@wuliuqi/auth";
+import { ADMIN_SESSION_COOKIE } from "@wuliuqi/auth/constants";
 import { NextResponse, type NextRequest } from "next/server";
 
 const PUBLIC_PATHS = ["/login"];

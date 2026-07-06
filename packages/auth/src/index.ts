@@ -2,9 +2,9 @@ import type { AdminUser } from "@wuliuqi/types";
 import bcrypt from "bcryptjs";
 import { jwtVerify, SignJWT } from "jose";
 import { prisma } from "@wuliuqi/db";
+import { SESSION_MAX_AGE_SECONDS } from "./constants";
 
-export const ADMIN_SESSION_COOKIE = "wuliuqi_admin_session";
-export const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7;
+export { ADMIN_SESSION_COOKIE, SESSION_MAX_AGE_SECONDS } from "./constants";
 
 type SessionPayload = {
   id: number;
