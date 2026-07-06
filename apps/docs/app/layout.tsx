@@ -21,7 +21,7 @@ export default function RootLayout({
               var storedTheme = localStorage.getItem("wuliuqi-docs-theme");
               var theme = storedTheme === "light" || storedTheme === "dark"
                 ? storedTheme
-                : "light";
+                : "dark";
               document.documentElement.classList.toggle("dark", theme === "dark");
               document.documentElement.dataset.theme = theme;
             } catch (_) {}
