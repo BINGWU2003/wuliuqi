@@ -3,10 +3,10 @@ import {
   getKnowledgeArticleById,
   updateKnowledgeArticle,
 } from "@wuliuqi/rag-db";
-import { indexKnowledgeSource } from "@wuliuqi/rag";
 import { knowledgeArticleUpdateSchema } from "@wuliuqi/validators";
 import { type NextRequest } from "next/server";
 import { fail, handleError, ok } from "@/lib/api-response";
+import { indexKnowledgeSourceAfterSave } from "@/lib/knowledge-indexing";
 import { requireAdminSession } from "@/lib/session";
 
 export const runtime = "nodejs";
@@ -43,7 +43,7 @@ export async function PATCH(
     const article = await updateKnowledgeArticle(id, input);
 
     if (article.status === "published") {
-      await indexKnowledgeSource("article", article.id);
+      await indexKnowledgeSourceAfterSave("article", article.id);
     }
 
     return ok(article);

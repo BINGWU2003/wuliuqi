@@ -2,10 +2,10 @@ import {
   createKnowledgeArticle,
   listKnowledgeArticles,
 } from "@wuliuqi/rag-db";
-import { indexKnowledgeSource } from "@wuliuqi/rag";
 import { knowledgeArticleCreateSchema } from "@wuliuqi/validators";
 import { type NextRequest } from "next/server";
 import { handleError, ok } from "@/lib/api-response";
+import { indexKnowledgeSourceAfterSave } from "@/lib/knowledge-indexing";
 import { requireAdminSession } from "@/lib/session";
 
 export const runtime = "nodejs";
@@ -41,7 +41,7 @@ export async function POST(
     });
 
     if (article.status === "published") {
-      await indexKnowledgeSource("article", article.id);
+      await indexKnowledgeSourceAfterSave("article", article.id);
     }
 
     return ok(article, { status: 201 });

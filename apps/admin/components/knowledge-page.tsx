@@ -6,6 +6,7 @@ import type {
   KnowledgeArticle,
   KnowledgeBase,
   KnowledgeCategory,
+  KnowledgeStatus,
 } from "@wuliuqi/types";
 import { Badge } from "@wuliuqi/ui/components/badge";
 import { Button } from "@wuliuqi/ui/components/button";
@@ -15,6 +16,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@wuliuqi/ui/components/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@wuliuqi/ui/components/dialog";
 import { Input } from "@wuliuqi/ui/components/input";
 import {
   Select,
@@ -23,6 +32,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@wuliuqi/ui/components/select";
+import { toast } from "@wuliuqi/ui/components/sonner";
 import { Spinner } from "@wuliuqi/ui/components/spinner";
 import {
   Tabs,
@@ -31,7 +41,15 @@ import {
   TabsTrigger,
 } from "@wuliuqi/ui/components/tabs";
 import { Textarea } from "@wuliuqi/ui/components/textarea";
-import { BookOpen, CircleHelp, FolderTree, RefreshCw, Trash2 } from "lucide-react";
+import {
+  BookOpen,
+  CircleHelp,
+  FolderTree,
+  Pencil,
+  RefreshCw,
+  Rocket,
+  Trash2,
+} from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 type KnowledgeState = {
@@ -39,6 +57,13 @@ type KnowledgeState = {
   categories: KnowledgeCategory[];
   articles: KnowledgeArticle[];
   faqs: FaqItem[];
+};
+
+type ContentType = "article" | "faq";
+type KnowledgeContentItem = KnowledgeArticle | FaqItem;
+type EditingContent = {
+  type: ContentType;
+  item: KnowledgeContentItem;
 };
 
 const initialState: KnowledgeState = {
@@ -68,12 +93,16 @@ async function requestJson<T>(
   return payload.data;
 }
 
+function errorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
+}
+
 export function KnowledgePage() {
   const [state, setState] = useState<KnowledgeState>(initialState);
   const [selectedBaseId, setSelectedBaseId] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
+  const [editing, setEditing] = useState<EditingContent | null>(null);
   const selectedBase = useMemo(
     () => state.bases.find((base) => base.id === selectedBaseId),
     [selectedBaseId, state.bases],
@@ -81,14 +110,13 @@ export function KnowledgePage() {
 
   async function loadBases() {
     setLoading(true);
-    setError("");
 
     try {
       const bases = await requestJson<KnowledgeBase[]>("/api/knowledge/bases");
       setState((current) => ({ ...current, bases }));
       setSelectedBaseId((current) => current || bases[0]?.id || "");
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "加载失败");
+      toast.error(errorMessage(loadError, "加载失败"));
     } finally {
       setLoading(false);
     }
@@ -100,7 +128,6 @@ export function KnowledgePage() {
     }
 
     setLoading(true);
-    setError("");
 
     try {
       const [categories, articles, faqs] = await Promise.all([
@@ -112,7 +139,7 @@ export function KnowledgePage() {
       ]);
       setState((current) => ({ ...current, categories, articles, faqs }));
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "加载失败");
+      toast.error(errorMessage(loadError, "加载失败"));
     } finally {
       setLoading(false);
     }
@@ -226,7 +253,31 @@ export function KnowledgePage() {
     });
   }
 
-  async function reindex(sourceType: "article" | "faq", sourceId: string) {
+  async function updateContent(editingContent: EditingContent, formData: FormData) {
+    await mutate(async () => {
+      await requestJson<KnowledgeContentItem>(
+        contentUrl(editingContent.type, editingContent.item.id),
+        {
+          method: "PATCH",
+          body: JSON.stringify(contentPayload(editingContent.type, formData)),
+        },
+      );
+      setEditing(null);
+      await loadBaseChildren(selectedBaseId);
+    });
+  }
+
+  async function publishContent(sourceType: ContentType, sourceId: string) {
+    await mutate(async () => {
+      await requestJson<KnowledgeContentItem>(contentUrl(sourceType, sourceId), {
+        method: "PATCH",
+        body: JSON.stringify({ status: "published" }),
+      });
+      await loadBaseChildren(selectedBaseId);
+    });
+  }
+
+  async function reindex(sourceType: ContentType, sourceId: string) {
     await mutate(async () => {
       await requestJson(`/api/knowledge/index/${sourceType}/${sourceId}`, {
         method: "POST",
@@ -237,12 +288,11 @@ export function KnowledgePage() {
 
   async function mutate(task: () => Promise<void>) {
     setSaving(true);
-    setError("");
 
     try {
       await task();
     } catch (mutateError) {
-      setError(mutateError instanceof Error ? mutateError.message : "操作失败");
+      toast.error(errorMessage(mutateError, "操作失败"));
     } finally {
       setSaving(false);
     }
@@ -262,12 +312,6 @@ export function KnowledgePage() {
           刷新
         </Button>
       </div>
-
-      {error ? (
-        <div className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          {error}
-        </div>
-      ) : null}
 
       <Card className="rounded-md shadow-none">
         <CardHeader>
@@ -398,7 +442,10 @@ export function KnowledgePage() {
                 items={state.articles}
                 type="article"
                 onDelete={deleteArticle}
+                onEdit={(type, item) => setEditing({ type, item })}
+                onPublish={publishContent}
                 onReindex={reindex}
+                saving={saving}
               />
             </CardContent>
           </Card>
@@ -431,19 +478,70 @@ export function KnowledgePage() {
                 items={state.faqs}
                 type="faq"
                 onDelete={deleteFaq}
+                onEdit={(type, item) => setEditing({ type, item })}
+                onPublish={publishContent}
                 onReindex={reindex}
+                saving={saving}
               />
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
+      <KnowledgeEditDialog
+        categories={state.categories}
+        editing={editing}
+        saving={saving}
+        onClose={() => setEditing(null)}
+        onSubmit={updateContent}
+      />
     </div>
   );
 }
 
-function CategorySelect({ categories }: { categories: KnowledgeCategory[] }) {
+function contentUrl(type: ContentType, id: string) {
+  return type === "article"
+    ? `/api/knowledge/articles/${id}`
+    : `/api/knowledge/faqs/${id}`;
+}
+
+function contentPayload(type: ContentType, formData: FormData) {
+  if (type === "article") {
+    return {
+      categoryId: cleanCategoryId(formData.get("categoryId")),
+      title: formValue(formData, "title"),
+      slug: formValue(formData, "slug"),
+      excerpt: formValue(formData, "excerpt"),
+      content: formValue(formData, "content"),
+      status: formValue(formData, "status"),
+      tags: formValue(formData, "tags"),
+      sortOrder: Number(formData.get("sortOrder") || 0),
+    };
+  }
+
+  return {
+    categoryId: cleanCategoryId(formData.get("categoryId")),
+    question: formValue(formData, "question"),
+    answer: formValue(formData, "answer"),
+    aliases: formValue(formData, "aliases"),
+    status: formValue(formData, "status"),
+    tags: formValue(formData, "tags"),
+    sortOrder: Number(formData.get("sortOrder") || 0),
+  };
+}
+
+function formValue(formData: FormData, name: string) {
+  return String(formData.get(name) ?? "");
+}
+
+function CategorySelect({
+  categories,
+  defaultValue = "__none",
+}: {
+  categories: KnowledgeCategory[];
+  defaultValue?: string;
+}) {
   return (
-    <Select name="categoryId">
+    <Select defaultValue={defaultValue} name="categoryId">
       <SelectTrigger>
         <SelectValue placeholder="选择分类，可不选" />
       </SelectTrigger>
@@ -465,9 +563,9 @@ function cleanCategoryId(value: FormDataEntryValue | null) {
   return categoryId && categoryId !== "__none" ? categoryId : undefined;
 }
 
-function StatusSelect() {
+function StatusSelect({ defaultValue = "draft" }: { defaultValue?: KnowledgeStatus }) {
   return (
-    <Select defaultValue="draft" name="status">
+    <Select defaultValue={defaultValue} name="status">
       <SelectTrigger>
         <SelectValue />
       </SelectTrigger>
@@ -483,14 +581,22 @@ function StatusSelect() {
 function ContentList({
   items,
   onDelete,
+  onEdit,
+  onPublish,
   onReindex,
+  saving,
   type,
 }: {
-  items: Array<KnowledgeArticle | FaqItem>;
+  items: KnowledgeContentItem[];
   onDelete: (id: string) => Promise<void>;
-  onReindex: (type: "article" | "faq", id: string) => Promise<void>;
-  type: "article" | "faq";
+  onEdit: (type: ContentType, item: KnowledgeContentItem) => void;
+  onPublish: (type: ContentType, id: string) => Promise<void>;
+  onReindex: (type: ContentType, id: string) => Promise<void>;
+  saving: boolean;
+  type: ContentType;
 }) {
+  const typeLabel = type === "article" ? "文章" : "FAQ";
+
   return (
     <div className="grid gap-2">
       {items.length === 0 ? (
@@ -516,7 +622,34 @@ function ContentList({
               </div>
               <div className="flex shrink-0 gap-1">
                 <Button
+                  aria-label={`编辑${typeLabel}`}
+                  disabled={saving}
                   size="icon"
+                  title={`编辑${typeLabel}`}
+                  type="button"
+                  variant="ghost"
+                  onClick={() => onEdit(type, item)}
+                >
+                  <Pencil size={15} />
+                </Button>
+                {item.status === "draft" ? (
+                  <Button
+                    aria-label={`发布${typeLabel}`}
+                    disabled={saving}
+                    size="icon"
+                    title={`发布${typeLabel}`}
+                    type="button"
+                    variant="ghost"
+                    onClick={() => onPublish(type, item.id)}
+                  >
+                    <Rocket size={15} />
+                  </Button>
+                ) : null}
+                <Button
+                  aria-label={`重建${typeLabel}索引`}
+                  disabled={saving}
+                  size="icon"
+                  title={`重建${typeLabel}索引`}
                   type="button"
                   variant="ghost"
                   onClick={() => onReindex(type, item.id)}
@@ -524,7 +657,10 @@ function ContentList({
                   <RefreshCw size={15} />
                 </Button>
                 <Button
+                  aria-label={`删除${typeLabel}`}
+                  disabled={saving}
                   size="icon"
+                  title={`删除${typeLabel}`}
                   type="button"
                   variant="ghost"
                   onClick={() => onDelete(item.id)}
@@ -546,5 +682,175 @@ function ContentList({
         );
       })}
     </div>
+  );
+}
+
+function KnowledgeEditDialog({
+  categories,
+  editing,
+  onClose,
+  onSubmit,
+  saving,
+}: {
+  categories: KnowledgeCategory[];
+  editing: EditingContent | null;
+  onClose: () => void;
+  onSubmit: (editing: EditingContent, formData: FormData) => Promise<void>;
+  saving: boolean;
+}) {
+  if (!editing) {
+    return null;
+  }
+
+  const activeEditing = editing;
+  const typeLabel = activeEditing.type === "article" ? "文章" : "FAQ";
+
+  async function submit(formData: FormData) {
+    await onSubmit(activeEditing, formData);
+  }
+
+  return (
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open && !saving) {
+          onClose();
+        }
+      }}
+    >
+      <DialogContent className="max-h-[calc(100dvh-2rem)] max-w-3xl overflow-hidden p-0">
+        <form
+          key={`${activeEditing.type}-${activeEditing.item.id}`}
+          action={submit}
+          className="flex max-h-[calc(100dvh-2rem)] flex-col"
+        >
+          <DialogHeader className="border-b border-border p-4">
+            <DialogTitle>编辑{typeLabel}</DialogTitle>
+            <DialogDescription className="sr-only">
+              编辑知识库内容。
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid flex-1 gap-3 overflow-y-auto p-4 sm:grid-cols-2">
+            {activeEditing.type === "article" ? (
+              <ArticleEditFields
+                article={activeEditing.item as KnowledgeArticle}
+                categories={categories}
+              />
+            ) : (
+              <FaqEditFields
+                faq={activeEditing.item as FaqItem}
+                categories={categories}
+              />
+            )}
+          </div>
+          <DialogFooter className="border-t border-border p-4">
+            <Button
+              disabled={saving}
+              type="button"
+              variant="outline"
+              onClick={onClose}
+            >
+              取消
+            </Button>
+            <Button disabled={saving} type="submit">
+              {saving ? <Spinner /> : null}
+              保存
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ArticleEditFields({
+  article,
+  categories,
+}: {
+  article: KnowledgeArticle;
+  categories: KnowledgeCategory[];
+}) {
+  return (
+    <>
+      <Input defaultValue={article.title} name="title" placeholder="文章标题" />
+      <Input
+        defaultValue={article.slug}
+        name="slug"
+        placeholder="路径标识，如 login-failed"
+      />
+      <CategorySelect
+        categories={categories}
+        defaultValue={article.categoryId ?? "__none"}
+      />
+      <Input
+        defaultValue={article.excerpt ?? ""}
+        name="excerpt"
+        placeholder="摘要"
+      />
+      <Input
+        defaultValue={article.tags.join(", ")}
+        name="tags"
+        placeholder="标签，用逗号分隔"
+      />
+      <Input
+        defaultValue={article.sortOrder}
+        name="sortOrder"
+        placeholder="排序值"
+        type="number"
+      />
+      <StatusSelect defaultValue={article.status} />
+      <Textarea
+        className="min-h-64 sm:col-span-2"
+        defaultValue={article.content}
+        name="content"
+        placeholder="Markdown 内容"
+      />
+    </>
+  );
+}
+
+function FaqEditFields({
+  categories,
+  faq,
+}: {
+  categories: KnowledgeCategory[];
+  faq: FaqItem;
+}) {
+  return (
+    <>
+      <Input
+        className="sm:col-span-2"
+        defaultValue={faq.question}
+        name="question"
+        placeholder="问题"
+      />
+      <CategorySelect
+        categories={categories}
+        defaultValue={faq.categoryId ?? "__none"}
+      />
+      <StatusSelect defaultValue={faq.status} />
+      <Input
+        defaultValue={faq.aliases.join(", ")}
+        name="aliases"
+        placeholder="相似问法，用逗号分隔"
+      />
+      <Input
+        defaultValue={faq.tags.join(", ")}
+        name="tags"
+        placeholder="标签，用逗号分隔"
+      />
+      <Input
+        defaultValue={faq.sortOrder}
+        name="sortOrder"
+        placeholder="排序值"
+        type="number"
+      />
+      <Textarea
+        className="min-h-48 sm:col-span-2"
+        defaultValue={faq.answer}
+        name="answer"
+        placeholder="标准答案"
+      />
+    </>
   );
 }

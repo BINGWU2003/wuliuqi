@@ -22,6 +22,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createEmail, fetchEmail, updateEmail } from "@/lib/client-api";
+import { ADMIN_EMAILS_CHANGED_EVENT } from "@/lib/events";
 
 const postfixOptions = [
   "@163.com",
@@ -33,8 +34,17 @@ const postfixOptions = [
   "@126.com",
 ];
 
-export function EmailForm({ emailId }: { emailId?: number }) {
+type EmailFormPresentation = "page" | "modal";
+
+export function EmailForm({
+  emailId,
+  presentation = "page",
+}: {
+  emailId?: number;
+  presentation?: EmailFormPresentation;
+}) {
   const router = useRouter();
+  const isModal = presentation === "modal";
   const [prefix, setPrefix] = useState("");
   const [postfix, setPostfix] = useState("@163.com");
   const [bindStatus, setBindStatus] = useState<1 | 2>(2);
@@ -72,8 +82,14 @@ export function EmailForm({ emailId }: { emailId?: number }) {
         await createEmail({ bindStatus, postfix, prefix });
       }
 
-      router.push("/emails");
-      router.refresh();
+      window.dispatchEvent(new Event(ADMIN_EMAILS_CHANGED_EVENT));
+
+      if (isModal) {
+        router.back();
+      } else {
+        router.push("/emails");
+        router.refresh();
+      }
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "保存失败");
     } finally {
@@ -82,20 +98,26 @@ export function EmailForm({ emailId }: { emailId?: number }) {
   }
 
   if (loading) {
-    return <EmailFormSkeleton />;
+    return <EmailFormSkeleton isModal={isModal} />;
   }
 
   return (
     <form className="mx-auto max-w-2xl space-y-4" onSubmit={handleSubmit}>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <Button asChild size="sm" variant="ghost">
-            <Link href="/emails">
-              <ArrowLeft size={16} />
-              返回邮箱列表
-            </Link>
-          </Button>
-          <h1 className="mt-2 text-2xl font-bold">
+          {!isModal ? (
+            <Button asChild size="sm" variant="ghost">
+              <Link href="/emails">
+                <ArrowLeft size={16} />
+                返回邮箱列表
+              </Link>
+            </Button>
+          ) : null}
+          <h1
+            className={
+              isModal ? "text-xl font-bold" : "mt-2 text-2xl font-bold"
+            }
+          >
             {emailId ? "编辑邮箱" : "新建邮箱"}
           </h1>
         </div>
@@ -165,13 +187,13 @@ export function EmailForm({ emailId }: { emailId?: number }) {
   );
 }
 
-function EmailFormSkeleton() {
+function EmailFormSkeleton({ isModal }: { isModal: boolean }) {
   return (
     <div className="mx-auto max-w-2xl space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="space-y-2">
-          <Skeleton className="h-8 w-32" />
-          <Skeleton className="h-8 w-28" />
+          {!isModal ? <Skeleton className="h-8 w-32" /> : null}
+          <Skeleton className={isModal ? "h-7 w-28" : "h-8 w-28"} />
         </div>
         <div className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-md border border-border text-sm text-muted-foreground sm:w-28">
           <Spinner />

@@ -3,10 +3,10 @@ import {
   getFaqItemById,
   updateFaqItem,
 } from "@wuliuqi/rag-db";
-import { indexKnowledgeSource } from "@wuliuqi/rag";
 import { faqItemUpdateSchema } from "@wuliuqi/validators";
 import { type NextRequest } from "next/server";
 import { fail, handleError, ok } from "@/lib/api-response";
+import { indexKnowledgeSourceAfterSave } from "@/lib/knowledge-indexing";
 import { requireAdminSession } from "@/lib/session";
 
 export const runtime = "nodejs";
@@ -43,7 +43,7 @@ export async function PATCH(
     const faq = await updateFaqItem(id, input);
 
     if (faq.status === "published") {
-      await indexKnowledgeSource("faq", faq.id);
+      await indexKnowledgeSourceAfterSave("faq", faq.id);
     }
 
     return ok(faq);

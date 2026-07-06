@@ -36,47 +36,249 @@ import {
   TableHeader,
   TableRow,
 } from "@wuliuqi/ui/components/table";
-import { Edit, Plus, RefreshCw, Search, Trash2 } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  Edit,
+  Plus,
+  RefreshCw,
+  Search,
+  Trash2,
+} from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { EmailBindStatusBadge } from "@/components/status-badge";
 import { deleteEmail, fetchEmails } from "@/lib/client-api";
+import { ADMIN_EMAILS_CHANGED_EVENT } from "@/lib/events";
 import { formatDate } from "@/lib/format";
+
+const EMAIL_PAGE_SIZE = 50;
+const MOBILE_VIEWPORT_QUERY = "(max-width: 639px)";
+
+type LoadMode = "append" | "replace";
+
+function isMobileViewport() {
+  return (
+    typeof window !== "undefined" &&
+    window.matchMedia(MOBILE_VIEWPORT_QUERY).matches
+  );
+}
 
 export function EmailsPage() {
   const [emails, setEmails] = useState<AdminEmail[]>([]);
+  const [searchValue, setSearchValue] = useState("");
   const [keyword, setKeyword] = useState("");
   const [bindStatus, setBindStatus] = useState("all");
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [total, setTotal] = useState(0);
   const [deleteTarget, setDeleteTarget] = useState<AdminEmail | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  const loadingRef = useRef(false);
+  const pageRef = useRef(1);
+  const requestIdRef = useRef(0);
+  const totalPagesRef = useRef(0);
+  const errorRef = useRef("");
 
-  async function loadEmails() {
+  const fetchEmailPage = useCallback(
+    (nextPage: number) =>
+      fetchEmails({
+        bind_status: bindStatus === "all" ? undefined : Number(bindStatus),
+        keyword: keyword || undefined,
+        limit: EMAIL_PAGE_SIZE,
+        page: nextPage,
+      }),
+    [bindStatus, keyword],
+  );
+
+  const applyPagination = useCallback(
+    (pagination: { page: number; total: number; totalPages: number }) => {
+      setPage(pagination.page);
+      pageRef.current = pagination.page;
+      setTotal(pagination.total);
+      setTotalPages(pagination.totalPages);
+      totalPagesRef.current = pagination.totalPages;
+    },
+    [],
+  );
+
+  const loadPage = useCallback(
+    async (nextPage: number, mode: LoadMode = "replace") => {
+      const requestId = ++requestIdRef.current;
+
+      loadingRef.current = true;
+      errorRef.current = "";
+      setLoading(true);
+      setError("");
+
+      try {
+        const result = await fetchEmailPage(nextPage);
+
+        if (requestId !== requestIdRef.current) {
+          return;
+        }
+
+        setEmails((current) =>
+          mode === "append" ? [...current, ...result.list] : result.list,
+        );
+        applyPagination(result.pagination);
+      } catch (loadError) {
+        if (requestId !== requestIdRef.current) {
+          return;
+        }
+
+        const message =
+          loadError instanceof Error ? loadError.message : "加载失败";
+        errorRef.current = message;
+        setError(message);
+      } finally {
+        if (requestId === requestIdRef.current) {
+          loadingRef.current = false;
+          setLoading(false);
+        }
+      }
+    },
+    [applyPagination, fetchEmailPage],
+  );
+
+  const loadLoadedPages = useCallback(async () => {
+    const requestId = ++requestIdRef.current;
+
+    loadingRef.current = true;
+    errorRef.current = "";
     setLoading(true);
     setError("");
 
     try {
-      const result = await fetchEmails({
-        bind_status: bindStatus === "all" ? undefined : Number(bindStatus),
-        keyword,
-        limit: 80,
-        page: 1,
+      const firstResult = await fetchEmailPage(1);
+
+      if (requestId !== requestIdRef.current) {
+        return;
+      }
+
+      const nextTotalPages = firstResult.pagination.totalPages;
+      const targetPage = Math.min(
+        Math.max(pageRef.current, 1),
+        Math.max(nextTotalPages, 1),
+      );
+      const nextEmails = [...firstResult.list];
+      let latestPagination = {
+        ...firstResult.pagination,
+        page: targetPage,
+      };
+
+      for (let nextPage = 2; nextPage <= targetPage; nextPage += 1) {
+        const result = await fetchEmailPage(nextPage);
+
+        if (requestId !== requestIdRef.current) {
+          return;
+        }
+
+        nextEmails.push(...result.list);
+        latestPagination = result.pagination;
+      }
+
+      setEmails(nextEmails);
+      applyPagination({
+        page: targetPage,
+        total: firstResult.pagination.total,
+        totalPages: latestPagination.totalPages,
       });
-      setEmails(result.list);
-      setTotal(result.pagination.total);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "加载失败");
+      if (requestId !== requestIdRef.current) {
+        return;
+      }
+
+      const message =
+        loadError instanceof Error ? loadError.message : "加载失败";
+      errorRef.current = message;
+      setError(message);
     } finally {
-      setLoading(false);
+      if (requestId === requestIdRef.current) {
+        loadingRef.current = false;
+        setLoading(false);
+      }
     }
-  }
+  }, [applyPagination, fetchEmailPage]);
+
+  const reloadCurrentView = useCallback(async () => {
+    if (isMobileViewport()) {
+      await loadLoadedPages();
+      return;
+    }
+
+    await loadPage(Math.max(pageRef.current, 1), "replace");
+  }, [loadLoadedPages, loadPage]);
 
   useEffect(() => {
-    void loadEmails();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bindStatus]);
+    void loadPage(1, "replace");
+  }, [loadPage]);
+
+  useEffect(() => {
+    pageRef.current = page;
+    totalPagesRef.current = totalPages;
+    loadingRef.current = loading;
+    errorRef.current = error;
+  }, [error, loading, page, totalPages]);
+
+  useEffect(() => {
+    const node = loadMoreRef.current;
+
+    if (!node) {
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry?.isIntersecting || loadingRef.current || errorRef.current) {
+          return;
+        }
+
+        if (pageRef.current < totalPagesRef.current) {
+          void loadPage(pageRef.current + 1, "append");
+        }
+      },
+      { rootMargin: "420px 0px" },
+    );
+
+    observer.observe(node);
+
+    return () => observer.disconnect();
+  }, [loadPage]);
+
+  useEffect(() => {
+    function handleEmailsChanged() {
+      void reloadCurrentView();
+    }
+
+    window.addEventListener(ADMIN_EMAILS_CHANGED_EVENT, handleEmailsChanged);
+
+    return () =>
+      window.removeEventListener(
+        ADMIN_EMAILS_CHANGED_EVENT,
+        handleEmailsChanged,
+      );
+  }, [reloadCurrentView]);
+
+  function handleSearch() {
+    if (loadingRef.current) {
+      return;
+    }
+
+    const nextKeyword = searchValue.trim();
+
+    if (nextKeyword === keyword) {
+      void loadPage(1, "replace");
+      return;
+    }
+
+    setKeyword(nextKeyword);
+  }
 
   async function confirmRemoveEmail() {
     if (!deleteTarget || deletingId !== null) {
@@ -88,7 +290,7 @@ export function EmailsPage() {
 
     try {
       await deleteEmail(deleteTarget.id);
-      await loadEmails();
+      await reloadCurrentView();
       setDeleteTarget(null);
     } catch (deleteError) {
       setError(deleteError instanceof Error ? deleteError.message : "删除失败");
@@ -127,11 +329,11 @@ export function EmailsPage() {
             <Input
               className="pl-9"
               placeholder="搜索前缀或后缀"
-              value={keyword}
-              onChange={(event) => setKeyword(event.target.value)}
+              value={searchValue}
+              onChange={(event) => setSearchValue(event.target.value)}
               onKeyDown={(event) => {
                 if (event.key === "Enter") {
-                  void loadEmails();
+                  handleSearch();
                 }
               }}
             />
@@ -150,7 +352,7 @@ export function EmailsPage() {
             disabled={loading}
             type="button"
             variant="outline"
-            onClick={() => loadEmails()}
+            onClick={handleSearch}
           >
             {loading ? <Spinner /> : <RefreshCw size={16} />}
             刷新
@@ -177,7 +379,7 @@ export function EmailsPage() {
             </div>
             <div className="mt-3 grid grid-cols-[1fr_auto] gap-2 border-t border-border pt-3">
               <Button asChild size="sm" variant="outline">
-                <Link href={`/emails/${email.id}/edit`}>
+                <Link href={`/emails/${email.id}/edit`} scroll={false}>
                   <Edit size={15} />
                   编辑
                 </Link>
@@ -200,78 +402,89 @@ export function EmailsPage() {
             暂无邮箱
           </div>
         ) : null}
-        {loading ? (
-          <div className="rounded-md border border-border bg-card px-4 py-3">
-            <LoadingLine label={emails.length > 0 ? "正在刷新" : "加载邮箱"} />
-          </div>
-        ) : null}
         {error ? (
           <div className="rounded-md border border-border bg-card px-4 py-3 text-sm text-destructive">
             {error}
           </div>
         ) : null}
+        <div
+          ref={loadMoreRef}
+          className="flex min-h-12 items-center justify-center py-4"
+        >
+          {loading && emails.length > 0 ? (
+            <LoadingLine label="正在加载更多" />
+          ) : emails.length > 0 && page >= totalPages ? (
+            <span className="text-sm text-muted-foreground">没有更多了</span>
+          ) : emails.length > 0 ? (
+            <span className="text-sm text-muted-foreground">下滑加载更多</span>
+          ) : loading ? (
+            <LoadingLine label="加载邮箱" />
+          ) : null}
+        </div>
       </div>
 
-      <Card className="hidden rounded-md shadow-none sm:block">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>邮箱</TableHead>
-              <TableHead>状态</TableHead>
-              <TableHead>更新</TableHead>
-              <TableHead className="text-right">操作</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isInitialLoading ? <EmailTableSkeletonRows /> : null}
-            {emails.map((email) => (
-              <TableRow key={email.id}>
-                <TableCell>
-                  <EmailAddress email={email} />
-                </TableCell>
-                <TableCell>
-                  <EmailBindStatusBadge bindStatus={email.bindStatus} />
-                </TableCell>
-                <TableCell className="text-muted-foreground">
-                  {formatDate(email.updatedAt)}
-                </TableCell>
-                <TableCell>
-                  <div className="flex justify-end gap-1">
-                    <Button asChild size="sm" variant="ghost">
-                      <Link href={`/emails/${email.id}/edit`}>
-                        <Edit size={15} />
-                        编辑
-                      </Link>
-                    </Button>
-                    <Button
-                      disabled={deletingId === email.id}
-                      size="sm"
-                      type="button"
-                      variant="ghost"
-                      onClick={() => setDeleteTarget(email)}
-                    >
-                      {deletingId === email.id ? (
-                        <Spinner />
-                      ) : (
-                        <Trash2 size={15} />
-                      )}
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-            {!loading && emails.length === 0 ? (
+      <Card className="hidden overflow-hidden rounded-md shadow-none sm:block">
+        <div className="h-[calc(100dvh-22rem)] min-h-[420px] max-h-[620px] overflow-auto">
+          <Table>
+            <TableHeader className="sticky top-0 z-10 bg-card shadow-[0_1px_0_var(--border)]">
               <TableRow>
-                <TableCell
-                  className="py-10 text-center text-muted-foreground"
-                  colSpan={4}
-                >
-                  暂无邮箱
-                </TableCell>
+                <TableHead>邮箱</TableHead>
+                <TableHead>状态</TableHead>
+                <TableHead>更新</TableHead>
+                <TableHead className="text-right">操作</TableHead>
               </TableRow>
-            ) : null}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {isInitialLoading ? <EmailTableSkeletonRows /> : null}
+              {emails.map((email) => (
+                <TableRow key={email.id}>
+                  <TableCell>
+                    <EmailAddress email={email} />
+                  </TableCell>
+                  <TableCell>
+                    <EmailBindStatusBadge bindStatus={email.bindStatus} />
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {formatDate(email.updatedAt)}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex justify-end gap-1">
+                      <Button asChild size="sm" variant="ghost">
+                        <Link href={`/emails/${email.id}/edit`} scroll={false}>
+                          <Edit size={15} />
+                          编辑
+                        </Link>
+                      </Button>
+                      <Button
+                        disabled={deletingId === email.id}
+                        size="sm"
+                        type="button"
+                        variant="ghost"
+                        onClick={() => setDeleteTarget(email)}
+                      >
+                        {deletingId === email.id ? (
+                          <Spinner />
+                        ) : (
+                          <Trash2 size={15} />
+                        )}
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+              {!loading && emails.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    className="py-10 text-center text-muted-foreground"
+                    colSpan={4}
+                  >
+                    暂无邮箱
+                  </TableCell>
+                </TableRow>
+              ) : null}
+            </TableBody>
+          </Table>
+        </div>
         {loading ? (
           <div className="border-t border-border px-4 py-3">
             <LoadingLine label={emails.length > 0 ? "正在刷新" : "加载邮箱"} />
@@ -281,6 +494,15 @@ export function EmailsPage() {
           <div className="border-t border-border px-4 py-3 text-sm text-destructive">
             {error}
           </div>
+        ) : null}
+        {total > 0 ? (
+          <EmailsPagination
+            loading={loading}
+            page={page}
+            total={total}
+            totalPages={totalPages}
+            onPageChange={(nextPage) => loadPage(nextPage, "replace")}
+          />
         ) : null}
       </Card>
       <AlertDialog
@@ -367,6 +589,99 @@ function EmailTableSkeletonRows() {
       </TableCell>
     </TableRow>
   ));
+}
+
+function EmailsPagination({
+  loading,
+  onPageChange,
+  page,
+  total,
+  totalPages,
+}: {
+  loading: boolean;
+  onPageChange: (page: number) => void;
+  page: number;
+  total: number;
+  totalPages: number;
+}) {
+  const safeTotalPages = Math.max(totalPages, 1);
+  const pages = getPaginationPages(page, safeTotalPages);
+  const isFirstPage = page <= 1;
+  const isLastPage = page >= safeTotalPages;
+
+  return (
+    <div className="flex flex-col gap-3 border-t border-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="text-sm text-muted-foreground">
+        第 {page} / {safeTotalPages} 页，共 {total} 个邮箱
+      </div>
+      <div className="flex flex-wrap items-center gap-1">
+        <Button
+          aria-label="第一页"
+          disabled={loading || isFirstPage}
+          size="sm"
+          type="button"
+          variant="outline"
+          onClick={() => onPageChange(1)}
+        >
+          <ChevronsLeft size={15} />
+        </Button>
+        <Button
+          aria-label="上一页"
+          disabled={loading || isFirstPage}
+          size="sm"
+          type="button"
+          variant="outline"
+          onClick={() => onPageChange(Math.max(page - 1, 1))}
+        >
+          <ChevronLeft size={15} />
+        </Button>
+        {pages.map((pageNumber) => (
+          <Button
+            aria-current={pageNumber === page ? "page" : undefined}
+            disabled={loading || pageNumber === page}
+            key={pageNumber}
+            size="sm"
+            type="button"
+            variant={pageNumber === page ? "default" : "outline"}
+            onClick={() => onPageChange(pageNumber)}
+          >
+            {pageNumber}
+          </Button>
+        ))}
+        <Button
+          aria-label="下一页"
+          disabled={loading || isLastPage}
+          size="sm"
+          type="button"
+          variant="outline"
+          onClick={() => onPageChange(Math.min(page + 1, safeTotalPages))}
+        >
+          <ChevronRight size={15} />
+        </Button>
+        <Button
+          aria-label="最后一页"
+          disabled={loading || isLastPage}
+          size="sm"
+          type="button"
+          variant="outline"
+          onClick={() => onPageChange(safeTotalPages)}
+        >
+          <ChevronsRight size={15} />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function getPaginationPages(page: number, totalPages: number) {
+  const pageWindow = 5;
+  const halfWindow = Math.floor(pageWindow / 2);
+  let start = Math.max(1, page - halfWindow);
+  const end = Math.min(totalPages, start + pageWindow - 1);
+
+  start = Math.max(1, end - pageWindow + 1);
+
+  return Array.from({ length: end - start + 1 }, (_, index) => start + index);
 }
 
 function EmailAddress({ email }: { email: AdminEmail }) {
