@@ -36,9 +36,17 @@ export default async function ArticlePage({ params }: { params: Params }) {
       limit: 4,
     }),
   ]);
+  const articleCategory = categories.find(
+    (category) => category.id === article.categoryId,
+  );
 
   return (
     <DocsShell
+      activeHref={
+        articleCategory
+          ? `/kb/${base.slug}/categories/${articleCategory.slug}`
+          : undefined
+      }
       base={base}
       categories={categories}
       aside={

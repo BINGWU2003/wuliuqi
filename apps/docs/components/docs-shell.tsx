@@ -10,20 +10,29 @@ import {
 import { Bot, Menu, Search } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { DocsNav } from "./docs-nav";
 import { ThemeToggle } from "./theme-toggle";
 
 export function DocsShell({
   base,
   categories,
   children,
+  activeHref,
   aside,
 }: {
   base: KnowledgeBase;
   categories: KnowledgeCategory[];
   children: ReactNode;
+  activeHref?: string;
   aside?: ReactNode;
 }) {
-  const nav = <DocsNav base={base} categories={categories} />;
+  const nav = (
+    <DocsNav
+      activeHref={activeHref}
+      baseSlug={base.slug}
+      categories={categories.map(({ id, name, slug }) => ({ id, name, slug }))}
+    />
+  );
 
   return (
     <div className="min-h-screen bg-background">
@@ -73,33 +82,5 @@ export function DocsShell({
         <aside className="hidden min-w-0 lg:block">{aside}</aside>
       </div>
     </div>
-  );
-}
-
-function DocsNav({
-  base,
-  categories,
-}: {
-  base: KnowledgeBase;
-  categories: KnowledgeCategory[];
-}) {
-  return (
-    <nav className="space-y-1 text-sm">
-      <Link
-        className="block rounded-md px-3 py-2 font-medium hover:bg-accent"
-        href={`/kb/${base.slug}`}
-      >
-        帮助中心首页
-      </Link>
-      {categories.map((category) => (
-        <Link
-          className="block rounded-md px-3 py-2 text-muted-foreground hover:bg-accent hover:text-foreground"
-          href={`/kb/${base.slug}/categories/${category.slug}`}
-          key={category.id}
-        >
-          {category.name}
-        </Link>
-      ))}
-    </nav>
   );
 }

@@ -638,7 +638,14 @@ export async function searchPublishedKnowledge(input: {
   `;
 
   const faqRows = await getRagSql()`
-    SELECT f.id, f.question AS title, f.answer AS excerpt, NULL AS slug, 'faq' AS type, c.name AS category_name
+    SELECT
+      f.id,
+      f.question AS title,
+      f.answer AS excerpt,
+      NULL AS slug,
+      'faq' AS type,
+      c.name AS category_name,
+      c.slug AS category_slug
     FROM faq_items f
     INNER JOIN knowledge_bases b ON b.id = f.knowledge_base_id
     LEFT JOIN knowledge_categories c ON c.id = f.category_id
@@ -659,9 +666,20 @@ export async function searchPublishedKnowledge(input: {
     categoryName: nullableString(row.category_name),
     href:
       row.type === "faq"
-        ? `/kb/${input.knowledgeBaseSlug}#faq-${stringValue(row.id)}`
+        ? faqHref(input.knowledgeBaseSlug, row)
         : `/kb/${input.knowledgeBaseSlug}/docs/${stringValue(row.slug)}`,
   }));
+}
+
+function faqHref(knowledgeBaseSlug: string, row: postgres.Row): string {
+  const faqAnchor = `faq-${stringValue(row.id)}`;
+  const categorySlug = nullableString(row.category_slug);
+
+  if (categorySlug) {
+    return `/kb/${knowledgeBaseSlug}/categories/${categorySlug}#${faqAnchor}`;
+  }
+
+  return `/kb/${knowledgeBaseSlug}#${faqAnchor}`;
 }
 
 export async function createRagConversation(

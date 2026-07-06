@@ -39,6 +39,7 @@ export default async function KnowledgeHome({
 
   return (
     <DocsShell
+      activeHref={`/kb/${base.slug}`}
       base={base}
       categories={categories}
       aside={<HomeAside kbSlug={base.slug} />}
@@ -119,7 +120,12 @@ export default async function KnowledgeHome({
             <CardContent>
               <Accordion type="single" collapsible>
                 {publishedFaqs.slice(0, 6).map((faq) => (
-                  <AccordionItem id={`faq-${faq.id}`} key={faq.id} value={faq.id}>
+                  <AccordionItem
+                    className="scroll-mt-24"
+                    id={`faq-${faq.id}`}
+                    key={faq.id}
+                    value={faq.id}
+                  >
                     <AccordionTrigger>{faq.question}</AccordionTrigger>
                     <AccordionContent>{faq.answer}</AccordionContent>
                   </AccordionItem>

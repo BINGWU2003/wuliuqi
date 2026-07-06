@@ -39,7 +39,11 @@ export default async function CategoryPage({ params }: { params: Params }) {
   );
 
   return (
-    <DocsShell base={base} categories={categories}>
+    <DocsShell
+      activeHref={`/kb/${base.slug}/categories/${category.slug}`}
+      base={base}
+      categories={categories}
+    >
       <div className="space-y-5">
         <div>
           <Badge variant="secondary">分类</Badge>
@@ -92,7 +96,11 @@ export default async function CategoryPage({ params }: { params: Params }) {
               </div>
             ) : null}
             {categoryFaqs.map((faq) => (
-              <div className="rounded-md border border-border p-3" key={faq.id}>
+              <div
+                className="scroll-mt-24 rounded-md border border-border p-3"
+                id={`faq-${faq.id}`}
+                key={faq.id}
+              >
                 <div className="font-medium">{faq.question}</div>
                 <p className="mt-2 text-sm leading-7 text-muted-foreground">
                   {faq.answer}
