@@ -63,7 +63,7 @@ import {
   X,
 } from "lucide-react";
 import type { FormEvent } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 type KnowledgeState = {
   bases: KnowledgeBase[];
@@ -99,6 +99,7 @@ type MutateMessages = {
   failure: string;
   success: string;
 };
+type CreateSubmitAction = (formData: FormData) => Promise<boolean>;
 type ContentFilters = {
   categoryId: string;
   query: string;
@@ -169,6 +170,7 @@ export function KnowledgePage() {
   const [selectedBaseId, setSelectedBaseId] = useState("");
   const [loading, setLoading] = useState(true);
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
+  const pendingActionRef = useRef<PendingAction | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
   const [categoryDeleteTarget, setCategoryDeleteTarget] =
     useState<KnowledgeCategory | null>(null);
@@ -241,7 +243,7 @@ export function KnowledgePage() {
   }, [selectedBaseId]);
 
   async function createBase(formData: FormData) {
-    await mutate(
+    return mutate(
       { name: "create-base" },
       async () => {
         await requestJson<KnowledgeBase>("/api/knowledge/bases", {
@@ -262,10 +264,10 @@ export function KnowledgePage() {
 
   async function createCategory(formData: FormData) {
     if (!selectedBaseId) {
-      return;
+      return false;
     }
 
-    await mutate(
+    return mutate(
       { name: "create-category" },
       async () => {
         await requestJson<KnowledgeCategory>(
@@ -288,10 +290,10 @@ export function KnowledgePage() {
 
   async function createArticle(formData: FormData) {
     if (!selectedBaseId) {
-      return;
+      return false;
     }
 
-    await mutate(
+    return mutate(
       { name: "create-article" },
       async () => {
         await requestJson<KnowledgeArticle>(
@@ -318,10 +320,10 @@ export function KnowledgePage() {
 
   async function createFaq(formData: FormData) {
     if (!selectedBaseId) {
-      return;
+      return false;
     }
 
-    await mutate(
+    return mutate(
       { name: "create-faq" },
       async () => {
         await requestJson<FaqItem>(`/api/knowledge/bases/${selectedBaseId}/faqs`, {
@@ -460,22 +462,48 @@ export function KnowledgePage() {
     task: () => Promise<void>,
     messages: MutateMessages,
   ) {
-    if (pendingAction) {
-      return;
+    if (pendingActionRef.current) {
+      return false;
     }
 
+    pendingActionRef.current = action;
     setPendingAction(action);
 
     try {
       await task();
       toast.success(messages.success);
+      return true;
     } catch (mutateError) {
       toast.error(errorMessage(mutateError, messages.failure));
+      return false;
     } finally {
+      pendingActionRef.current = null;
       setPendingAction(null);
     }
   }
 
+  function handleCreateSubmit(
+    event: FormEvent<HTMLFormElement>,
+    submit: CreateSubmitAction,
+  ) {
+    event.preventDefault();
+
+    if (pendingActionRef.current) {
+      return;
+    }
+
+    const form = event.currentTarget;
+    void submit(new FormData(form)).then((success) => {
+      if (success) {
+        form.reset();
+      }
+    });
+  }
+
+  const creatingBase = isPendingAction(pendingAction, "create-base");
+  const creatingCategory = isPendingAction(pendingAction, "create-category");
+  const creatingArticle = isPendingAction(pendingAction, "create-article");
+  const creatingFaq = isPendingAction(pendingAction, "create-faq");
   const editingSaving = editing
     ? isPendingAction(pendingAction, "update", editing.type, editing.item.id)
     : false;
@@ -541,7 +569,11 @@ export function KnowledgePage() {
               </div>
             ) : null}
           </div>
-          <form action={createBase} className="grid gap-3 sm:grid-cols-2">
+          <form
+            aria-busy={creatingBase}
+            className="grid gap-3 sm:grid-cols-2"
+            onSubmit={(event) => handleCreateSubmit(event, createBase)}
+          >
             <Input name="name" placeholder="知识库名称，如 买家帮助中心" />
             <Input name="slug" placeholder="路径标识，如 buyer-help" />
             <Input
@@ -550,8 +582,8 @@ export function KnowledgePage() {
               placeholder="描述"
             />
             <Button className="sm:col-span-2" disabled={isMutating} type="submit">
-              {isPendingAction(pendingAction, "create-base") ? <Spinner /> : null}
-              新建知识库
+              {creatingBase ? <Spinner /> : null}
+              {creatingBase ? "新建中..." : "新建知识库"}
             </Button>
           </form>
         </CardContent>
@@ -579,16 +611,18 @@ export function KnowledgePage() {
               <CardTitle className="text-base">分类管理</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-4 lg:grid-cols-[360px_1fr]">
-              <form action={createCategory} className="space-y-3">
+              <form
+                aria-busy={creatingCategory}
+                className="space-y-3"
+                onSubmit={(event) => handleCreateSubmit(event, createCategory)}
+              >
                 <Input name="name" placeholder="分类名称" />
                 <Input name="slug" placeholder="路径标识，如 login" />
                 <Input name="description" placeholder="分类描述" />
                 <Input name="sortOrder" placeholder="排序值" type="number" />
                 <Button disabled={isMutating || !selectedBaseId} type="submit">
-                  {isPendingAction(pendingAction, "create-category") ? (
-                    <Spinner />
-                  ) : null}
-                  新建分类
+                  {creatingCategory ? <Spinner /> : null}
+                  {creatingCategory ? "新建中..." : "新建分类"}
                 </Button>
               </form>
               <div className="grid gap-2">
@@ -645,7 +679,11 @@ export function KnowledgePage() {
               <CardTitle className="text-base">文章管理</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-4 lg:grid-cols-[420px_1fr]">
-              <form action={createArticle} className="space-y-3">
+              <form
+                aria-busy={creatingArticle}
+                className="space-y-3"
+                onSubmit={(event) => handleCreateSubmit(event, createArticle)}
+              >
                 <Input name="title" placeholder="文章标题" />
                 <Input name="slug" placeholder="路径标识，如 login-failed" />
                 <CategorySelect categories={state.categories} />
@@ -659,10 +697,8 @@ export function KnowledgePage() {
                   placeholder="Markdown 内容"
                 />
                 <Button disabled={isMutating || !selectedBaseId} type="submit">
-                  {isPendingAction(pendingAction, "create-article") ? (
-                    <Spinner />
-                  ) : null}
-                  新建文章
+                  {creatingArticle ? <Spinner /> : null}
+                  {creatingArticle ? "新建中..." : "新建文章"}
                 </Button>
               </form>
               <div className="space-y-3">
@@ -697,7 +733,11 @@ export function KnowledgePage() {
               <CardTitle className="text-base">FAQ 管理</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-4 lg:grid-cols-[420px_1fr]">
-              <form action={createFaq} className="space-y-3">
+              <form
+                aria-busy={creatingFaq}
+                className="space-y-3"
+                onSubmit={(event) => handleCreateSubmit(event, createFaq)}
+              >
                 <Input name="question" placeholder="问题" />
                 <CategorySelect categories={state.categories} />
                 <Input name="aliases" placeholder="相似问法，用逗号分隔" />
@@ -710,8 +750,8 @@ export function KnowledgePage() {
                   placeholder="标准答案"
                 />
                 <Button disabled={isMutating || !selectedBaseId} type="submit">
-                  {isPendingAction(pendingAction, "create-faq") ? <Spinner /> : null}
-                  新建 FAQ
+                  {creatingFaq ? <Spinner /> : null}
+                  {creatingFaq ? "新建中..." : "新建 FAQ"}
                 </Button>
               </form>
               <div className="space-y-3">
