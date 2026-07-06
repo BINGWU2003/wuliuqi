@@ -88,7 +88,8 @@ type PendingActionName =
   | "update"
   | "publish"
   | "reindex"
-  | "delete";
+  | "delete"
+  | "delete-category";
 type PendingAction = {
   name: PendingActionName;
   sourceId?: string;
@@ -169,6 +170,8 @@ export function KnowledgePage() {
   const [loading, setLoading] = useState(true);
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
+  const [categoryDeleteTarget, setCategoryDeleteTarget] =
+    useState<KnowledgeCategory | null>(null);
   const [editing, setEditing] = useState<EditingContent | null>(null);
   const [articleFilters, setArticleFilters] = useState<ContentFilters>(
     initialContentFilters,
@@ -419,6 +422,39 @@ export function KnowledgePage() {
     );
   }
 
+  function requestDeleteCategory(category: KnowledgeCategory) {
+    const counts = categoryBindingCounts(category.id, state.articles, state.faqs);
+
+    if (counts.articles > 0 || counts.faqs > 0) {
+      toast.error(categoryBindingMessage(counts));
+      return;
+    }
+
+    setCategoryDeleteTarget(category);
+  }
+
+  async function confirmDeleteCategory() {
+    if (!categoryDeleteTarget) {
+      return;
+    }
+
+    const activeTarget = categoryDeleteTarget;
+
+    await mutate(
+      { name: "delete-category", sourceId: activeTarget.id },
+      async () => {
+        await requestJson(`/api/knowledge/categories/${activeTarget.id}`, {
+          method: "DELETE",
+        });
+        setCategoryDeleteTarget(null);
+        setArticleFilters(initialContentFilters);
+        setFaqFilters(initialContentFilters);
+        await loadBaseChildren(selectedBaseId);
+      },
+      { failure: "删除分类失败", success: "分类已删除" },
+    );
+  }
+
   async function mutate(
     action: PendingAction,
     task: () => Promise<void>,
@@ -445,6 +481,14 @@ export function KnowledgePage() {
     : false;
   const deletePending = deleteTarget
     ? isPendingAction(pendingAction, "delete", deleteTarget.type, deleteTarget.item.id)
+    : false;
+  const categoryDeletePending = categoryDeleteTarget
+    ? isPendingAction(
+        pendingAction,
+        "delete-category",
+        undefined,
+        categoryDeleteTarget.id,
+      )
     : false;
   const deleteTypeLabel = deleteTarget
     ? contentTypeLabel(deleteTarget.type)
@@ -553,9 +597,35 @@ export function KnowledgePage() {
                     key={category.id}
                     className="rounded-md border border-border bg-card p-3"
                   >
-                    <div className="font-medium">{category.name}</div>
-                    <div className="mt-1 text-sm text-muted-foreground">
-                      {category.slug} · 排序 {category.sortOrder}
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="truncate font-medium">
+                          {category.name}
+                        </div>
+                        <div className="mt-1 text-sm text-muted-foreground">
+                          {category.slug} · 排序 {category.sortOrder}
+                        </div>
+                      </div>
+                      <Button
+                        aria-label="删除分类"
+                        disabled={isMutating}
+                        size="icon"
+                        title="删除分类"
+                        type="button"
+                        variant="ghost"
+                        onClick={() => requestDeleteCategory(category)}
+                      >
+                        {isPendingAction(
+                          pendingAction,
+                          "delete-category",
+                          undefined,
+                          category.id,
+                        ) ? (
+                          <Spinner />
+                        ) : (
+                          <Trash2 size={15} />
+                        )}
+                      </Button>
                     </div>
                     {category.description ? (
                       <p className="mt-2 text-sm text-muted-foreground">
@@ -708,6 +778,39 @@ export function KnowledgePage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <AlertDialog
+        open={Boolean(categoryDeleteTarget)}
+        onOpenChange={(open) => {
+          if (!open && !categoryDeletePending) {
+            setCategoryDeleteTarget(null);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>删除分类</AlertDialogTitle>
+            <AlertDialogDescription>
+              确认删除分类“{categoryDeleteTarget?.name ?? ""}”？删除后无法恢复。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={categoryDeletePending}>
+              取消
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/30"
+              disabled={categoryDeletePending}
+              onClick={(event) => {
+                event.preventDefault();
+                void confirmDeleteCategory();
+              }}
+            >
+              {categoryDeletePending ? <Spinner /> : null}
+              删除分类
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -745,6 +848,22 @@ function contentPayload(type: ContentType, formData: FormData) {
 
 function formValue(formData: FormData, name: string) {
   return String(formData.get(name) ?? "");
+}
+
+function categoryBindingCounts(
+  categoryId: string,
+  articles: KnowledgeArticle[],
+  faqs: FaqItem[],
+) {
+  return {
+    articles: articles.filter((article) => article.categoryId === categoryId)
+      .length,
+    faqs: faqs.filter((faq) => faq.categoryId === categoryId).length,
+  };
+}
+
+function categoryBindingMessage(counts: { articles: number; faqs: number }) {
+  return `该分类下还有 ${counts.articles} 篇文章、${counts.faqs} 个 FAQ，请先迁移到其他分类或改为未分类后再删除`;
 }
 
 function normalizeQuery(query: string) {

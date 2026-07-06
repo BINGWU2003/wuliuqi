@@ -230,10 +230,38 @@ export async function updateKnowledgeCategory(
 }
 
 export async function deleteKnowledgeCategory(id: string): Promise<void> {
-  await getRagSql()`
+  const [row] = await getRagSql()`
     DELETE FROM knowledge_categories
     WHERE id = ${id}
+    RETURNING id
   `;
+
+  if (!row) {
+    throw new RagDbError("NOT_FOUND", "分类不存在", 404);
+  }
+}
+
+export async function getKnowledgeCategoryBindingCounts(
+  id: string,
+): Promise<{ articles: number; faqs: number }> {
+  const [row] = await getRagSql()`
+    SELECT
+      (
+        SELECT count(*)::int
+        FROM knowledge_articles
+        WHERE category_id = ${id}
+      ) AS article_count,
+      (
+        SELECT count(*)::int
+        FROM faq_items
+        WHERE category_id = ${id}
+      ) AS faq_count
+  `;
+
+  return {
+    articles: numberValue(row?.article_count),
+    faqs: numberValue(row?.faq_count),
+  };
 }
 
 export async function listKnowledgeArticles(
