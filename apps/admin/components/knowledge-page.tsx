@@ -58,7 +58,9 @@ import {
   Pencil,
   RefreshCw,
   Rocket,
+  Search,
   Trash2,
+  X,
 } from "lucide-react";
 import type { FormEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
@@ -96,12 +98,20 @@ type MutateMessages = {
   failure: string;
   success: string;
 };
+type ContentFilters = {
+  categoryId: string;
+  query: string;
+};
 
 const initialState: KnowledgeState = {
   bases: [],
   categories: [],
   articles: [],
   faqs: [],
+};
+const initialContentFilters: ContentFilters = {
+  categoryId: "__all",
+  query: "",
 };
 
 async function requestJson<T>(
@@ -160,10 +170,24 @@ export function KnowledgePage() {
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
   const [editing, setEditing] = useState<EditingContent | null>(null);
+  const [articleFilters, setArticleFilters] = useState<ContentFilters>(
+    initialContentFilters,
+  );
+  const [faqFilters, setFaqFilters] = useState<ContentFilters>(
+    initialContentFilters,
+  );
   const isMutating = pendingAction !== null;
   const selectedBase = useMemo(
     () => state.bases.find((base) => base.id === selectedBaseId),
     [selectedBaseId, state.bases],
+  );
+  const filteredArticles = useMemo(
+    () => filterArticles(state.articles, articleFilters),
+    [articleFilters, state.articles],
+  );
+  const filteredFaqs = useMemo(
+    () => filterFaqs(state.faqs, faqFilters),
+    [faqFilters, state.faqs],
   );
 
   async function loadBases() {
@@ -208,6 +232,8 @@ export function KnowledgePage() {
   }, []);
 
   useEffect(() => {
+    setArticleFilters(initialContentFilters);
+    setFaqFilters(initialContentFilters);
     void loadBaseChildren(selectedBaseId);
   }, [selectedBaseId]);
 
@@ -569,15 +595,28 @@ export function KnowledgePage() {
                   新建文章
                 </Button>
               </form>
-              <ContentList
-                items={state.articles}
-                type="article"
-                onDelete={(type, item) => setDeleteTarget({ type, item })}
-                onEdit={(type, item) => setEditing({ type, item })}
-                onPublish={publishContent}
-                onReindex={reindex}
-                pendingAction={pendingAction}
-              />
+              <div className="space-y-3">
+                <ContentFilterToolbar
+                  categories={state.categories}
+                  filters={articleFilters}
+                  placeholder="搜索标题、摘要或正文"
+                  totalCount={state.articles.length}
+                  visibleCount={filteredArticles.length}
+                  onChange={setArticleFilters}
+                />
+                <ContentList
+                  emptyMessage={
+                    state.articles.length === 0 ? "暂无内容" : "没有匹配内容"
+                  }
+                  items={filteredArticles}
+                  type="article"
+                  onDelete={(type, item) => setDeleteTarget({ type, item })}
+                  onEdit={(type, item) => setEditing({ type, item })}
+                  onPublish={publishContent}
+                  onReindex={reindex}
+                  pendingAction={pendingAction}
+                />
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -605,15 +644,28 @@ export function KnowledgePage() {
                   新建 FAQ
                 </Button>
               </form>
-              <ContentList
-                items={state.faqs}
-                type="faq"
-                onDelete={(type, item) => setDeleteTarget({ type, item })}
-                onEdit={(type, item) => setEditing({ type, item })}
-                onPublish={publishContent}
-                onReindex={reindex}
-                pendingAction={pendingAction}
-              />
+              <div className="space-y-3">
+                <ContentFilterToolbar
+                  categories={state.categories}
+                  filters={faqFilters}
+                  placeholder="搜索问题或答案"
+                  totalCount={state.faqs.length}
+                  visibleCount={filteredFaqs.length}
+                  onChange={setFaqFilters}
+                />
+                <ContentList
+                  emptyMessage={
+                    state.faqs.length === 0 ? "暂无内容" : "没有匹配内容"
+                  }
+                  items={filteredFaqs}
+                  type="faq"
+                  onDelete={(type, item) => setDeleteTarget({ type, item })}
+                  onEdit={(type, item) => setEditing({ type, item })}
+                  onPublish={publishContent}
+                  onReindex={reindex}
+                  pendingAction={pendingAction}
+                />
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -695,6 +747,58 @@ function formValue(formData: FormData, name: string) {
   return String(formData.get(name) ?? "");
 }
 
+function normalizeQuery(query: string) {
+  return query.trim().toLowerCase();
+}
+
+function matchesCategoryFilter(
+  item: KnowledgeContentItem,
+  categoryId: string,
+) {
+  if (categoryId === "__all") {
+    return true;
+  }
+
+  if (categoryId === "__none") {
+    return !item.categoryId;
+  }
+
+  return item.categoryId === categoryId;
+}
+
+function containsQuery(fields: Array<string | null | undefined>, query: string) {
+  const normalizedQuery = normalizeQuery(query);
+
+  if (!normalizedQuery) {
+    return true;
+  }
+
+  return fields.some((field) =>
+    String(field ?? "")
+      .toLowerCase()
+      .includes(normalizedQuery),
+  );
+}
+
+function filterArticles(
+  articles: KnowledgeArticle[],
+  filters: ContentFilters,
+) {
+  return articles.filter(
+    (article) =>
+      matchesCategoryFilter(article, filters.categoryId) &&
+      containsQuery([article.title, article.excerpt, article.content], filters.query),
+  );
+}
+
+function filterFaqs(faqs: FaqItem[], filters: ContentFilters) {
+  return faqs.filter(
+    (faq) =>
+      matchesCategoryFilter(faq, filters.categoryId) &&
+      containsQuery([faq.question, faq.answer], filters.query),
+  );
+}
+
 function contentTitle(item: KnowledgeContentItem) {
   return "title" in item ? item.title : item.question;
 }
@@ -733,6 +837,75 @@ function cleanCategoryId(value: FormDataEntryValue | null) {
   return categoryId && categoryId !== "__none" ? categoryId : undefined;
 }
 
+function ContentFilterToolbar({
+  categories,
+  filters,
+  onChange,
+  placeholder,
+  totalCount,
+  visibleCount,
+}: {
+  categories: KnowledgeCategory[];
+  filters: ContentFilters;
+  onChange: (filters: ContentFilters) => void;
+  placeholder: string;
+  totalCount: number;
+  visibleCount: number;
+}) {
+  const hasFilters =
+    filters.query.trim().length > 0 || filters.categoryId !== "__all";
+
+  function updateFilter(nextFilters: Partial<ContentFilters>) {
+    onChange({ ...filters, ...nextFilters });
+  }
+
+  return (
+    <div className="rounded-md border border-border bg-card p-3">
+      <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_180px_auto]">
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            className="pl-9"
+            placeholder={placeholder}
+            value={filters.query}
+            onChange={(event) => updateFilter({ query: event.target.value })}
+          />
+        </div>
+        <Select
+          value={filters.categoryId}
+          onValueChange={(categoryId) => updateFilter({ categoryId })}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="全部分类" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__all">全部分类</SelectItem>
+            <SelectItem value="__none">未分类</SelectItem>
+            {categories.map((category) => (
+              <SelectItem key={category.id} value={category.id}>
+                {category.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {hasFilters ? (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onChange(initialContentFilters)}
+          >
+            <X size={16} />
+            清空筛选
+          </Button>
+        ) : null}
+      </div>
+      <div className="mt-2 text-xs text-muted-foreground">
+        显示 {visibleCount} / {totalCount}
+      </div>
+    </div>
+  );
+}
+
 function StatusSelect({ defaultValue = "draft" }: { defaultValue?: KnowledgeStatus }) {
   return (
     <Select defaultValue={defaultValue} name="status">
@@ -749,6 +922,7 @@ function StatusSelect({ defaultValue = "draft" }: { defaultValue?: KnowledgeStat
 }
 
 function ContentList({
+  emptyMessage = "暂无内容",
   items,
   onDelete,
   onEdit,
@@ -757,6 +931,7 @@ function ContentList({
   pendingAction,
   type,
 }: {
+  emptyMessage?: string;
   items: KnowledgeContentItem[];
   onDelete: (type: ContentType, item: KnowledgeContentItem) => void;
   onEdit: (type: ContentType, item: KnowledgeContentItem) => void;
@@ -772,7 +947,7 @@ function ContentList({
     <div className="grid gap-2">
       {items.length === 0 ? (
         <div className="rounded-md border border-border bg-card p-8 text-center text-sm text-muted-foreground">
-          暂无内容
+          {emptyMessage}
         </div>
       ) : null}
       {items.map((item) => {
