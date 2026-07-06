@@ -8,6 +8,16 @@ import type {
   KnowledgeCategory,
   KnowledgeStatus,
 } from "@wuliuqi/types";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@wuliuqi/ui/components/alert-dialog";
 import { Badge } from "@wuliuqi/ui/components/badge";
 import { Button } from "@wuliuqi/ui/components/button";
 import {
@@ -50,6 +60,7 @@ import {
   Rocket,
   Trash2,
 } from "lucide-react";
+import type { FormEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
 
 type KnowledgeState = {
@@ -61,9 +72,29 @@ type KnowledgeState = {
 
 type ContentType = "article" | "faq";
 type KnowledgeContentItem = KnowledgeArticle | FaqItem;
-type EditingContent = {
+type ContentTarget = {
   type: ContentType;
   item: KnowledgeContentItem;
+};
+type EditingContent = ContentTarget;
+type DeleteTarget = ContentTarget;
+type PendingActionName =
+  | "create-base"
+  | "create-category"
+  | "create-article"
+  | "create-faq"
+  | "update"
+  | "publish"
+  | "reindex"
+  | "delete";
+type PendingAction = {
+  name: PendingActionName;
+  sourceId?: string;
+  sourceType?: ContentType;
+};
+type MutateMessages = {
+  failure: string;
+  success: string;
 };
 
 const initialState: KnowledgeState = {
@@ -97,12 +128,39 @@ function errorMessage(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback;
 }
 
+function contentTypeLabel(type: ContentType) {
+  return type === "article" ? "文章" : "FAQ";
+}
+
+function isPendingAction(
+  pendingAction: PendingAction | null,
+  name: PendingActionName,
+  sourceType?: ContentType,
+  sourceId?: string,
+) {
+  if (!pendingAction || pendingAction.name !== name) {
+    return false;
+  }
+
+  if (sourceType && pendingAction.sourceType !== sourceType) {
+    return false;
+  }
+
+  if (sourceId && pendingAction.sourceId !== sourceId) {
+    return false;
+  }
+
+  return true;
+}
+
 export function KnowledgePage() {
   const [state, setState] = useState<KnowledgeState>(initialState);
   const [selectedBaseId, setSelectedBaseId] = useState("");
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
   const [editing, setEditing] = useState<EditingContent | null>(null);
+  const isMutating = pendingAction !== null;
   const selectedBase = useMemo(
     () => state.bases.find((base) => base.id === selectedBaseId),
     [selectedBaseId, state.bases],
@@ -154,19 +212,23 @@ export function KnowledgePage() {
   }, [selectedBaseId]);
 
   async function createBase(formData: FormData) {
-    await mutate(async () => {
-      await requestJson<KnowledgeBase>("/api/knowledge/bases", {
-        method: "POST",
-        body: JSON.stringify({
-          name: String(formData.get("name") ?? ""),
-          slug: String(formData.get("slug") ?? ""),
-          description: String(formData.get("description") ?? ""),
-          status: "published",
-          visibility: "public",
-        }),
-      });
-      await loadBases();
-    });
+    await mutate(
+      { name: "create-base" },
+      async () => {
+        await requestJson<KnowledgeBase>("/api/knowledge/bases", {
+          method: "POST",
+          body: JSON.stringify({
+            name: String(formData.get("name") ?? ""),
+            slug: String(formData.get("slug") ?? ""),
+            description: String(formData.get("description") ?? ""),
+            status: "published",
+            visibility: "public",
+          }),
+        });
+        await loadBases();
+      },
+      { failure: "创建知识库失败", success: "知识库已创建" },
+    );
   }
 
   async function createCategory(formData: FormData) {
@@ -174,21 +236,25 @@ export function KnowledgePage() {
       return;
     }
 
-    await mutate(async () => {
-      await requestJson<KnowledgeCategory>(
-        `/api/knowledge/bases/${selectedBaseId}/categories`,
-        {
-          method: "POST",
-          body: JSON.stringify({
-            name: String(formData.get("name") ?? ""),
-            slug: String(formData.get("slug") ?? ""),
-            description: String(formData.get("description") ?? ""),
-            sortOrder: Number(formData.get("sortOrder") || 0),
-          }),
-        },
-      );
-      await loadBaseChildren(selectedBaseId);
-    });
+    await mutate(
+      { name: "create-category" },
+      async () => {
+        await requestJson<KnowledgeCategory>(
+          `/api/knowledge/bases/${selectedBaseId}/categories`,
+          {
+            method: "POST",
+            body: JSON.stringify({
+              name: String(formData.get("name") ?? ""),
+              slug: String(formData.get("slug") ?? ""),
+              description: String(formData.get("description") ?? ""),
+              sortOrder: Number(formData.get("sortOrder") || 0),
+            }),
+          },
+        );
+        await loadBaseChildren(selectedBaseId);
+      },
+      { failure: "创建分类失败", success: "分类已创建" },
+    );
   }
 
   async function createArticle(formData: FormData) {
@@ -196,25 +262,29 @@ export function KnowledgePage() {
       return;
     }
 
-    await mutate(async () => {
-      await requestJson<KnowledgeArticle>(
-        `/api/knowledge/bases/${selectedBaseId}/articles`,
-        {
-          method: "POST",
-          body: JSON.stringify({
-            categoryId: cleanCategoryId(formData.get("categoryId")),
-            title: String(formData.get("title") ?? ""),
-            slug: String(formData.get("slug") ?? ""),
-            excerpt: String(formData.get("excerpt") ?? ""),
-            content: String(formData.get("content") ?? ""),
-            status: String(formData.get("status") ?? "draft"),
-            tags: String(formData.get("tags") ?? ""),
-            sortOrder: Number(formData.get("sortOrder") || 0),
-          }),
-        },
-      );
-      await loadBaseChildren(selectedBaseId);
-    });
+    await mutate(
+      { name: "create-article" },
+      async () => {
+        await requestJson<KnowledgeArticle>(
+          `/api/knowledge/bases/${selectedBaseId}/articles`,
+          {
+            method: "POST",
+            body: JSON.stringify({
+              categoryId: cleanCategoryId(formData.get("categoryId")),
+              title: String(formData.get("title") ?? ""),
+              slug: String(formData.get("slug") ?? ""),
+              excerpt: String(formData.get("excerpt") ?? ""),
+              content: String(formData.get("content") ?? ""),
+              status: String(formData.get("status") ?? "draft"),
+              tags: String(formData.get("tags") ?? ""),
+              sortOrder: Number(formData.get("sortOrder") || 0),
+            }),
+          },
+        );
+        await loadBaseChildren(selectedBaseId);
+      },
+      { failure: "创建文章失败", success: "文章已创建" },
+    );
   }
 
   async function createFaq(formData: FormData) {
@@ -222,81 +292,138 @@ export function KnowledgePage() {
       return;
     }
 
-    await mutate(async () => {
-      await requestJson<FaqItem>(`/api/knowledge/bases/${selectedBaseId}/faqs`, {
-        method: "POST",
-        body: JSON.stringify({
-          categoryId: cleanCategoryId(formData.get("categoryId")),
-          question: String(formData.get("question") ?? ""),
-          answer: String(formData.get("answer") ?? ""),
-          aliases: String(formData.get("aliases") ?? ""),
-          status: String(formData.get("status") ?? "draft"),
-          tags: String(formData.get("tags") ?? ""),
-          sortOrder: Number(formData.get("sortOrder") || 0),
-        }),
-      });
-      await loadBaseChildren(selectedBaseId);
-    });
-  }
-
-  async function deleteArticle(id: string) {
-    await mutate(async () => {
-      await requestJson(`/api/knowledge/articles/${id}`, { method: "DELETE" });
-      await loadBaseChildren(selectedBaseId);
-    });
-  }
-
-  async function deleteFaq(id: string) {
-    await mutate(async () => {
-      await requestJson(`/api/knowledge/faqs/${id}`, { method: "DELETE" });
-      await loadBaseChildren(selectedBaseId);
-    });
+    await mutate(
+      { name: "create-faq" },
+      async () => {
+        await requestJson<FaqItem>(`/api/knowledge/bases/${selectedBaseId}/faqs`, {
+          method: "POST",
+          body: JSON.stringify({
+            categoryId: cleanCategoryId(formData.get("categoryId")),
+            question: String(formData.get("question") ?? ""),
+            answer: String(formData.get("answer") ?? ""),
+            aliases: String(formData.get("aliases") ?? ""),
+            status: String(formData.get("status") ?? "draft"),
+            tags: String(formData.get("tags") ?? ""),
+            sortOrder: Number(formData.get("sortOrder") || 0),
+          }),
+        });
+        await loadBaseChildren(selectedBaseId);
+      },
+      { failure: "创建 FAQ 失败", success: "FAQ 已创建" },
+    );
   }
 
   async function updateContent(editingContent: EditingContent, formData: FormData) {
-    await mutate(async () => {
-      await requestJson<KnowledgeContentItem>(
-        contentUrl(editingContent.type, editingContent.item.id),
-        {
-          method: "PATCH",
-          body: JSON.stringify(contentPayload(editingContent.type, formData)),
-        },
-      );
-      setEditing(null);
-      await loadBaseChildren(selectedBaseId);
-    });
+    const typeLabel = contentTypeLabel(editingContent.type);
+
+    await mutate(
+      {
+        name: "update",
+        sourceId: editingContent.item.id,
+        sourceType: editingContent.type,
+      },
+      async () => {
+        await requestJson<KnowledgeContentItem>(
+          contentUrl(editingContent.type, editingContent.item.id),
+          {
+            method: "PATCH",
+            body: JSON.stringify(contentPayload(editingContent.type, formData)),
+          },
+        );
+        await loadBaseChildren(selectedBaseId);
+        setEditing(null);
+      },
+      { failure: `更新${typeLabel}失败`, success: `${typeLabel}已保存` },
+    );
   }
 
   async function publishContent(sourceType: ContentType, sourceId: string) {
-    await mutate(async () => {
-      await requestJson<KnowledgeContentItem>(contentUrl(sourceType, sourceId), {
-        method: "PATCH",
-        body: JSON.stringify({ status: "published" }),
-      });
-      await loadBaseChildren(selectedBaseId);
-    });
+    const typeLabel = contentTypeLabel(sourceType);
+
+    await mutate(
+      { name: "publish", sourceId, sourceType },
+      async () => {
+        await requestJson<KnowledgeContentItem>(contentUrl(sourceType, sourceId), {
+          method: "PATCH",
+          body: JSON.stringify({ status: "published" }),
+        });
+        await loadBaseChildren(selectedBaseId);
+      },
+      { failure: `发布${typeLabel}失败`, success: `${typeLabel}已发布` },
+    );
   }
 
   async function reindex(sourceType: ContentType, sourceId: string) {
-    await mutate(async () => {
-      await requestJson(`/api/knowledge/index/${sourceType}/${sourceId}`, {
-        method: "POST",
-      });
-      await loadBaseChildren(selectedBaseId);
-    });
+    const typeLabel = contentTypeLabel(sourceType);
+
+    await mutate(
+      { name: "reindex", sourceId, sourceType },
+      async () => {
+        await requestJson(`/api/knowledge/index/${sourceType}/${sourceId}`, {
+          method: "POST",
+        });
+        await loadBaseChildren(selectedBaseId);
+      },
+      { failure: `重建${typeLabel}索引失败`, success: `${typeLabel}索引已重建` },
+    );
   }
 
-  async function mutate(task: () => Promise<void>) {
-    setSaving(true);
+  async function confirmDelete() {
+    if (!deleteTarget) {
+      return;
+    }
+
+    const activeTarget = deleteTarget;
+    const typeLabel = contentTypeLabel(activeTarget.type);
+
+    await mutate(
+      {
+        name: "delete",
+        sourceId: activeTarget.item.id,
+        sourceType: activeTarget.type,
+      },
+      async () => {
+        await requestJson(contentUrl(activeTarget.type, activeTarget.item.id), {
+          method: "DELETE",
+        });
+        setDeleteTarget(null);
+        await loadBaseChildren(selectedBaseId);
+      },
+      { failure: `删除${typeLabel}失败`, success: `${typeLabel}已删除` },
+    );
+  }
+
+  async function mutate(
+    action: PendingAction,
+    task: () => Promise<void>,
+    messages: MutateMessages,
+  ) {
+    if (pendingAction) {
+      return;
+    }
+
+    setPendingAction(action);
 
     try {
       await task();
+      toast.success(messages.success);
     } catch (mutateError) {
-      toast.error(errorMessage(mutateError, "操作失败"));
+      toast.error(errorMessage(mutateError, messages.failure));
     } finally {
-      setSaving(false);
+      setPendingAction(null);
     }
   }
+
+  const editingSaving = editing
+    ? isPendingAction(pendingAction, "update", editing.type, editing.item.id)
+    : false;
+  const deletePending = deleteTarget
+    ? isPendingAction(pendingAction, "delete", deleteTarget.type, deleteTarget.item.id)
+    : false;
+  const deleteTypeLabel = deleteTarget
+    ? contentTypeLabel(deleteTarget.type)
+    : "内容";
+  const deleteTitle = deleteTarget ? contentTitle(deleteTarget.item) : "";
 
   return (
     <div className="space-y-4">
@@ -307,7 +434,7 @@ export function KnowledgePage() {
             管理买家帮助中心内容、FAQ 和 RAG 索引。
           </p>
         </div>
-        <Button disabled={loading} variant="outline" onClick={loadBases}>
+        <Button disabled={loading || isMutating} variant="outline" onClick={loadBases}>
           {loading ? <Spinner /> : <RefreshCw size={16} />}
           刷新
         </Button>
@@ -352,8 +479,8 @@ export function KnowledgePage() {
               name="description"
               placeholder="描述"
             />
-            <Button className="sm:col-span-2" disabled={saving} type="submit">
-              {saving ? <Spinner /> : null}
+            <Button className="sm:col-span-2" disabled={isMutating} type="submit">
+              {isPendingAction(pendingAction, "create-base") ? <Spinner /> : null}
               新建知识库
             </Button>
           </form>
@@ -387,8 +514,10 @@ export function KnowledgePage() {
                 <Input name="slug" placeholder="路径标识，如 login" />
                 <Input name="description" placeholder="分类描述" />
                 <Input name="sortOrder" placeholder="排序值" type="number" />
-                <Button disabled={saving || !selectedBaseId} type="submit">
-                  {saving ? <Spinner /> : null}
+                <Button disabled={isMutating || !selectedBaseId} type="submit">
+                  {isPendingAction(pendingAction, "create-category") ? (
+                    <Spinner />
+                  ) : null}
                   新建分类
                 </Button>
               </form>
@@ -433,19 +562,21 @@ export function KnowledgePage() {
                   name="content"
                   placeholder="Markdown 内容"
                 />
-                <Button disabled={saving || !selectedBaseId} type="submit">
-                  {saving ? <Spinner /> : null}
+                <Button disabled={isMutating || !selectedBaseId} type="submit">
+                  {isPendingAction(pendingAction, "create-article") ? (
+                    <Spinner />
+                  ) : null}
                   新建文章
                 </Button>
               </form>
               <ContentList
                 items={state.articles}
                 type="article"
-                onDelete={deleteArticle}
+                onDelete={(type, item) => setDeleteTarget({ type, item })}
                 onEdit={(type, item) => setEditing({ type, item })}
                 onPublish={publishContent}
                 onReindex={reindex}
-                saving={saving}
+                pendingAction={pendingAction}
               />
             </CardContent>
           </Card>
@@ -469,19 +600,19 @@ export function KnowledgePage() {
                   name="answer"
                   placeholder="标准答案"
                 />
-                <Button disabled={saving || !selectedBaseId} type="submit">
-                  {saving ? <Spinner /> : null}
+                <Button disabled={isMutating || !selectedBaseId} type="submit">
+                  {isPendingAction(pendingAction, "create-faq") ? <Spinner /> : null}
                   新建 FAQ
                 </Button>
               </form>
               <ContentList
                 items={state.faqs}
                 type="faq"
-                onDelete={deleteFaq}
+                onDelete={(type, item) => setDeleteTarget({ type, item })}
                 onEdit={(type, item) => setEditing({ type, item })}
                 onPublish={publishContent}
                 onReindex={reindex}
-                saving={saving}
+                pendingAction={pendingAction}
               />
             </CardContent>
           </Card>
@@ -490,10 +621,41 @@ export function KnowledgePage() {
       <KnowledgeEditDialog
         categories={state.categories}
         editing={editing}
-        saving={saving}
+        saving={editingSaving}
         onClose={() => setEditing(null)}
         onSubmit={updateContent}
       />
+      <AlertDialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => {
+          if (!open && !deletePending) {
+            setDeleteTarget(null);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>删除{deleteTypeLabel}</AlertDialogTitle>
+            <AlertDialogDescription>
+              确认删除{deleteTypeLabel}“{deleteTitle}”？删除后无法恢复。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletePending}>取消</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/30"
+              disabled={deletePending}
+              onClick={(event) => {
+                event.preventDefault();
+                void confirmDelete();
+              }}
+            >
+              {deletePending ? <Spinner /> : null}
+              删除{deleteTypeLabel}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -531,6 +693,14 @@ function contentPayload(type: ContentType, formData: FormData) {
 
 function formValue(formData: FormData, name: string) {
   return String(formData.get(name) ?? "");
+}
+
+function contentTitle(item: KnowledgeContentItem) {
+  return "title" in item ? item.title : item.question;
+}
+
+function contentSubtitle(item: KnowledgeContentItem) {
+  return "slug" in item ? item.slug : item.answer;
 }
 
 function CategorySelect({
@@ -584,18 +754,19 @@ function ContentList({
   onEdit,
   onPublish,
   onReindex,
-  saving,
+  pendingAction,
   type,
 }: {
   items: KnowledgeContentItem[];
-  onDelete: (id: string) => Promise<void>;
+  onDelete: (type: ContentType, item: KnowledgeContentItem) => void;
   onEdit: (type: ContentType, item: KnowledgeContentItem) => void;
   onPublish: (type: ContentType, id: string) => Promise<void>;
   onReindex: (type: ContentType, id: string) => Promise<void>;
-  saving: boolean;
+  pendingAction: PendingAction | null;
   type: ContentType;
 }) {
-  const typeLabel = type === "article" ? "文章" : "FAQ";
+  const typeLabel = contentTypeLabel(type);
+  const isMutating = pendingAction !== null;
 
   return (
     <div className="grid gap-2">
@@ -605,8 +776,21 @@ function ContentList({
         </div>
       ) : null}
       {items.map((item) => {
-        const title = "title" in item ? item.title : item.question;
-        const subtitle = "slug" in item ? item.slug : item.answer;
+        const title = contentTitle(item);
+        const subtitle = contentSubtitle(item);
+        const publishing = isPendingAction(
+          pendingAction,
+          "publish",
+          type,
+          item.id,
+        );
+        const reindexing = isPendingAction(
+          pendingAction,
+          "reindex",
+          type,
+          item.id,
+        );
+        const deleting = isPendingAction(pendingAction, "delete", type, item.id);
 
         return (
           <div
@@ -623,7 +807,7 @@ function ContentList({
               <div className="flex shrink-0 gap-1">
                 <Button
                   aria-label={`编辑${typeLabel}`}
-                  disabled={saving}
+                  disabled={isMutating}
                   size="icon"
                   title={`编辑${typeLabel}`}
                   type="button"
@@ -635,37 +819,37 @@ function ContentList({
                 {item.status === "draft" ? (
                   <Button
                     aria-label={`发布${typeLabel}`}
-                    disabled={saving}
+                    disabled={isMutating}
                     size="icon"
                     title={`发布${typeLabel}`}
                     type="button"
                     variant="ghost"
                     onClick={() => onPublish(type, item.id)}
                   >
-                    <Rocket size={15} />
+                    {publishing ? <Spinner /> : <Rocket size={15} />}
                   </Button>
                 ) : null}
                 <Button
                   aria-label={`重建${typeLabel}索引`}
-                  disabled={saving}
+                  disabled={isMutating}
                   size="icon"
                   title={`重建${typeLabel}索引`}
                   type="button"
                   variant="ghost"
                   onClick={() => onReindex(type, item.id)}
                 >
-                  <RefreshCw size={15} />
+                  {reindexing ? <Spinner /> : <RefreshCw size={15} />}
                 </Button>
                 <Button
                   aria-label={`删除${typeLabel}`}
-                  disabled={saving}
+                  disabled={isMutating}
                   size="icon"
                   title={`删除${typeLabel}`}
                   type="button"
                   variant="ghost"
-                  onClick={() => onDelete(item.id)}
+                  onClick={() => onDelete(type, item)}
                 >
-                  <Trash2 size={15} />
+                  {deleting ? <Spinner /> : <Trash2 size={15} />}
                 </Button>
               </div>
             </div>
@@ -698,22 +882,49 @@ function KnowledgeEditDialog({
   onSubmit: (editing: EditingContent, formData: FormData) => Promise<void>;
   saving: boolean;
 }) {
+  const [localSaving, setLocalSaving] = useState(false);
+
+  useEffect(() => {
+    setLocalSaving(false);
+  }, [editing?.item.id, editing?.type]);
+
   if (!editing) {
     return null;
   }
 
   const activeEditing = editing;
   const typeLabel = activeEditing.type === "article" ? "文章" : "FAQ";
+  const submitting = saving || localSaving;
 
   async function submit(formData: FormData) {
-    await onSubmit(activeEditing, formData);
+    if (submitting) {
+      return;
+    }
+
+    setLocalSaving(true);
+
+    try {
+      await onSubmit(activeEditing, formData);
+    } finally {
+      setLocalSaving(false);
+    }
+  }
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (submitting) {
+      return;
+    }
+
+    void submit(new FormData(event.currentTarget));
   }
 
   return (
     <Dialog
       open
       onOpenChange={(open) => {
-        if (!open && !saving) {
+        if (!open && !submitting) {
           onClose();
         }
       }}
@@ -721,8 +932,9 @@ function KnowledgeEditDialog({
       <DialogContent className="max-h-[calc(100dvh-2rem)] max-w-3xl overflow-hidden p-0">
         <form
           key={`${activeEditing.type}-${activeEditing.item.id}`}
-          action={submit}
+          aria-busy={submitting}
           className="flex max-h-[calc(100dvh-2rem)] flex-col"
+          onSubmit={handleSubmit}
         >
           <DialogHeader className="border-b border-border p-4">
             <DialogTitle>编辑{typeLabel}</DialogTitle>
@@ -745,16 +957,16 @@ function KnowledgeEditDialog({
           </div>
           <DialogFooter className="border-t border-border p-4">
             <Button
-              disabled={saving}
+              disabled={submitting}
               type="button"
               variant="outline"
               onClick={onClose}
             >
               取消
             </Button>
-            <Button disabled={saving} type="submit">
-              {saving ? <Spinner /> : null}
-              保存
+            <Button disabled={submitting} type="submit">
+              {submitting ? <Spinner /> : null}
+              {submitting ? "保存中..." : "保存"}
             </Button>
           </DialogFooter>
         </form>
