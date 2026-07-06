@@ -26,6 +26,11 @@ import {
 } from "./serializers";
 
 type TransactionClient = Prisma.TransactionClient;
+type AccountLookupClient = Pick<TransactionClient, "codmAccount">;
+type LinkedEmailAccount = {
+  id: bigint;
+  serialNumber: string;
+};
 
 const ACCOUNT_LISTED_STATUS = 1;
 const EMAIL_BOUND_STATUS = 1;
@@ -109,6 +114,39 @@ async function getExpectedEmailBindStatus(
   });
 
   return listedAccount ? EMAIL_BOUND_STATUS : EMAIL_UNBOUND_STATUS;
+}
+
+async function findLinkedAccountByEmail(
+  client: AccountLookupClient,
+  email?: string | null,
+): Promise<LinkedEmailAccount | null> {
+  if (!email) {
+    return null;
+  }
+
+  return client.codmAccount.findFirst({
+    where: { email },
+    orderBy: [{ status: "asc" }, { updatedAt: "desc" }],
+    select: {
+      id: true,
+      serialNumber: true,
+    },
+  });
+}
+
+async function assertEmailAddressNotLinked(
+  tx: TransactionClient,
+  email: string,
+  action: string,
+) {
+  const linkedAccount = await findLinkedAccountByEmail(tx, email);
+
+  if (linkedAccount) {
+    throw new DomainError(
+      "EMAIL_LINKED",
+      `该邮箱已关联账号 ${linkedAccount.serialNumber}，无法${action}`,
+    );
+  }
 }
 
 async function syncEmailBindStatusFromAccounts(
@@ -455,7 +493,19 @@ export async function listAdminEmails(
 export async function getAdminEmailById(id: number): Promise<AdminEmail | null> {
   const email = await prisma.codmEmail.findUnique({ where: { id } });
 
-  return email ? serializeEmail(email) : null;
+  if (!email) {
+    return null;
+  }
+
+  const linkedAccount = await findLinkedAccountByEmail(
+    prisma,
+    composeEmailAddress(email.prefix, email.postfix),
+  );
+
+  return serializeEmail({
+    ...email,
+    boundAccountId: linkedAccount?.id,
+  });
 }
 
 export async function createAdminEmail(
@@ -510,15 +560,8 @@ export async function updateAdminEmail(
 
     assertEmailPrefixMutation(existingEmail.prefix, nextPrefix);
 
-    if (
-      addressChanged &&
-      (await getExpectedEmailBindStatus(tx, existingAddress)) ===
-        EMAIL_BOUND_STATUS
-    ) {
-      throw new DomainError(
-        "EMAIL_BOUND",
-        "该邮箱已绑定账号，无法修改邮箱地址",
-      );
+    if (addressChanged) {
+      await assertEmailAddressNotLinked(tx, existingAddress, "修改邮箱地址");
     }
 
     if (addressChanged) {
@@ -557,14 +600,11 @@ export async function deleteAdminEmail(id: number): Promise<void> {
       throw new DomainError("NOT_FOUND", "CODM邮箱未找到", 404);
     }
 
-    const expectedBindStatus = await getExpectedEmailBindStatus(
+    await assertEmailAddressNotLinked(
       tx,
       composeEmailAddress(existingEmail.prefix, existingEmail.postfix),
+      "删除",
     );
-
-    if (expectedBindStatus === EMAIL_BOUND_STATUS) {
-      throw new DomainError("EMAIL_BOUND", "该邮箱已绑定账号，无法删除");
-    }
 
     await tx.codmEmail.delete({ where: { id } });
   });

@@ -48,9 +48,11 @@ export function EmailForm({
   const [prefix, setPrefix] = useState("");
   const [postfix, setPostfix] = useState("@163.com");
   const [bindStatus, setBindStatus] = useState<1 | 2>(2);
+  const [boundAccountId, setBoundAccountId] = useState<number | null>(null);
   const [loading, setLoading] = useState(Boolean(emailId));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const isLinkedToAccount = Boolean(emailId && boundAccountId);
 
   useEffect(() => {
     if (!emailId) {
@@ -63,6 +65,7 @@ export function EmailForm({
         setPrefix(email.prefix);
         setPostfix(email.postfix);
         setBindStatus(email.bindStatus === 1 ? 1 : 2);
+        setBoundAccountId(email.boundAccountId ?? null);
       })
       .catch((loadError) =>
         setError(loadError instanceof Error ? loadError.message : "加载失败"),
@@ -72,6 +75,11 @@ export function EmailForm({
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    if (isLinkedToAccount) {
+      return;
+    }
+
     setSaving(true);
     setError("");
 
@@ -121,7 +129,11 @@ export function EmailForm({
             {emailId ? "编辑邮箱" : "新建邮箱"}
           </h1>
         </div>
-        <Button className="w-full sm:w-auto" disabled={saving} type="submit">
+        <Button
+          className="w-full sm:w-auto"
+          disabled={saving || isLinkedToAccount}
+          type="submit"
+        >
           {saving ? <Spinner /> : <Save size={16} />}
           {saving ? "保存中..." : "保存邮箱"}
         </Button>
@@ -129,6 +141,19 @@ export function EmailForm({
       {error ? (
         <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
           {error}
+        </div>
+      ) : null}
+      {isLinkedToAccount ? (
+        <div className="rounded-md border border-border bg-muted px-3 py-2 text-sm text-muted-foreground">
+          已关联账号{" "}
+          <Link
+            className="font-medium text-primary underline-offset-4 hover:underline"
+            href={`/accounts/${boundAccountId}/edit`}
+            scroll={false}
+          >
+            #{boundAccountId}
+          </Link>
+          ，邮箱信息不可修改。
         </div>
       ) : null}
       <Card className="rounded-md shadow-none">
@@ -139,6 +164,7 @@ export function EmailForm({
           <label className="block space-y-1.5">
             <span className="text-sm font-medium">前缀</span>
             <Input
+              disabled={isLinkedToAccount}
               required
               value={prefix}
               onChange={(event) => setPrefix(event.target.value)}
@@ -146,7 +172,11 @@ export function EmailForm({
           </label>
           <label className="block space-y-1.5">
             <span className="text-sm font-medium">后缀</span>
-            <Select value={postfix} onValueChange={setPostfix}>
+            <Select
+              disabled={isLinkedToAccount}
+              value={postfix}
+              onValueChange={setPostfix}
+            >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -162,6 +192,7 @@ export function EmailForm({
           <label className="block space-y-1.5">
             <span className="text-sm font-medium">绑定状态</span>
             <Select
+              disabled={isLinkedToAccount}
               value={String(bindStatus)}
               onValueChange={(value) => setBindStatus(value === "1" ? 1 : 2)}
             >

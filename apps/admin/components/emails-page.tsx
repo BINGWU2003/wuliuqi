@@ -285,6 +285,12 @@ export function EmailsPage() {
       return;
     }
 
+    if (isEmailLinked(deleteTarget)) {
+      setError("该邮箱已关联账号，无法删除");
+      setDeleteTarget(null);
+      return;
+    }
+
     setDeletingId(deleteTarget.id);
     setError("");
 
@@ -386,8 +392,9 @@ export function EmailsPage() {
               </Button>
               <Button
                 aria-label={`删除邮箱 ${email.email}`}
-                disabled={deletingId === email.id}
+                disabled={deletingId === email.id || isEmailLinked(email)}
                 size="sm"
+                title={isEmailLinked(email) ? "已关联账号，无法删除" : undefined}
                 type="button"
                 variant="ghost"
                 onClick={() => setDeleteTarget(email)}
@@ -456,8 +463,11 @@ export function EmailsPage() {
                         </Link>
                       </Button>
                       <Button
-                        disabled={deletingId === email.id}
+                        disabled={deletingId === email.id || isEmailLinked(email)}
                         size="sm"
+                        title={
+                          isEmailLinked(email) ? "已关联账号，无法删除" : undefined
+                        }
                         type="button"
                         variant="ghost"
                         onClick={() => setDeleteTarget(email)}
@@ -685,7 +695,7 @@ function getPaginationPages(page: number, totalPages: number) {
 }
 
 function EmailAddress({ email }: { email: AdminEmail }) {
-  if (email.bindStatus === 1 && email.boundAccountId) {
+  if (email.boundAccountId) {
     return (
       <Link
         className="break-all font-medium text-primary underline-offset-4 hover:underline"
@@ -698,4 +708,8 @@ function EmailAddress({ email }: { email: AdminEmail }) {
   }
 
   return <span className="break-all font-medium">{email.email}</span>;
+}
+
+function isEmailLinked(email: AdminEmail) {
+  return email.boundAccountId !== undefined;
 }
