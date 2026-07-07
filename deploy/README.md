@@ -20,18 +20,26 @@ DATABASE_URL="postgresql://USER:PASSWORD@HOST:5432/DATABASE_NAME?sslmode=require
 
 `DATABASE_URL` 是主业务 PostgreSQL 连接串，例如 Supabase Postgres、Neon 或其他托管 PostgreSQL。使用 Supabase 时，主业务 `DATABASE_URL` 建议使用 session pooler，也就是 pooler host 的 `5432` 端口。
 
+`DATABASE_POOL_SIZE` 是每个 `shop`/`admin` Node 进程的 Prisma 主库连接池大小，默认 `5`。Supabase session pooler 常见上限是 `pool_size: 15`，同时部署 `shop` 和 `admin` 时先保持 `5`，合计约 10 条连接；如果增加副本数，按 `应用数 * 副本数 * DATABASE_POOL_SIZE` 重新下调。
+
+`DATABASE_POOL_TIMEOUT` 是 Prisma 等待空闲连接的秒数，默认 `20`。
+
 `RAG_DATABASE_URL` 是帮助中心/RAG 使用的 PostgreSQL + pgvector 连接串。使用 Supabase 时，RAG 可以使用 transaction pooler，也就是 pooler host 的 `6543` 端口。小规模起步时，`DATABASE_URL` 和 `RAG_DATABASE_URL` 可以指向同一个 Supabase database，但二者端口可以不同。
 
 `shop`：
 
 ```text
 DATABASE_URL
+DATABASE_POOL_SIZE=5
+DATABASE_POOL_TIMEOUT=20
 ```
 
 `admin`：
 
 ```text
 DATABASE_URL
+DATABASE_POOL_SIZE=5
+DATABASE_POOL_TIMEOUT=20
 JWT_SECRET
 COS_SECRET_ID
 COS_SECRET_KEY

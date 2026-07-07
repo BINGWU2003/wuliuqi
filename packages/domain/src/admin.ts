@@ -263,15 +263,13 @@ export async function listAdminAccounts(
         ? { price: "desc" }
         : { updatedAt: "desc" };
 
-  const [total, accounts] = await Promise.all([
-    prisma.codmAccount.count({ where }),
-    prisma.codmAccount.findMany({
-      where,
-      orderBy,
-      skip: (query.page - 1) * query.limit,
-      take: query.limit,
-    }),
-  ]);
+  const total = await prisma.codmAccount.count({ where });
+  const accounts = await prisma.codmAccount.findMany({
+    where,
+    orderBy,
+    skip: (query.page - 1) * query.limit,
+    take: query.limit,
+  });
 
   return {
     list: accounts.map(serializeAccount),
@@ -442,16 +440,16 @@ export async function listAdminEmails(
     ];
   }
 
-  const [total, emails] = await Promise.all([
-    prisma.codmEmail.count({ where }),
-    prisma.codmEmail.findMany({
-      where,
-      orderBy: [{ postfix: "asc" }, { updatedAt: "desc" }],
-      skip: (query.page - 1) * query.limit,
-      take: query.limit,
-    }),
-  ]);
-  const emailAddresses = emails.map((email) => `${email.prefix}${email.postfix}`);
+  const total = await prisma.codmEmail.count({ where });
+  const emails = await prisma.codmEmail.findMany({
+    where,
+    orderBy: [{ postfix: "asc" }, { updatedAt: "desc" }],
+    skip: (query.page - 1) * query.limit,
+    take: query.limit,
+  });
+  const emailAddresses = emails.map(
+    (email) => `${email.prefix}${email.postfix}`,
+  );
   const boundAccounts =
     emailAddresses.length > 0
       ? await prisma.codmAccount.findMany({
@@ -490,7 +488,9 @@ export async function listAdminEmails(
   };
 }
 
-export async function getAdminEmailById(id: number): Promise<AdminEmail | null> {
+export async function getAdminEmailById(
+  id: number,
+): Promise<AdminEmail | null> {
   const email = await prisma.codmEmail.findUnique({ where: { id } });
 
   if (!email) {
@@ -648,7 +648,9 @@ export async function updateCarouselByName(
   name: string,
   input: CarouselUpdateInput,
 ): Promise<Carousel> {
-  const existingCarousel = await prisma.carousel.findUnique({ where: { name } });
+  const existingCarousel = await prisma.carousel.findUnique({
+    where: { name },
+  });
 
   if (!existingCarousel) {
     throw new DomainError("NOT_FOUND", "轮播图配置未找到", 404);

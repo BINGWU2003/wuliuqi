@@ -86,13 +86,17 @@ pnpm --filter @wuliuqi/rag-db seed
 
 ### 主业务 PostgreSQL
 
-`shop` 和 `admin` 都读取 `DATABASE_URL`。
+`shop` 和 `admin` 都读取 `DATABASE_URL`，并通过 `DATABASE_POOL_SIZE` 控制每个 Node 进程的 Prisma 主库连接池大小。生产环境默认值是 `5`。
 
 如果主业务库使用 Supabase，推荐填写 **Connection Pooling / Session pooler** 连接串，也就是 pooler host 的 `5432` 端口：
 
 ```env
 DATABASE_URL="postgresql://postgres.PROJECT_REF:PASSWORD@aws-REGION.pooler.supabase.com:5432/postgres?sslmode=require"
+DATABASE_POOL_SIZE="5"
+DATABASE_POOL_TIMEOUT="20"
 ```
+
+如果 Supabase session pooler 显示 `pool_size: 15`，同时部署 `shop` 和 `admin` 时建议先保持 `DATABASE_POOL_SIZE=5`，两边合计约 10 条连接，避免 Prisma 默认池大小叠加后触发 `EMAXCONNSESSION`。如果以后增加副本数，需要按 `应用数 * 副本数 * DATABASE_POOL_SIZE` 重新下调。
 
 ### `apps/shop/.env.local`
 
@@ -100,6 +104,8 @@ DATABASE_URL="postgresql://postgres.PROJECT_REF:PASSWORD@aws-REGION.pooler.supab
 
 ```env
 DATABASE_URL="postgresql://USER:PASSWORD@HOST:5432/DATABASE_NAME?sslmode=require"
+DATABASE_POOL_SIZE="5"
+DATABASE_POOL_TIMEOUT="20"
 ```
 
 ### RAG 使用 Supabase Postgres
@@ -118,6 +124,8 @@ RAG_DATABASE_URL="postgresql://postgres.PROJECT_REF:PASSWORD@aws-REGION.pooler.s
 
 ```env
 DATABASE_URL="postgresql://USER:PASSWORD@HOST:5432/DATABASE_NAME?sslmode=require"
+DATABASE_POOL_SIZE="5"
+DATABASE_POOL_TIMEOUT="20"
 JWT_SECRET="replace-with-a-strong-secret"
 
 COS_SECRET_ID="your-cos-secret-id"
@@ -154,13 +162,13 @@ GEMINI_EMBEDDING_DIMENSIONS="768"
 
 RAG 默认值：
 
-| 变量 | 默认值 | 说明 |
-| --- | --- | --- |
-| `RAG_DB_POOL_SIZE` | `5` | RAG PostgreSQL 连接池大小 |
-| `RAG_MODEL_PROVIDER` | `gemini` | 当前只支持 Gemini |
-| `GEMINI_CHAT_MODEL` | `gemini-3.5-flash` | AI 问答模型 |
-| `GEMINI_EMBEDDING_MODEL` | `gemini-embedding-2` | 知识库索引向量模型 |
-| `GEMINI_EMBEDDING_DIMENSIONS` | `768` | embedding 维度，需和 RAG 表结构一致 |
+| 变量                          | 默认值               | 说明                                |
+| ----------------------------- | -------------------- | ----------------------------------- |
+| `RAG_DB_POOL_SIZE`            | `5`                  | RAG PostgreSQL 连接池大小           |
+| `RAG_MODEL_PROVIDER`          | `gemini`             | 当前只支持 Gemini                   |
+| `GEMINI_CHAT_MODEL`           | `gemini-3.5-flash`   | AI 问答模型                         |
+| `GEMINI_EMBEDDING_MODEL`      | `gemini-embedding-2` | 知识库索引向量模型                  |
+| `GEMINI_EMBEDDING_DIMENSIONS` | `768`                | embedding 维度，需和 RAG 表结构一致 |
 
 ## 数据库初始化
 

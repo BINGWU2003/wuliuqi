@@ -14,6 +14,8 @@
 
 ```env
 DATABASE_URL="postgresql://USER:PASSWORD@HOST:5432/DATABASE_NAME?sslmode=require"
+DATABASE_POOL_SIZE="5"
+DATABASE_POOL_TIMEOUT="20"
 ```
 
 ## 常用命令
