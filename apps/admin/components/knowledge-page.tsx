@@ -64,6 +64,7 @@ import {
 } from "lucide-react";
 import type { FormEvent } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { LoadingButton } from "@/components/loading-button";
 import { errorMessage } from "@/lib/feedback";
 
 type KnowledgeState = {
@@ -529,10 +530,16 @@ export function KnowledgePage() {
             管理买家帮助中心内容、FAQ 和 RAG 索引。
           </p>
         </div>
-        <Button disabled={loading || isMutating} variant="outline" onClick={loadBases}>
-          {loading ? <Spinner /> : <RefreshCw size={16} />}
+        <LoadingButton
+          disabled={isMutating}
+          loading={loading}
+          loadingLabel="刷新中..."
+          variant="outline"
+          onClick={loadBases}
+        >
+          <RefreshCw size={16} />
           刷新
-        </Button>
+        </LoadingButton>
       </div>
 
       <Card className="rounded-md shadow-none">
@@ -578,10 +585,15 @@ export function KnowledgePage() {
               name="description"
               placeholder="描述"
             />
-            <Button className="sm:col-span-2" disabled={isMutating} type="submit">
-              {creatingBase ? <Spinner /> : null}
-              {creatingBase ? "新建中..." : "新建知识库"}
-            </Button>
+            <LoadingButton
+              className="sm:col-span-2"
+              disabled={isMutating}
+              loading={creatingBase}
+              loadingLabel="新建中..."
+              type="submit"
+            >
+              新建知识库
+            </LoadingButton>
           </form>
         </CardContent>
       </Card>
@@ -617,10 +629,14 @@ export function KnowledgePage() {
                 <Input name="slug" placeholder="路径标识，如 login" />
                 <Input name="description" placeholder="分类描述" />
                 <Input name="sortOrder" placeholder="排序值" type="number" />
-                <Button disabled={isMutating || !selectedBaseId} type="submit">
-                  {creatingCategory ? <Spinner /> : null}
-                  {creatingCategory ? "新建中..." : "新建分类"}
-                </Button>
+                <LoadingButton
+                  disabled={isMutating || !selectedBaseId}
+                  loading={creatingCategory}
+                  loadingLabel="新建中..."
+                  type="submit"
+                >
+                  新建分类
+                </LoadingButton>
               </form>
               <div className="grid gap-2">
                 {state.categories.map((category) => (
@@ -693,10 +709,14 @@ export function KnowledgePage() {
                   name="content"
                   placeholder="Markdown 内容"
                 />
-                <Button disabled={isMutating || !selectedBaseId} type="submit">
-                  {creatingArticle ? <Spinner /> : null}
-                  {creatingArticle ? "新建中..." : "新建文章"}
-                </Button>
+                <LoadingButton
+                  disabled={isMutating || !selectedBaseId}
+                  loading={creatingArticle}
+                  loadingLabel="新建中..."
+                  type="submit"
+                >
+                  新建文章
+                </LoadingButton>
               </form>
               <div className="space-y-3">
                 <ContentFilterToolbar
@@ -746,10 +766,14 @@ export function KnowledgePage() {
                   name="answer"
                   placeholder="标准答案"
                 />
-                <Button disabled={isMutating || !selectedBaseId} type="submit">
-                  {creatingFaq ? <Spinner /> : null}
-                  {creatingFaq ? "新建中..." : "新建 FAQ"}
-                </Button>
+                <LoadingButton
+                  disabled={isMutating || !selectedBaseId}
+                  loading={creatingFaq}
+                  loadingLabel="新建中..."
+                  type="submit"
+                >
+                  新建 FAQ
+                </LoadingButton>
               </form>
               <div className="space-y-3">
                 <ContentFilterToolbar
@@ -1300,10 +1324,14 @@ function KnowledgeEditDialog({
             >
               取消
             </Button>
-            <Button disabled={submitting} title="保存编辑" type="submit">
-              {submitting ? <Spinner /> : null}
-              {submitting ? "保存中..." : "保存"}
-            </Button>
+            <LoadingButton
+              loading={submitting}
+              loadingLabel="保存中..."
+              title="保存编辑"
+              type="submit"
+            >
+              保存
+            </LoadingButton>
           </DialogFooter>
         </form>
       </DialogContent>

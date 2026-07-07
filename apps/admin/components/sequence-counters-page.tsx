@@ -40,6 +40,7 @@ import {
 } from "@/lib/client-api";
 import { errorMessage } from "@/lib/feedback";
 import { formatDate } from "@/lib/format";
+import { LoadingButton } from "@/components/loading-button";
 
 type CounterConfirmTarget =
   | { type: "next"; counterName: string }
@@ -151,16 +152,17 @@ export function SequenceCountersPage() {
             用于账号序列号等自增业务编号
           </p>
         </div>
-        <Button
+        <LoadingButton
           className="w-full sm:w-auto"
           type="button"
           variant="outline"
-          disabled={loading}
+          loading={loading}
+          loadingLabel="刷新中..."
           onClick={loadCounters}
         >
           <RefreshCw size={16} />
           刷新
-        </Button>
+        </LoadingButton>
       </div>
 
       <Card className="rounded-md shadow-none">

@@ -55,6 +55,7 @@ import {
   TABLE_ACTION_CELL_CLASS,
   TABLE_ACTION_HEAD_CLASS,
 } from "@/components/cell-tooltip";
+import { LoadingButton } from "@/components/loading-button";
 import { EmailBindStatusBadge } from "@/components/status-badge";
 import { deleteEmail, fetchEmails } from "@/lib/client-api";
 import { ADMIN_EMAILS_CHANGED_EVENT } from "@/lib/events";
@@ -82,6 +83,7 @@ export function EmailsPage() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [loadingPage, setLoadingPage] = useState<number | null>(null);
   const [error, setError] = useState("");
   const [total, setTotal] = useState(0);
   const [deleteTarget, setDeleteTarget] = useState<AdminEmail | null>(null);
@@ -121,6 +123,7 @@ export function EmailsPage() {
 
       loadingRef.current = true;
       errorRef.current = "";
+      setLoadingPage(mode === "replace" ? nextPage : null);
       setLoading(true);
       setError("");
 
@@ -147,6 +150,7 @@ export function EmailsPage() {
       } finally {
         if (requestId === requestIdRef.current) {
           loadingRef.current = false;
+          setLoadingPage(null);
           setLoading(false);
         }
       }
@@ -367,15 +371,16 @@ export function EmailsPage() {
               <SelectItem value="2">未绑定</SelectItem>
             </SelectContent>
           </Select>
-          <Button
-            disabled={loading}
+          <LoadingButton
+            loading={loading}
+            loadingLabel="刷新中..."
             type="button"
             variant="outline"
             onClick={handleSearch}
           >
             <RefreshCw size={16} />
             刷新
-          </Button>
+          </LoadingButton>
         </CardContent>
       </Card>
 
@@ -529,6 +534,7 @@ export function EmailsPage() {
         {total > 0 ? (
           <EmailsPagination
             loading={loading}
+            loadingPage={loadingPage}
             page={page}
             total={total}
             totalPages={totalPages}
@@ -624,12 +630,14 @@ function EmailTableSkeletonRows() {
 
 function EmailsPagination({
   loading,
+  loadingPage,
   onPageChange,
   page,
   total,
   totalPages,
 }: {
   loading: boolean;
+  loadingPage: number | null;
   onPageChange: (page: number) => void;
   page: number;
   total: number;
@@ -639,6 +647,8 @@ function EmailsPagination({
   const pages = getPaginationPages(page, safeTotalPages);
   const isFirstPage = page <= 1;
   const isLastPage = page >= safeTotalPages;
+  const isLoadingPage = (pageNumber: number) =>
+    loading && loadingPage === pageNumber;
 
   return (
     <div className="flex flex-col gap-3 border-t border-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
@@ -655,7 +665,7 @@ function EmailsPagination({
           variant="outline"
           onClick={() => onPageChange(1)}
         >
-          <ChevronsLeft size={15} />
+          {isLoadingPage(1) ? <Spinner /> : <ChevronsLeft size={15} />}
         </Button>
         <Button
           aria-label="上一页"
@@ -666,7 +676,11 @@ function EmailsPagination({
           variant="outline"
           onClick={() => onPageChange(Math.max(page - 1, 1))}
         >
-          <ChevronLeft size={15} />
+          {isLoadingPage(Math.max(page - 1, 1)) ? (
+            <Spinner />
+          ) : (
+            <ChevronLeft size={15} />
+          )}
         </Button>
         {pages.map((pageNumber) => (
           <Button
@@ -678,7 +692,7 @@ function EmailsPagination({
             variant={pageNumber === page ? "default" : "outline"}
             onClick={() => onPageChange(pageNumber)}
           >
-            {pageNumber}
+            {isLoadingPage(pageNumber) ? <Spinner /> : pageNumber}
           </Button>
         ))}
         <Button
@@ -690,7 +704,11 @@ function EmailsPagination({
           variant="outline"
           onClick={() => onPageChange(Math.min(page + 1, safeTotalPages))}
         >
-          <ChevronRight size={15} />
+          {isLoadingPage(Math.min(page + 1, safeTotalPages)) ? (
+            <Spinner />
+          ) : (
+            <ChevronRight size={15} />
+          )}
         </Button>
         <Button
           aria-label="最后一页"
@@ -701,7 +719,11 @@ function EmailsPagination({
           variant="outline"
           onClick={() => onPageChange(safeTotalPages)}
         >
-          <ChevronsRight size={15} />
+          {isLoadingPage(safeTotalPages) ? (
+            <Spinner />
+          ) : (
+            <ChevronsRight size={15} />
+          )}
         </Button>
       </div>
     </div>

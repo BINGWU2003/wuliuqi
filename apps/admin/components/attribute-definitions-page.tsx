@@ -56,6 +56,7 @@ import {
   TABLE_ACTION_CELL_CLASS,
   TABLE_ACTION_HEAD_CLASS,
 } from "@/components/cell-tooltip";
+import { LoadingButton } from "@/components/loading-button";
 import {
   clearAttributeDefinitionValues,
   createAttributeDefinition,
@@ -329,16 +330,17 @@ export function AttributeDefinitionsPage() {
             <Plus size={16} />
             新建属性
           </Button>
-          <Button
-            disabled={loading}
+          <LoadingButton
             className="w-full sm:w-auto"
+            loading={loading}
+            loadingLabel="刷新中..."
             type="button"
             variant="outline"
             onClick={() => void loadDefinitions()}
           >
             <RefreshCw size={16} />
             刷新
-          </Button>
+          </LoadingButton>
         </div>
       </div>
 
