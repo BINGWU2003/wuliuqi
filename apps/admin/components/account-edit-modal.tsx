@@ -7,14 +7,11 @@ import {
   DialogDescription,
   DialogTitle,
 } from "@wuliuqi/ui/components/dialog";
+import { preventOutsideDismiss } from "@wuliuqi/ui/lib/modal-interactions";
 import { X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { AccountForm } from "@/components/account-form";
-
-function preventOutsideDismiss(event: Event) {
-  event.preventDefault();
-}
 
 export function AccountEditModal({ accountId }: { accountId: number | null }) {
   const router = useRouter();

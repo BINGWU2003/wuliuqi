@@ -24,6 +24,7 @@ import {
 import { Skeleton } from "@wuliuqi/ui/components/skeleton";
 import { toast } from "@wuliuqi/ui/components/sonner";
 import { Spinner } from "@wuliuqi/ui/components/spinner";
+import { preventOutsideDismiss } from "@wuliuqi/ui/lib/modal-interactions";
 import { cn } from "@wuliuqi/ui/lib/utils";
 import {
   RefreshCw,
@@ -346,7 +347,13 @@ export function AccountList({
                   筛选
                 </Button>
               </SheetTrigger>
-              <SheetContent className="w-[86vw] p-4" side="right">
+              <SheetContent
+                className="w-[86vw] p-4"
+                side="right"
+                onFocusOutside={preventOutsideDismiss}
+                onInteractOutside={preventOutsideDismiss}
+                onPointerDownOutside={preventOutsideDismiss}
+              >
                 <SheetHeader className="mb-4 text-left">
                   <SheetTitle>筛选账号</SheetTitle>
                 </SheetHeader>

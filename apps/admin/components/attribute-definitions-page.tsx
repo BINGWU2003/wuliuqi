@@ -23,6 +23,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@wuliuqi/ui/components/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@wuliuqi/ui/components/dialog";
 import { Input } from "@wuliuqi/ui/components/input";
 import {
   Select,
@@ -31,16 +37,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@wuliuqi/ui/components/select";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@wuliuqi/ui/components/sheet";
 import { Skeleton } from "@wuliuqi/ui/components/skeleton";
 import { Spinner } from "@wuliuqi/ui/components/spinner";
 import { toast } from "@wuliuqi/ui/components/sonner";
+import { preventOutsideDismiss } from "@wuliuqi/ui/lib/modal-interactions";
 import {
   Table,
   TableBody,
@@ -110,7 +110,7 @@ export function AttributeDefinitionsPage() {
   const [form, setForm] = useState<AttributeFormState>(emptyForm);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [mobileFormOpen, setMobileFormOpen] = useState(false);
+  const [formOpen, setFormOpen] = useState(false);
   const [confirmTarget, setConfirmTarget] =
     useState<AttributeConfirmTarget | null>(null);
   const [confirmPending, setConfirmPending] = useState(false);
@@ -156,9 +156,9 @@ export function AttributeDefinitionsPage() {
     setForm(emptyForm);
   }
 
-  function openMobileCreateForm() {
+  function openCreateForm() {
     resetForm();
-    setMobileFormOpen(true);
+    setFormOpen(true);
   }
 
   function editDefinition(definition: GameAttributeDefinition) {
@@ -172,29 +172,25 @@ export function AttributeDefinitionsPage() {
       sortOrder: definition.sortOrder,
       options: definition.options.length > 0 ? definition.options : [],
     });
+    setFormOpen(true);
   }
 
-  function editMobileDefinition(definition: GameAttributeDefinition) {
-    editDefinition(definition);
-    setMobileFormOpen(true);
-  }
-
-  function closeMobileForm() {
+  function closeForm() {
     if (saving) {
       return;
     }
 
-    setMobileFormOpen(false);
+    setFormOpen(false);
     resetForm();
   }
 
-  function handleMobileFormOpenChange(open: boolean) {
+  function handleFormOpenChange(open: boolean) {
     if (open) {
-      setMobileFormOpen(true);
+      setFormOpen(true);
       return;
     }
 
-    closeMobileForm();
+    closeForm();
   }
 
   function updateOption(index: number, patch: Partial<GameAttributeOption>) {
@@ -260,7 +256,7 @@ export function AttributeDefinitionsPage() {
 
       toast.success(form.id ? "属性配置已保存" : "属性配置已创建");
       resetForm();
-      setMobileFormOpen(false);
+      setFormOpen(false);
       await loadDefinitions();
     } catch (submitError) {
       toast.error(errorMessage(submitError, "保存属性配置失败"));
@@ -288,6 +284,7 @@ export function AttributeDefinitionsPage() {
 
         if (form.id === confirmTarget.definition.id) {
           resetForm();
+          setFormOpen(false);
         }
 
         toast.success("属性配置已删除");
@@ -322,10 +319,10 @@ export function AttributeDefinitionsPage() {
         </div>
         <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
           <Button
-            className="w-full sm:w-auto lg:hidden"
+            className="w-full sm:w-auto"
             disabled={loading}
             type="button"
-            onClick={openMobileCreateForm}
+            onClick={openCreateForm}
           >
             <Plus size={16} />
             新建属性
@@ -361,13 +358,13 @@ export function AttributeDefinitionsPage() {
                 onDelete={() =>
                   setConfirmTarget({ type: "delete", definition })
                 }
-                onEdit={() => editMobileDefinition(definition)}
+                onEdit={() => editDefinition(definition)}
               />
             ))
           : null}
       </div>
 
-      <div className="hidden gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="hidden lg:block">
         <Card className="overflow-hidden rounded-md shadow-none">
           <CardHeader className="border-b border-border">
             <CardTitle className="text-base">CODM 属性</CardTitle>
@@ -547,56 +544,67 @@ export function AttributeDefinitionsPage() {
             </Table>
           </div>
         </Card>
-
-        <Card className="h-fit rounded-md shadow-none">
-          <CardHeader className="border-b border-border">
-            <CardTitle className="text-base">
-              {form.id ? "编辑属性" : "新建属性"}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pt-4">
-            <AttributeDefinitionForm
-              addOption={addOption}
-              form={form}
-              identityLocked={identityLocked}
-              saving={saving}
-              showCancel={form.id !== undefined}
-              updateForm={updateForm}
-              updateOption={updateOption}
-              onCancel={resetForm}
-              onSubmit={handleSubmit}
-              removeOption={removeOption}
-            />
-          </CardContent>
-        </Card>
       </div>
-      <Sheet open={mobileFormOpen} onOpenChange={handleMobileFormOpenChange}>
-        <SheetContent
-          className="max-h-[90dvh] overflow-hidden rounded-t-md p-0"
-          side="bottom"
+      <Dialog open={formOpen} onOpenChange={handleFormOpenChange}>
+        <DialogContent
+          className="h-[100dvh] w-screen max-w-none gap-0 overflow-hidden rounded-none border-0 p-0 sm:h-[calc(100dvh-2rem)] sm:w-[calc(100vw-2rem)] sm:max-w-6xl sm:rounded-md sm:border"
+          onFocusOutside={preventOutsideDismiss}
+          onInteractOutside={preventOutsideDismiss}
+          onPointerDownOutside={preventOutsideDismiss}
         >
-          <SheetHeader className="border-b border-border p-4 text-left">
-            <SheetTitle>{form.id ? "编辑属性" : "新建属性"}</SheetTitle>
-            <SheetDescription className="sr-only">
-              配置 CODM 属性名称、类型、选项、状态和排序。
-            </SheetDescription>
-          </SheetHeader>
-          <div className="max-h-[calc(90dvh-4.5rem)] overflow-y-auto p-4">
-            <AttributeDefinitionForm
-              addOption={addOption}
-              form={form}
-              identityLocked={identityLocked}
-              saving={saving}
-              showCancel
-              updateForm={updateForm}
-              updateOption={updateOption}
-              onCancel={closeMobileForm}
-              onSubmit={handleSubmit}
-              removeOption={removeOption}
-            />
+          <DialogTitle className="sr-only">
+            {form.id ? "编辑属性" : "新建属性"}
+          </DialogTitle>
+          <DialogDescription className="sr-only">
+            配置 CODM 属性名称、类型、选项、状态和排序。
+          </DialogDescription>
+          <div className="flex h-12 shrink-0 items-center justify-end border-b border-border bg-background/95 px-3 backdrop-blur">
+            <Button
+              aria-label="关闭属性编辑"
+              className="size-9 rounded-md"
+              disabled={saving}
+              size="icon"
+              title={saving ? "保存中，暂不能关闭" : "关闭属性编辑"}
+              type="button"
+              variant="ghost"
+              onClick={closeForm}
+            >
+              <X size={18} />
+            </Button>
           </div>
-        </SheetContent>
-      </Sheet>
+          <div className="h-[calc(100%-3rem)] overflow-y-auto p-3 sm:p-5">
+            <div className="mx-auto max-w-2xl space-y-4">
+              <div>
+                <h1 className="text-xl font-bold">
+                  {form.id ? "编辑属性" : "新建属性"}
+                </h1>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  配置 CODM 属性名称、类型、选项、状态和排序。
+                </p>
+              </div>
+              <Card className="rounded-md shadow-none">
+                <CardHeader className="border-b border-border">
+                  <CardTitle className="text-base">属性信息</CardTitle>
+                </CardHeader>
+                <CardContent className="pt-4">
+                  <AttributeDefinitionForm
+                    addOption={addOption}
+                    form={form}
+                    identityLocked={identityLocked}
+                    saving={saving}
+                    showCancel
+                    updateForm={updateForm}
+                    updateOption={updateOption}
+                    onCancel={closeForm}
+                    onSubmit={handleSubmit}
+                    removeOption={removeOption}
+                  />
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
       <AlertDialog
         open={confirmTarget !== null}
         onOpenChange={(open) => {

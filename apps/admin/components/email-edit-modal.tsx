@@ -7,14 +7,11 @@ import {
   DialogDescription,
   DialogTitle,
 } from "@wuliuqi/ui/components/dialog";
+import { preventOutsideDismiss } from "@wuliuqi/ui/lib/modal-interactions";
 import { X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { EmailForm } from "@/components/email-form";
-
-function preventOutsideDismiss(event: Event) {
-  event.preventDefault();
-}
 
 export function EmailEditModal({ emailId }: { emailId: number | null }) {
   const router = useRouter();

@@ -51,6 +51,7 @@ import {
   TabsTrigger,
 } from "@wuliuqi/ui/components/tabs";
 import { Textarea } from "@wuliuqi/ui/components/textarea";
+import { preventOutsideDismiss } from "@wuliuqi/ui/lib/modal-interactions";
 import {
   BookOpen,
   CircleHelp,
@@ -1284,7 +1285,12 @@ function KnowledgeEditDialog({
         }
       }}
     >
-      <DialogContent className="max-h-[calc(100dvh-2rem)] max-w-3xl overflow-hidden p-0">
+      <DialogContent
+        className="max-h-[calc(100dvh-2rem)] max-w-3xl overflow-hidden p-0"
+        onFocusOutside={preventOutsideDismiss}
+        onInteractOutside={preventOutsideDismiss}
+        onPointerDownOutside={preventOutsideDismiss}
+      >
         <form
           key={`${activeEditing.type}-${activeEditing.item.id}`}
           aria-busy={submitting}
