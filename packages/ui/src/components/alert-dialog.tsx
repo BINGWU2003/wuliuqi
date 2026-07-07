@@ -12,6 +12,7 @@ import type {
   AlertDialogTriggerProps,
 } from "@base-ui/react/alert-dialog";
 import * as React from "react";
+import { useScrollLock } from "../lib/use-scroll-lock";
 import { cn } from "../lib/utils";
 import { buttonVariants } from "./button";
 
@@ -31,9 +32,34 @@ function renderFromAsChild(
 }
 
 function AlertDialog<Payload>({
+  defaultOpen = false,
+  onOpenChange,
+  open,
   ...props
 }: AlertDialogRootProps<Payload>) {
-  return <AlertDialogPrimitive.Root {...props} />;
+  const [uncontrolledOpen, setUncontrolledOpen] = React.useState(defaultOpen);
+  const isOpen = open ?? uncontrolledOpen;
+
+  useScrollLock(isOpen);
+
+  const handleOpenChange = React.useCallback<
+    NonNullable<AlertDialogRootProps<Payload>["onOpenChange"]>
+  >(
+    (nextOpen, eventDetails) => {
+      setUncontrolledOpen(nextOpen);
+      onOpenChange?.(nextOpen, eventDetails);
+    },
+    [onOpenChange],
+  );
+
+  return (
+    <AlertDialogPrimitive.Root
+      defaultOpen={defaultOpen}
+      onOpenChange={handleOpenChange}
+      open={open}
+      {...props}
+    />
+  );
 }
 
 function AlertDialogTrigger<Payload>({

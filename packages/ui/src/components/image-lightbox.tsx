@@ -1,8 +1,10 @@
 "use client";
 
 import { ChevronLeft, ChevronRight, Download, X } from "lucide-react";
-import type { MouseEvent, TouchEvent } from "react";
+import type { MouseEvent, TouchEvent, WheelEvent } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { useScrollLock } from "../lib/use-scroll-lock";
 import { Button } from "./button";
 
 export type ImageLightboxDownloadHandler = (
@@ -38,6 +40,8 @@ export function ImageLightbox({
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const touchEndRef = useRef<{ x: number; y: number } | null>(null);
   const ignoreNextClickRef = useRef(false);
+  const [mounted, setMounted] = useState(false);
+  useScrollLock(open && images.length > 0);
 
   const closeLabel = labels.close ?? "关闭图片预览";
   const previousLabel = labels.previous ?? "上一张";
@@ -56,9 +60,15 @@ export function ImageLightbox({
 
   useEffect(() => {
     if (open) {
-      setIndex(Math.min(Math.max(startIndex, 0), Math.max(images.length - 1, 0)));
+      setIndex(
+        Math.min(Math.max(startIndex, 0), Math.max(images.length - 1, 0)),
+      );
     }
   }, [images.length, open, startIndex]);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!open) {
@@ -81,7 +91,7 @@ export function ImageLightbox({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [goNext, goPrevious, onClose, open]);
 
-  if (!open || images.length === 0) {
+  if (!mounted || !open || images.length === 0) {
     return null;
   }
 
@@ -107,6 +117,11 @@ export function ImageLightbox({
     event.stopPropagation();
   }
 
+  function stopWheelPropagation(event: WheelEvent<HTMLDivElement>) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
   function handleBackdropClick() {
     if (ignoreNextClickRef.current) {
       ignoreNextClickRef.current = false;
@@ -128,6 +143,9 @@ export function ImageLightbox({
   }
 
   function handleTouchMove(event: TouchEvent<HTMLDivElement>) {
+    event.preventDefault();
+    event.stopPropagation();
+
     const touch = event.touches[0];
 
     if (!touch) {
@@ -166,13 +184,14 @@ export function ImageLightbox({
     }
   }
 
-  return (
+  return createPortal(
     <div
       data-account-image-lightbox="true"
       className="fixed inset-0 z-50 flex touch-none items-center justify-center bg-black/90 select-none"
       role="dialog"
       aria-modal="true"
       onClick={handleBackdropClick}
+      onWheel={stopWheelPropagation}
       onTouchEnd={handleTouchEnd}
       onTouchMove={handleTouchMove}
       onTouchStart={handleTouchStart}
@@ -262,6 +281,7 @@ export function ImageLightbox({
           </Button>
         </div>
       ) : null}
-    </div>
+    </div>,
+    document.body,
   );
 }
