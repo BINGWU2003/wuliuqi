@@ -10,7 +10,7 @@
 
 ## 主要包
 
-- `@wuliuqi/db`：MySQL Prisma schema 和 Prisma Client 单例。
+- `@wuliuqi/db`：PostgreSQL Prisma schema、migration 和 Prisma Client 单例。
 - `@wuliuqi/domain`：商城和管理端业务服务。
 - `@wuliuqi/auth`：管理端密码校验和 HTTP-only Cookie JWT 会话。
 - `@wuliuqi/storage`：服务端腾讯云 COS 上传封装。
@@ -82,19 +82,29 @@ pnpm --filter @wuliuqi/rag-db seed
 
 ## 环境变量
 
-不要提交真实 `.env.local` 或任何包含密钥的文件。按下面模板在本地创建并填充。
+按应用创建本地 `.env.local` 或 `.env`，只填当前服务需要的变量。
+
+### 主业务 PostgreSQL
+
+`shop` 和 `admin` 都读取 `DATABASE_URL`。
+
+如果主业务库使用 Supabase，推荐填写 **Connection Pooling / Session pooler** 连接串，也就是 pooler host 的 `5432` 端口：
+
+```env
+DATABASE_URL="postgresql://postgres.PROJECT_REF:PASSWORD@aws-REGION.pooler.supabase.com:5432/postgres?sslmode=require"
+```
 
 ### `apps/shop/.env.local`
 
-商城前台只需要现有 MySQL 数据库：
+商城前台只需要主业务数据库：
 
 ```env
-DATABASE_URL="mysql://USER:PASSWORD@HOST:3306/DATABASE_NAME"
+DATABASE_URL="postgresql://USER:PASSWORD@HOST:5432/DATABASE_NAME?sslmode=require"
 ```
 
 ### RAG 使用 Supabase Postgres
 
-帮助中心使用 Supabase 作为托管 Postgres，但当前服务端 RAG 实现是直接连接 Postgres。`RAG_DATABASE_URL` 要填写 Supabase 的 **Database connection string**，不是 Supabase 的公开 API key。
+帮助中心使用 Supabase Postgres。`RAG_DATABASE_URL` 填写 Supabase 的 **Database connection string**。
 
 在 Supabase 控制台打开 **Project Settings -> Database -> Connection string**，优先复制 **Connection Pooling / Transaction pooler** 连接串：
 
@@ -102,27 +112,13 @@ DATABASE_URL="mysql://USER:PASSWORD@HOST:3306/DATABASE_NAME"
 RAG_DATABASE_URL="postgresql://postgres.PROJECT_REF:PASSWORD@aws-REGION.pooler.supabase.com:6543/postgres?sslmode=require"
 ```
 
-不推荐本地开发使用 `db.PROJECT_REF.supabase.co:5432` 的 direct connection。它在很多网络环境下会解析到 IPv6，可能出现 `connect EACCES ...:5432` 或连接超时。
-
-下面两个 Supabase API 变量当前 MVP 不需要，除非后续接入 Supabase Auth、Storage、Realtime 或浏览器端 Supabase client：
-
-```env
-# 当前 RAG 实现不需要
-NEXT_PUBLIC_SUPABASE_URL="https://PROJECT_REF.supabase.co"
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY="your-publishable-key"
-```
-
-不要把 `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` 当成 `RAG_DATABASE_URL` 使用。它不是数据库密码，不能执行 pgvector SQL 查询。
-
 ### `apps/admin/.env.local`
 
-管理端需要 MySQL、管理端会话密钥、COS 上传配置，以及用于知识库索引的 RAG/Gemini 配置：
+管理端需要主业务 PostgreSQL、管理端会话密钥、COS 上传配置，以及用于知识库索引的 RAG/Gemini 配置：
 
 ```env
-DATABASE_URL="mysql://USER:PASSWORD@HOST:3306/DATABASE_NAME"
+DATABASE_URL="postgresql://USER:PASSWORD@HOST:5432/DATABASE_NAME?sslmode=require"
 JWT_SECRET="replace-with-a-strong-secret"
-# 可选，@wuliuqi/auth 也会读取这个名字：
-ADMIN_SESSION_SECRET="replace-with-a-strong-secret"
 
 COS_SECRET_ID="your-cos-secret-id"
 COS_SECRET_KEY="your-cos-secret-key"
@@ -134,6 +130,7 @@ COS_PUBLIC_BASE_URL="https://example.com"
 RAG_DATABASE_URL="postgresql://postgres.PROJECT_REF:PASSWORD@aws-REGION.pooler.supabase.com:6543/postgres?sslmode=require"
 RAG_DB_POOL_SIZE="5"
 RAG_MODEL_PROVIDER="gemini"
+
 GEMINI_API_KEY="your-gemini-api-key"
 GEMINI_CHAT_MODEL="gemini-3.5-flash"
 GEMINI_EMBEDDING_MODEL="gemini-embedding-2"
@@ -148,15 +145,34 @@ GEMINI_EMBEDDING_DIMENSIONS="768"
 RAG_DATABASE_URL="postgresql://postgres.PROJECT_REF:PASSWORD@aws-REGION.pooler.supabase.com:6543/postgres?sslmode=require"
 RAG_DB_POOL_SIZE="5"
 RAG_MODEL_PROVIDER="gemini"
+
 GEMINI_API_KEY="your-gemini-api-key"
 GEMINI_CHAT_MODEL="gemini-3.5-flash"
 GEMINI_EMBEDDING_MODEL="gemini-embedding-2"
 GEMINI_EMBEDDING_DIMENSIONS="768"
 ```
 
+RAG 默认值：
+
+| 变量 | 默认值 | 说明 |
+| --- | --- | --- |
+| `RAG_DB_POOL_SIZE` | `5` | RAG PostgreSQL 连接池大小 |
+| `RAG_MODEL_PROVIDER` | `gemini` | 当前只支持 Gemini |
+| `GEMINI_CHAT_MODEL` | `gemini-3.5-flash` | AI 问答模型 |
+| `GEMINI_EMBEDDING_MODEL` | `gemini-embedding-2` | 知识库索引向量模型 |
+| `GEMINI_EMBEDDING_DIMENSIONS` | `768` | embedding 维度，需和 RAG 表结构一致 |
+
 ## 数据库初始化
 
-MySQL 由 `@wuliuqi/db` 和现有 Prisma schema 管理。执行 Prisma CLI 时，在 shell 中提供 `DATABASE_URL`，或创建未提交的 `packages/db/.env`。
+主业务数据库由 `@wuliuqi/db` 和 Prisma migration 管理。执行 Prisma CLI 时，在 shell 中提供 PostgreSQL `DATABASE_URL`，或创建未提交的 `packages/db/.env`。
+
+初始化或升级 PostgreSQL 主业务表：
+
+```powershell
+$env:DATABASE_URL="postgresql://USER:PASSWORD@HOST:5432/DATABASE_NAME?sslmode=require"
+pnpm --filter @wuliuqi/db migrate:deploy
+pnpm --filter @wuliuqi/db generate
+```
 
 RAG migration 和 seed 脚本读取 shell 中的 `RAG_DATABASE_URL`。PowerShell 示例：
 
@@ -167,15 +183,3 @@ pnpm --filter @wuliuqi/rag-db seed
 ```
 
 Supabase Postgres 需要支持 `pgvector`，因为 RAG schema 会创建 `vector(768)` embedding 字段和 HNSW cosine 索引。
-
-## 注意事项
-
-- 不要提交 `.env.local` 或任何真实数据库凭据。
-- 如果数据库密码包含 `@`、`#`、`:`、`/` 等特殊字符，需要 URL encode。
-- 当前业务流程不需要 `NEXT_PUBLIC_*` 变量。
-- 旧 Vue/Express 变量如 `VITE_APP_API_BASE_URL`、`DB_HOST`、`DB_USER`、`DB_PASSWORD`、`DB_NAME` 已不再使用。
-- COS 密钥只允许服务端使用，不能暴露到客户端 bundle。
-- MySQL 需要包含现有的 `users`、`codm_accounts`、`codm_emails`、`sequence_counters`、`carousels` 表。
-- `RAG_DATABASE_URL` 指向 Supabase Postgres，不是现有 MySQL，也不是 Supabase 公开 API URL。
-- `NEXT_PUBLIC_SUPABASE_URL` 和 `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` 只有在后续使用 Supabase 浏览器端/API 功能时才需要。
-- Gemini key 是服务端密钥，不能以 `NEXT_PUBLIC_*` 暴露。

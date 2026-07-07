@@ -1,4 +1,4 @@
-# Docker / Render 部署说明
+# Docker 部署说明
 
 本仓库为 `apps` 下三个 Next.js 项目提供同一套 Docker 部署配置：
 
@@ -8,49 +8,19 @@
 
 Gemini 使用 Google 官方接口，只需要配置 `GEMINI_API_KEY`，不要额外配置 Gemini 中转地址。
 
-## Render 部署
+## 部署前准备
 
-仓库根目录提供了 `render.yaml`，用于在 Render 上创建三个独立的 Docker Web Service：
+首次部署前，需要先对 `DATABASE_URL` 指向的主业务 PostgreSQL 执行 Prisma migration：
 
-- `wuliuqi-shop`
-- `wuliuqi-admin`
-- `wuliuqi-docs`
-
-Render 不直接使用本仓库的 `docker-compose.yml`。在 Render 上部署时，每个 Web Service 都会使用同一个 Dockerfile：
-
-```text
-docker/Dockerfile.app
+```sh
+DATABASE_URL="postgresql://USER:PASSWORD@HOST:5432/DATABASE_NAME?sslmode=require" pnpm --filter @wuliuqi/db migrate:deploy
 ```
 
-区别由环境变量决定：
+### 关键环境变量
 
-```text
-APP_NAME=shop | admin | docs
-APP_PORT=10000
-PORT=10000
-```
+`DATABASE_URL` 是主业务 PostgreSQL 连接串，例如 Supabase Postgres、Neon 或其他托管 PostgreSQL。使用 Supabase 时，主业务 `DATABASE_URL` 建议使用 session pooler，也就是 pooler host 的 `5432` 端口。
 
-Render 会给 Web Service 注入 `PORT` 环境变量，`render.yaml` 里也显式写成 `10000`。Dockerfile 启动时会优先监听 `PORT`，本地 Docker Compose 没有 `PORT` 时才回退到 `APP_PORT`。
-
-### Render Blueprint 流程
-
-1. 把代码推送到 GitHub。
-2. 在 Render 控制台选择 `New -> Blueprint`。
-3. 选择本仓库，让 Render 读取根目录的 `render.yaml`。
-4. 按提示填写 `sync: false` 的环境变量，例如数据库、COS、Gemini API Key。
-5. 创建服务后等待 Render 构建和发布。
-
-`render.yaml` 默认使用：
-
-```text
-region: singapore
-plan: free
-autoDeployTrigger: checksPass
-```
-
-`free` 计划适合测试，会有休眠和冷启动。正式给用户访问时，建议在 Render 控制台把 `plan` 调整为付费实例。
-
-### Render 需要填写的关键环境变量
+`RAG_DATABASE_URL` 是帮助中心/RAG 使用的 PostgreSQL + pgvector 连接串。使用 Supabase 时，RAG 可以使用 transaction pooler，也就是 pooler host 的 `6543` 端口。小规模起步时，`DATABASE_URL` 和 `RAG_DATABASE_URL` 可以指向同一个 Supabase database，但二者端口可以不同。
 
 `shop`：
 
@@ -63,54 +33,34 @@ DATABASE_URL
 ```text
 DATABASE_URL
 JWT_SECRET
-ADMIN_SESSION_SECRET
 COS_SECRET_ID
 COS_SECRET_KEY
 COS_BUCKET
 COS_REGION
-COS_PUBLIC_BASE_URL
 RAG_DATABASE_URL
+RAG_DB_POOL_SIZE=5
+RAG_MODEL_PROVIDER=gemini
 GEMINI_API_KEY
+GEMINI_CHAT_MODEL=gemini-3.5-flash
+GEMINI_EMBEDDING_MODEL=gemini-embedding-2
+GEMINI_EMBEDDING_DIMENSIONS=768
 ```
 
 `docs`：
 
 ```text
 RAG_DATABASE_URL
+RAG_DB_POOL_SIZE=5
+RAG_MODEL_PROVIDER=gemini
 GEMINI_API_KEY
+GEMINI_CHAT_MODEL=gemini-3.5-flash
+GEMINI_EMBEDDING_MODEL=gemini-embedding-2
+GEMINI_EMBEDDING_DIMENSIONS=768
 ```
 
-非敏感默认值已经写在 `render.yaml` 中，例如 `RAG_MODEL_PROVIDER=gemini`、`RAG_DB_POOL_SIZE=5` 和 Gemini 模型名称。
+RAG/Gemini 默认值可以直接使用；只有需要换模型或连接池大小时再调整。
 
-### 手动创建 Render Web Service
-
-如果不使用 Blueprint，也可以手动创建三个 Web Service。每个服务都选择 Docker，并填写：
-
-```text
-Dockerfile Path: ./docker/Dockerfile.app
-Docker Context: .
-```
-
-然后分别配置：
-
-```text
-wuliuqi-shop:
-  APP_NAME=shop
-  APP_PORT=10000
-  PORT=10000
-
-wuliuqi-admin:
-  APP_NAME=admin
-  APP_PORT=10000
-  PORT=10000
-
-wuliuqi-docs:
-  APP_NAME=docs
-  APP_PORT=10000
-  PORT=10000
-```
-
-其余数据库、COS、Gemini 等环境变量按服务需要填写。
+`COS_PUBLIC_BASE_URL` 是可选项，只在使用自定义 CDN 或公开访问域名时配置。
 
 ## 服务器首次准备
 

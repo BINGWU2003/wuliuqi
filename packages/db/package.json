@@ -11,6 +11,8 @@
     "check-types": "tsc --noEmit",
     "prisma": "prisma",
     "generate": "prisma generate",
+    "migrate:dev": "prisma migrate dev",
+    "migrate:deploy": "prisma migrate deploy",
     "db:pull": "prisma db pull",
     "fix:email-bind-status": "node scripts/reconcile-email-bind-status.mjs"
   },
@@ -18,9 +20,9 @@
     "@prisma/client": "catalog:"
   },
   "devDependencies": {
+    "@types/node": "catalog:",
     "@wuliuqi/eslint-config": "workspace:*",
     "@wuliuqi/typescript-config": "workspace:*",
-    "@types/node": "catalog:",
     "eslint": "catalog:",
     "prisma": "catalog:",
     "typescript": "catalog:"

@@ -3,12 +3,12 @@ generator client {
 }
 
 datasource db {
-  provider = "mysql"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
 model CodmAccount {
-  id           BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  id           BigInt   @id @default(autoincrement())
   serialNumber String   @unique @map("serial_number") @db.VarChar(50)
   images       Json?
   price        Decimal  @default(0.00) @db.Decimal(10, 2)
@@ -16,39 +16,42 @@ model CodmAccount {
   describe     String?  @db.Text
   xianyuUrl    String?  @map("xianyu_url") @db.VarChar(512)
   email        String?  @db.VarChar(255)
-  status       Int      @default(1) @db.UnsignedTinyInt
+  status       Int      @default(1) @db.SmallInt
   createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at")
 
+  @@index([status, updatedAt(sort: Desc)], map: "codm_accounts_status_updated_at_idx")
+  @@index([email], map: "codm_accounts_email_idx")
   @@map("codm_accounts")
 }
 
 model CodmEmail {
-  id         BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  id         BigInt   @id @default(autoincrement())
   prefix     String   @db.VarChar(64)
   postfix    String   @db.VarChar(255)
-  bindStatus Int      @default(2) @map("bind_status") @db.UnsignedTinyInt
+  bindStatus Int      @default(2) @map("bind_status") @db.SmallInt
   createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at")
 
+  @@index([prefix, postfix], map: "codm_emails_address_idx")
   @@map("codm_emails")
 }
 
 model Carousel {
-  id        BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  id        BigInt   @id @default(autoincrement())
   name      String   @unique @db.VarChar(255)
   items     Json
   createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
 
   @@map("carousels")
 }
 
 model SequenceCounter {
-  id           BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  id           BigInt   @id @default(autoincrement())
   counterName  String   @unique @map("counter_name") @db.VarChar(50)
-  currentValue BigInt   @default(0) @map("current_value") @db.UnsignedBigInt
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  currentValue BigInt   @default(0) @map("current_value")
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at")
 
   @@map("sequence_counters")
 }
@@ -59,7 +62,7 @@ model User {
   email     String   @unique @db.VarChar(100)
   password  String   @db.VarChar(255)
   createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
 
   @@map("users")
 }
