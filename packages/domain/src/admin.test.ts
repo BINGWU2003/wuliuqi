@@ -173,8 +173,8 @@ beforeEach(() => {
   );
 });
 
-describe("admin game attribute definitions", () => {
-  it("lists non-deleted definitions with usage counts", async () => {
+describe("后台属性标签", () => {
+  it("列出未删除的属性标签并带出使用数量", async () => {
     prismaMock.gameAttributeDefinition.findMany.mockResolvedValue([
       attributeDefinitionRecord({ id: 1n, attrKey: "mythic_skins" }),
       attributeDefinitionRecord({
@@ -206,7 +206,7 @@ describe("admin game attribute definitions", () => {
     ]);
   });
 
-  it("rejects duplicate attribute keys on create", async () => {
+  it("创建属性标签时拒绝重复的属性标识", async () => {
     prismaMock.gameAttributeDefinition.findUnique.mockResolvedValue(
       attributeDefinitionRecord(),
     );
@@ -226,7 +226,7 @@ describe("admin game attribute definitions", () => {
     expect(prismaMock.gameAttributeDefinition.create).not.toHaveBeenCalled();
   });
 
-  it("rejects select attributes without options", async () => {
+  it("创建下拉属性标签时拒绝空选项", async () => {
     await expect(
       createAdminGameAttributeDefinition({
         gameKey: "codm",
@@ -243,7 +243,7 @@ describe("admin game attribute definitions", () => {
     expect(prismaMock.gameAttributeDefinition.create).not.toHaveBeenCalled();
   });
 
-  it("drops options when creating a number attribute", async () => {
+  it("创建数字属性标签时清空选项配置", async () => {
     prismaMock.gameAttributeDefinition.findUnique.mockResolvedValue(null);
     prismaMock.gameAttributeDefinition.create.mockResolvedValue(
       attributeDefinitionRecord(),
@@ -268,7 +268,7 @@ describe("admin game attribute definitions", () => {
     });
   });
 
-  it("rejects identity changes when an attribute is in use", async () => {
+  it("属性标签已被账号使用时禁止修改标识或类型", async () => {
     prismaMock.gameAttributeDefinition.findFirst.mockResolvedValue(
       attributeDefinitionRecord(),
     );
@@ -285,7 +285,7 @@ describe("admin game attribute definitions", () => {
     expect(prismaMock.gameAttributeDefinition.update).not.toHaveBeenCalled();
   });
 
-  it("rejects soft delete when an attribute is in use", async () => {
+  it("属性标签已被账号使用时禁止软删除", async () => {
     prismaMock.gameAttributeDefinition.findFirst.mockResolvedValue(
       attributeDefinitionRecord(),
     );
@@ -298,7 +298,7 @@ describe("admin game attribute definitions", () => {
     expect(prismaMock.gameAttributeDefinition.update).not.toHaveBeenCalled();
   });
 
-  it("soft deletes unused attributes", async () => {
+  it("软删除未被使用的属性标签", async () => {
     prismaMock.gameAttributeDefinition.findFirst.mockResolvedValue(
       attributeDefinitionRecord(),
     );
@@ -326,7 +326,7 @@ describe("admin game attribute definitions", () => {
     });
   });
 
-  it("clears stored account values for an attribute", async () => {
+  it("清空账号中指定属性标签的已存值", async () => {
     prismaMock.gameAttributeDefinition.findFirst.mockResolvedValue(
       attributeDefinitionRecord(),
     );
@@ -339,8 +339,8 @@ describe("admin game attribute definitions", () => {
   });
 });
 
-describe("admin account attributes", () => {
-  it("creates listed accounts with generated serials and syncs email bind status", async () => {
+describe("后台账号", () => {
+  it("创建上架账号时生成序列号并同步邮箱绑定状态", async () => {
     prismaMock.gameAttributeDefinition.findMany.mockResolvedValue([
       attributeDefinitionRecord({
         attrKey: "mythic_skins",
@@ -409,7 +409,7 @@ describe("admin account attributes", () => {
     });
   });
 
-  it("rejects listed accounts without email", async () => {
+  it("拒绝创建未绑定邮箱的上架账号", async () => {
     prismaMock.gameAttributeDefinition.findMany.mockResolvedValue([]);
 
     await expect(
@@ -428,7 +428,7 @@ describe("admin account attributes", () => {
     expect(prismaMock.codmAccount.create).not.toHaveBeenCalled();
   });
 
-  it("rejects invalid account attribute values", async () => {
+  it("拒绝无效的账号属性值", async () => {
     prismaMock.gameAttributeDefinition.findMany.mockResolvedValue([
       attributeDefinitionRecord({
         attrKey: "mythic_skins",
@@ -460,7 +460,7 @@ describe("admin account attributes", () => {
     expect(prismaMock.codmAccount.create).not.toHaveBeenCalled();
   });
 
-  it("rejects listing an account when its email is bound to another listed account", async () => {
+  it("邮箱已被其他上架账号绑定时拒绝上架账号", async () => {
     prismaMock.codmAccount.findUnique.mockResolvedValue(
       accountRecord({
         email: "buyer@example.com",
@@ -477,7 +477,7 @@ describe("admin account attributes", () => {
     expect(prismaMock.codmAccount.update).not.toHaveBeenCalled();
   });
 
-  it("keeps unchanged disabled historical attributes while editing account", async () => {
+  it("编辑账号时保留未变化的已停用历史属性值", async () => {
     prismaMock.codmAccount.findUnique.mockResolvedValue(
       accountRecord({
         attributes: { rank: "legendary" },
@@ -526,7 +526,7 @@ describe("admin account attributes", () => {
     ]);
   });
 
-  it("removes disabled historical attributes when they are cleared", async () => {
+  it("编辑账号清空属性时移除已停用历史属性值", async () => {
     prismaMock.codmAccount.findUnique.mockResolvedValue(
       accountRecord({
         attributes: { rank: "legendary" },
@@ -560,8 +560,8 @@ describe("admin account attributes", () => {
   });
 });
 
-describe("admin emails", () => {
-  it("creates emails with bind status derived from listed accounts", async () => {
+describe("后台邮箱", () => {
+  it("创建邮箱时根据上架账号推导绑定状态", async () => {
     prismaMock.codmEmail.findFirst.mockResolvedValue(null);
     prismaMock.codmAccount.findFirst.mockResolvedValue({ id: 7n });
     prismaMock.codmEmail.create.mockResolvedValue(
@@ -587,7 +587,7 @@ describe("admin emails", () => {
     });
   });
 
-  it("rejects new email prefixes containing at signs", async () => {
+  it("拒绝包含 @ 的新邮箱前缀", async () => {
     await expect(
       createAdminEmail({
         prefix: "buyer@example.com",
@@ -598,7 +598,7 @@ describe("admin emails", () => {
     expect(prismaMock.codmEmail.create).not.toHaveBeenCalled();
   });
 
-  it("rejects changing an email address while it is linked to an account", async () => {
+  it("邮箱已关联账号时拒绝修改邮箱地址", async () => {
     prismaMock.codmEmail.findUnique.mockResolvedValue(emailRecord());
     prismaMock.codmAccount.findFirst.mockResolvedValue({
       id: 7n,
@@ -611,7 +611,7 @@ describe("admin emails", () => {
     expect(prismaMock.codmEmail.update).not.toHaveBeenCalled();
   });
 
-  it("rejects deleting an email while it is linked to an account", async () => {
+  it("邮箱已关联账号时拒绝删除邮箱", async () => {
     prismaMock.codmEmail.findUnique.mockResolvedValue(emailRecord());
     prismaMock.codmAccount.findFirst.mockResolvedValue({
       id: 7n,
@@ -624,7 +624,7 @@ describe("admin emails", () => {
     expect(prismaMock.codmEmail.delete).not.toHaveBeenCalled();
   });
 
-  it("rejects manual bind status that conflicts with account usage", async () => {
+  it("手动绑定状态与账号使用情况冲突时拒绝更新", async () => {
     prismaMock.codmEmail.findUnique.mockResolvedValue(emailRecord());
     prismaMock.codmAccount.findFirst.mockResolvedValue(null);
 
