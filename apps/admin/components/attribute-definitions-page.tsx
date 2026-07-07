@@ -35,6 +35,11 @@ import {
 import { Edit, Plus, RefreshCw, Save, Trash2, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import {
+  CellTooltip,
+  TABLE_ACTION_CELL_CLASS,
+  TABLE_ACTION_HEAD_CLASS,
+} from "@/components/cell-tooltip";
+import {
   createAttributeDefinition,
   disableAttributeDefinition,
   fetchAttributeDefinitions,
@@ -232,15 +237,27 @@ export function AttributeDefinitionsPage() {
             <CardTitle className="text-base">CODM 属性</CardTitle>
           </CardHeader>
           <div className="overflow-auto">
-            <Table>
+            <Table className="min-w-[920px]">
               <TableHeader>
                 <TableRow>
-                  <TableHead>属性</TableHead>
-                  <TableHead>类型</TableHead>
-                  <TableHead>选项/单位</TableHead>
-                  <TableHead>状态</TableHead>
-                  <TableHead>排序</TableHead>
-                  <TableHead className="text-right">操作</TableHead>
+                  <TableHead className="min-w-56 whitespace-nowrap">
+                    属性
+                  </TableHead>
+                  <TableHead className="min-w-24 whitespace-nowrap">
+                    类型
+                  </TableHead>
+                  <TableHead className="min-w-72 whitespace-nowrap">
+                    选项/单位
+                  </TableHead>
+                  <TableHead className="min-w-24 whitespace-nowrap">
+                    状态
+                  </TableHead>
+                  <TableHead className="min-w-20 whitespace-nowrap">
+                    排序
+                  </TableHead>
+                  <TableHead className={TABLE_ACTION_HEAD_CLASS}>
+                    操作
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -256,32 +273,59 @@ export function AttributeDefinitionsPage() {
                   </TableRow>
                 ) : null}
                 {!loading
-                  ? sortedDefinitions.map((definition) => (
+                  ? sortedDefinitions.map((definition) => {
+                      const optionSummary =
+                        getAttributeDefinitionOptionSummary(definition);
+
+                      return (
                       <TableRow key={definition.id}>
-                        <TableCell>
-                          <div className="font-medium">{definition.label}</div>
+                        <TableCell className="max-w-56">
+                          <CellTooltip
+                            className="font-medium"
+                            content={definition.label}
+                          >
+                            {definition.label}
+                          </CellTooltip>
                           <div className="mt-1 text-xs text-muted-foreground">
-                            {definition.attrKey}
+                            <CellTooltip content={definition.attrKey}>
+                              {definition.attrKey}
+                            </CellTooltip>
                           </div>
                         </TableCell>
-                        <TableCell>
-                          {definition.type === "number" ? "数字" : "下拉"}
+                        <TableCell className="whitespace-nowrap">
+                          <CellTooltip
+                            content={
+                              definition.type === "number" ? "数字" : "下拉"
+                            }
+                          >
+                            {definition.type === "number" ? "数字" : "下拉"}
+                          </CellTooltip>
                         </TableCell>
                         <TableCell className="max-w-72">
                           {definition.type === "number" ? (
-                            definition.unit || "-"
+                            <CellTooltip content={optionSummary}>
+                              {optionSummary}
+                            </CellTooltip>
                           ) : (
-                            <div className="flex flex-wrap gap-1">
-                              {definition.options.map((option) => (
-                                <Badge
-                                  className="rounded-sm font-normal"
-                                  key={option.value}
-                                  variant="secondary"
-                                >
-                                  {option.label}
-                                </Badge>
-                              ))}
-                            </div>
+                            <CellTooltip asChild content={optionSummary}>
+                              <div className="flex max-w-72 flex-nowrap gap-1 overflow-hidden">
+                                {definition.options.length > 0 ? (
+                                  definition.options.map((option) => (
+                                    <Badge
+                                      className="shrink-0 rounded-sm font-normal"
+                                      key={option.value}
+                                      variant="secondary"
+                                    >
+                                      {option.label}
+                                    </Badge>
+                                  ))
+                                ) : (
+                                  <span className="text-muted-foreground">
+                                    -
+                                  </span>
+                                )}
+                              </div>
+                            </CellTooltip>
                           )}
                         </TableCell>
                         <TableCell>
@@ -294,8 +338,12 @@ export function AttributeDefinitionsPage() {
                             {definition.enabled ? "启用" : "停用"}
                           </Badge>
                         </TableCell>
-                        <TableCell>{definition.sortOrder}</TableCell>
-                        <TableCell>
+                        <TableCell className="whitespace-nowrap">
+                          <CellTooltip content={definition.sortOrder}>
+                            {definition.sortOrder}
+                          </CellTooltip>
+                        </TableCell>
+                        <TableCell className={TABLE_ACTION_CELL_CLASS}>
                           <div className="flex justify-end gap-1">
                             <Button
                               size="sm"
@@ -324,7 +372,8 @@ export function AttributeDefinitionsPage() {
                           </div>
                         </TableCell>
                       </TableRow>
-                    ))
+                      );
+                    })
                   : null}
               </TableBody>
             </Table>
@@ -525,7 +574,7 @@ function AttributeSkeletonRows() {
       <TableCell>
         <Skeleton className="h-4 w-10" />
       </TableCell>
-      <TableCell>
+      <TableCell className={TABLE_ACTION_CELL_CLASS}>
         <div className="flex justify-end gap-1">
           <Skeleton className="h-8 w-16" />
           <Skeleton className="h-8 w-8" />
@@ -533,4 +582,14 @@ function AttributeSkeletonRows() {
       </TableCell>
     </TableRow>
   ));
+}
+
+function getAttributeDefinitionOptionSummary(
+  definition: GameAttributeDefinition,
+) {
+  if (definition.type === "number") {
+    return definition.unit || "-";
+  }
+
+  return definition.options.map((option) => option.label).join("、") || "-";
 }

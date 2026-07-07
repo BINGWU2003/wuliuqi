@@ -52,6 +52,11 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  CellTooltip,
+  TABLE_ACTION_CELL_CLASS,
+  TABLE_ACTION_HEAD_CLASS,
+} from "@/components/cell-tooltip";
 import { AccountStatusBadge } from "@/components/status-badge";
 import {
   deleteAccount,
@@ -515,15 +520,27 @@ export function AccountsPage() {
       <Card className="hidden overflow-hidden rounded-md shadow-none sm:block">
         <div>
           <div className="h-[calc(100dvh-22rem)] min-h-[420px] max-h-[620px] overflow-auto">
-            <Table>
+            <Table className="min-w-[1040px]">
               <TableHeader className="sticky top-0 z-10 bg-card shadow-[0_1px_0_var(--border)]">
                 <TableRow>
-                  <TableHead>账号</TableHead>
-                  <TableHead>价格</TableHead>
-                  <TableHead>邮箱</TableHead>
-                  <TableHead>状态</TableHead>
-                  <TableHead>更新</TableHead>
-                  <TableHead className="text-right">操作</TableHead>
+                  <TableHead className="min-w-80 whitespace-nowrap">
+                    账号
+                  </TableHead>
+                  <TableHead className="min-w-28 whitespace-nowrap">
+                    价格
+                  </TableHead>
+                  <TableHead className="min-w-64 whitespace-nowrap">
+                    邮箱
+                  </TableHead>
+                  <TableHead className="min-w-24 whitespace-nowrap">
+                    状态
+                  </TableHead>
+                  <TableHead className="min-w-36 whitespace-nowrap">
+                    更新
+                  </TableHead>
+                  <TableHead className={TABLE_ACTION_HEAD_CLASS}>
+                    操作
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -547,9 +564,12 @@ export function AccountsPage() {
                             ) : null}
                           </div>
                           <div className="min-w-0">
-                            <div className="truncate font-medium">
+                            <CellTooltip
+                              className="font-medium"
+                              content={account.title}
+                            >
                               {account.title}
-                            </div>
+                            </CellTooltip>
                             <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
                               <Badge className="rounded-sm" variant="secondary">
                                 {account.serialNumber}
@@ -561,18 +581,24 @@ export function AccountsPage() {
                         </div>
                       </TableCell>
                       <TableCell className="font-mono font-semibold text-price">
-                        {formatPrice(account.price)}
+                        <CellTooltip content={formatPrice(account.price)}>
+                          {formatPrice(account.price)}
+                        </CellTooltip>
                       </TableCell>
-                      <TableCell className="max-w-48 truncate text-muted-foreground">
-                        {account.email || "-"}
+                      <TableCell className="max-w-64 text-muted-foreground">
+                        <CellTooltip content={account.email || "-"}>
+                          {account.email || "-"}
+                        </CellTooltip>
                       </TableCell>
                       <TableCell>
                         <AccountStatusBadge status={account.status} />
                       </TableCell>
                       <TableCell className="text-muted-foreground">
-                        {formatDate(account.updatedAt)}
+                        <CellTooltip content={formatDate(account.updatedAt)}>
+                          {formatDate(account.updatedAt)}
+                        </CellTooltip>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className={TABLE_ACTION_CELL_CLASS}>
                         <div className="flex justify-end gap-1">
                           <Button asChild size="sm" variant="ghost">
                             <Link
@@ -748,7 +774,7 @@ function AccountTableSkeletonRows() {
       <TableCell>
         <Skeleton className="h-4 w-24" />
       </TableCell>
-      <TableCell>
+      <TableCell className={TABLE_ACTION_CELL_CLASS}>
         <div className="flex justify-end gap-1">
           <Skeleton className="h-8 w-16" />
           <Skeleton className="h-8 w-14" />

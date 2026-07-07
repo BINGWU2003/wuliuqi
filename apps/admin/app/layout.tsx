@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import localFont from "next/font/local";
 import Script from "next/script";
 import { Toaster } from "@wuliuqi/ui/components/sonner";
+import { TooltipProvider } from "@wuliuqi/ui/components/tooltip";
 import { getThemeInitScript } from "@wuliuqi/ui/lib/theme";
 import "./globals.css";
 
@@ -34,7 +35,9 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased`}
       >
-        {children}
+        <TooltipProvider delayDuration={300} skipDelayDuration={100}>
+          {children}
+        </TooltipProvider>
         <Toaster />
       </body>
     </html>

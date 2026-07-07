@@ -50,6 +50,11 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  CellTooltip,
+  TABLE_ACTION_CELL_CLASS,
+  TABLE_ACTION_HEAD_CLASS,
+} from "@/components/cell-tooltip";
 import { EmailBindStatusBadge } from "@/components/status-badge";
 import { deleteEmail, fetchEmails } from "@/lib/client-api";
 import { ADMIN_EMAILS_CHANGED_EVENT } from "@/lib/events";
@@ -440,13 +445,21 @@ export function EmailsPage() {
       <Card className="hidden overflow-hidden rounded-md shadow-none sm:block">
         <div>
           <div className="h-[calc(100dvh-22rem)] min-h-[420px] max-h-[620px] overflow-auto">
-            <Table>
+            <Table className="min-w-[760px]">
               <TableHeader className="sticky top-0 z-10 bg-card shadow-[0_1px_0_var(--border)]">
                 <TableRow>
-                  <TableHead>邮箱</TableHead>
-                  <TableHead>状态</TableHead>
-                  <TableHead>更新</TableHead>
-                  <TableHead className="text-right">操作</TableHead>
+                  <TableHead className="min-w-96 whitespace-nowrap">
+                    邮箱
+                  </TableHead>
+                  <TableHead className="min-w-28 whitespace-nowrap">
+                    状态
+                  </TableHead>
+                  <TableHead className="min-w-36 whitespace-nowrap">
+                    更新
+                  </TableHead>
+                  <TableHead className={TABLE_ACTION_HEAD_CLASS}>
+                    操作
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -456,15 +469,17 @@ export function EmailsPage() {
                   emails.map((email) => (
                     <TableRow key={email.id}>
                       <TableCell>
-                        <EmailAddress email={email} />
+                        <EmailAddress email={email} truncate />
                       </TableCell>
                       <TableCell>
                         <EmailBindStatusBadge bindStatus={email.bindStatus} />
                       </TableCell>
                       <TableCell className="text-muted-foreground">
-                        {formatDate(email.updatedAt)}
+                        <CellTooltip content={formatDate(email.updatedAt)}>
+                          {formatDate(email.updatedAt)}
+                        </CellTooltip>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className={TABLE_ACTION_CELL_CLASS}>
                         <div className="flex justify-end gap-1">
                           <Button asChild size="sm" variant="ghost">
                             <Link
@@ -599,7 +614,7 @@ function EmailTableSkeletonRows() {
       <TableCell>
         <Skeleton className="h-4 w-24" />
       </TableCell>
-      <TableCell>
+      <TableCell className={TABLE_ACTION_CELL_CLASS}>
         <div className="flex justify-end gap-1">
           <Skeleton className="h-8 w-16" />
           <Skeleton className="h-8 w-8" />
@@ -706,8 +721,28 @@ function getPaginationPages(page: number, totalPages: number) {
   return Array.from({ length: end - start + 1 }, (_, index) => start + index);
 }
 
-function EmailAddress({ email }: { email: AdminEmail }) {
+function EmailAddress({
+  email,
+  truncate = false,
+}: {
+  email: AdminEmail;
+  truncate?: boolean;
+}) {
   if (email.boundAccountId) {
+    if (truncate) {
+      return (
+        <CellTooltip asChild content={email.email}>
+          <Link
+            className="block max-w-96 truncate font-medium text-primary underline-offset-4 hover:underline"
+            href={`/accounts/${email.boundAccountId}/edit`}
+            scroll={false}
+          >
+            {email.email}
+          </Link>
+        </CellTooltip>
+      );
+    }
+
     return (
       <Link
         className="break-all font-medium text-primary underline-offset-4 hover:underline"
@@ -716,6 +751,14 @@ function EmailAddress({ email }: { email: AdminEmail }) {
       >
         {email.email}
       </Link>
+    );
+  }
+
+  if (truncate) {
+    return (
+      <CellTooltip className="max-w-96 font-medium" content={email.email}>
+        {email.email}
+      </CellTooltip>
     );
   }
 
