@@ -38,6 +38,7 @@ import {
   TableRow,
 } from "@wuliuqi/ui/components/table";
 import {
+  ArrowUpRight,
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
@@ -749,29 +750,45 @@ function EmailAddress({
   truncate?: boolean;
 }) {
   if (email.boundAccountId) {
-    if (truncate) {
-      return (
-        <CellTooltip asChild content={email.email}>
-          <Link
-            className="block max-w-96 truncate font-medium text-primary underline-offset-4 hover:underline"
-            href={`/accounts/${email.boundAccountId}/edit`}
-            scroll={false}
+    const content = (
+      <Link
+        className="group inline-flex max-w-full items-center gap-2 rounded-md border border-sky-200 bg-sky-50 px-2.5 py-1.5 text-sky-800 transition-colors hover:border-sky-300 hover:bg-sky-100 dark:border-sky-900/70 dark:bg-sky-950/50 dark:text-sky-200 dark:hover:bg-sky-950"
+        href={`/accounts/${email.boundAccountId}/edit`}
+        scroll={false}
+      >
+        <span className="min-w-0">
+          <span
+            className={
+              truncate
+                ? "block max-w-72 truncate font-medium"
+                : "block break-all font-medium"
+            }
           >
             {email.email}
-          </Link>
+          </span>
+          <span className="mt-0.5 block text-xs text-sky-700/80 dark:text-sky-300/80">
+            已关联账号 #{email.boundAccountId}，点击查看
+          </span>
+        </span>
+        <ArrowUpRight
+          className="size-4 shrink-0 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
+          aria-hidden="true"
+        />
+      </Link>
+    );
+
+    if (truncate) {
+      return (
+        <CellTooltip
+          asChild
+          content={`${email.email}，已关联账号 #${email.boundAccountId}`}
+        >
+          {content}
         </CellTooltip>
       );
     }
 
-    return (
-      <Link
-        className="break-all font-medium text-primary underline-offset-4 hover:underline"
-        href={`/accounts/${email.boundAccountId}/edit`}
-        scroll={false}
-      >
-        {email.email}
-      </Link>
-    );
+    return content;
   }
 
   if (truncate) {
