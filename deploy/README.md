@@ -13,14 +13,14 @@ Gemini 使用 Google 官方接口，只需要配置 `GEMINI_API_KEY`，不要额
 首次部署前，需要先对 `DATABASE_URL` 指向的主业务 PostgreSQL 执行 Prisma migration：
 
 ```sh
-DATABASE_URL="postgresql://USER:PASSWORD@HOST:5432/DATABASE_NAME?sslmode=require" pnpm --filter @wuliuqi/db migrate:deploy
+DATABASE_URL="postgresql://USER:PASSWORD@HOST:6543/DATABASE_NAME?sslmode=require&pgbouncer=true" pnpm --filter @wuliuqi/db migrate:deploy
 ```
 
 ### 关键环境变量
 
-`DATABASE_URL` 是主业务 PostgreSQL 连接串，例如 Supabase Postgres、Neon 或其他托管 PostgreSQL。使用 Supabase 时，主业务 `DATABASE_URL` 建议使用 session pooler，也就是 pooler host 的 `5432` 端口。
+`DATABASE_URL` 是主业务 PostgreSQL 连接串，例如 Supabase Postgres、Neon 或其他托管 PostgreSQL。使用 Supabase 时，主业务 `DATABASE_URL` 建议使用 transaction pooler，也就是 pooler host 的 `6543` 端口。
 
-`DATABASE_POOL_SIZE` 是每个 `shop`/`admin` Node 进程的 Prisma 主库连接池大小，默认 `5`。Supabase session pooler 常见上限是 `pool_size: 15`，同时部署 `shop` 和 `admin` 时先保持 `5`，合计约 10 条连接；如果增加副本数，按 `应用数 * 副本数 * DATABASE_POOL_SIZE` 重新下调。
+`DATABASE_POOL_SIZE` 是每个 `shop`/`admin` Node 进程的 Prisma 主库连接池大小，默认 `5`。Supabase pooler 常见上限是 `pool_size: 15`，同时部署 `shop` 和 `admin` 时先保持 `5`，合计约 10 条连接；如果增加副本数，按 `应用数 * 副本数 * DATABASE_POOL_SIZE` 重新下调。
 
 `DATABASE_POOL_TIMEOUT` 是 Prisma 等待空闲连接的秒数，默认 `20`。
 

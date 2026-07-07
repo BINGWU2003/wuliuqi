@@ -13,10 +13,12 @@
 ## 环境变量
 
 ```env
-DATABASE_URL="postgresql://USER:PASSWORD@HOST:5432/DATABASE_NAME?sslmode=require"
+DATABASE_URL="postgresql://USER:PASSWORD@HOST:6543/DATABASE_NAME?sslmode=require&pgbouncer=true"
 DATABASE_POOL_SIZE="5"
 DATABASE_POOL_TIMEOUT="20"
 ```
+
+Vercel 部署时将 `DATABASE_POOL_SIZE` 设为 `1`，避免多个 serverless 实例叠加打满 Supabase pooler。
 
 ## 常用命令
 

@@ -11,8 +11,10 @@ function getDatasourceUrl() {
     return undefined;
   }
 
+  const configuredConnectionLimit = process.env.DATABASE_POOL_SIZE;
   const connectionLimit =
-    process.env.DATABASE_POOL_SIZE ??
+    configuredConnectionLimit ??
+    (process.env.VERCEL === "1" ? "1" : undefined) ??
     (process.env.NODE_ENV === "production" ? "5" : undefined);
   const poolTimeout = process.env.DATABASE_POOL_TIMEOUT;
 
@@ -22,7 +24,10 @@ function getDatasourceUrl() {
 
   const url = new URL(databaseUrl);
 
-  if (connectionLimit && !url.searchParams.has("connection_limit")) {
+  if (
+    connectionLimit &&
+    (configuredConnectionLimit || !url.searchParams.has("connection_limit"))
+  ) {
     url.searchParams.set("connection_limit", connectionLimit);
   }
 

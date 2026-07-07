@@ -14,7 +14,7 @@
 ## 环境变量
 
 ```env
-DATABASE_URL="postgresql://USER:PASSWORD@HOST:5432/DATABASE_NAME?sslmode=require"
+DATABASE_URL="postgresql://USER:PASSWORD@HOST:6543/DATABASE_NAME?sslmode=require&pgbouncer=true"
 DATABASE_POOL_SIZE="5"
 DATABASE_POOL_TIMEOUT="20"
 JWT_SECRET="replace-with-a-strong-secret"
@@ -37,6 +37,8 @@ GEMINI_EMBEDDING_DIMENSIONS="768"
 
 `COS_PUBLIC_BASE_URL` 只在使用自定义 CDN 或公开访问域名时填写。
 RAG/Gemini 默认值可以不改；需要换模型或连接池大小时再调整。
+
+Vercel 部署时将 `DATABASE_POOL_SIZE` 设为 `1`，避免多个 serverless 实例叠加打满 Supabase pooler。
 
 ## 常用命令
 

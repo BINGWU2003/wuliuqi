@@ -3,6 +3,7 @@
   "ui": "tui",
   "globalEnv": [
     "NODE_ENV",
+    "VERCEL",
     "DATABASE_URL",
     "DATABASE_POOL_SIZE",
     "DATABASE_POOL_TIMEOUT",

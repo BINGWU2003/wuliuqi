@@ -86,24 +86,36 @@ pnpm --filter @wuliuqi/rag-db seed
 
 ### 主业务 PostgreSQL
 
-`shop` 和 `admin` 都读取 `DATABASE_URL`，并通过 `DATABASE_POOL_SIZE` 控制每个 Node 进程的 Prisma 主库连接池大小。生产环境默认值是 `5`。
+`shop` 和 `admin` 都读取 `DATABASE_URL`，并通过 `DATABASE_POOL_SIZE` 控制每个 Node 进程的 Prisma 主库连接池大小。普通 Node/Docker 生产环境默认值是 `5`，Vercel 环境默认值是 `1`。
 
-如果主业务库使用 Supabase，推荐填写 **Connection Pooling / Session pooler** 连接串，也就是 pooler host 的 `5432` 端口：
+如果主业务库使用 Supabase，推荐填写 **Connection Pooling / Transaction pooler** 连接串，也就是 pooler host 的 `6543` 端口：
 
 ```env
-DATABASE_URL="postgresql://postgres.PROJECT_REF:PASSWORD@aws-REGION.pooler.supabase.com:5432/postgres?sslmode=require"
+DATABASE_URL="postgresql://postgres.PROJECT_REF:PASSWORD@aws-REGION.pooler.supabase.com:6543/postgres?sslmode=require&pgbouncer=true"
 DATABASE_POOL_SIZE="5"
 DATABASE_POOL_TIMEOUT="20"
 ```
 
-如果 Supabase session pooler 显示 `pool_size: 15`，同时部署 `shop` 和 `admin` 时建议先保持 `DATABASE_POOL_SIZE=5`，两边合计约 10 条连接，避免 Prisma 默认池大小叠加后触发 `EMAXCONNSESSION`。如果以后增加副本数，需要按 `应用数 * 副本数 * DATABASE_POOL_SIZE` 重新下调。
+如果 Supabase pooler 显示 `pool_size: 15`，同时部署 `shop` 和 `admin` 时，Docker 单副本建议先保持 `DATABASE_POOL_SIZE=5`，两边合计约 10 条连接，避免 Prisma 默认池大小叠加后触发 `EMAXCONNSESSION`。如果以后增加副本数，需要按 `应用数 * 副本数 * DATABASE_POOL_SIZE` 重新下调。
+
+### Vercel 部署
+
+Vercel 上不要使用 Docker Compose 里的环境变量配置，需要在 Vercel Project Settings 的 Environment Variables 中设置：
+
+```env
+DATABASE_URL="postgresql://USER:PASSWORD@HOST:6543/DATABASE_NAME?sslmode=require&pgbouncer=true"
+DATABASE_POOL_SIZE="1"
+DATABASE_POOL_TIMEOUT="20"
+```
+
+Vercel 会并发启动多个 serverless function 实例，每个实例都有自己的 Prisma 连接池。Supabase pooler 只有 `pool_size: 15` 时，`DATABASE_POOL_SIZE=5` 仍可能被多个实例叠加打满；Vercel 建议先使用 `1`。修改环境变量后必须重新部署才会生效。
 
 ### `apps/shop/.env.local`
 
 商城前台只需要主业务数据库：
 
 ```env
-DATABASE_URL="postgresql://USER:PASSWORD@HOST:5432/DATABASE_NAME?sslmode=require"
+DATABASE_URL="postgresql://USER:PASSWORD@HOST:6543/DATABASE_NAME?sslmode=require&pgbouncer=true"
 DATABASE_POOL_SIZE="5"
 DATABASE_POOL_TIMEOUT="20"
 ```
@@ -123,7 +135,7 @@ RAG_DATABASE_URL="postgresql://postgres.PROJECT_REF:PASSWORD@aws-REGION.pooler.s
 管理端需要主业务 PostgreSQL、管理端会话密钥、COS 上传配置，以及用于知识库索引的 RAG/Gemini 配置：
 
 ```env
-DATABASE_URL="postgresql://USER:PASSWORD@HOST:5432/DATABASE_NAME?sslmode=require"
+DATABASE_URL="postgresql://USER:PASSWORD@HOST:6543/DATABASE_NAME?sslmode=require&pgbouncer=true"
 DATABASE_POOL_SIZE="5"
 DATABASE_POOL_TIMEOUT="20"
 JWT_SECRET="replace-with-a-strong-secret"
@@ -177,7 +189,7 @@ RAG 默认值：
 初始化或升级 PostgreSQL 主业务表：
 
 ```powershell
-$env:DATABASE_URL="postgresql://USER:PASSWORD@HOST:5432/DATABASE_NAME?sslmode=require"
+$env:DATABASE_URL="postgresql://USER:PASSWORD@HOST:6543/DATABASE_NAME?sslmode=require&pgbouncer=true"
 pnpm --filter @wuliuqi/db migrate:deploy
 pnpm --filter @wuliuqi/db generate
 ```
