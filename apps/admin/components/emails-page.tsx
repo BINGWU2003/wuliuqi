@@ -38,7 +38,6 @@ import {
   TableRow,
 } from "@wuliuqi/ui/components/table";
 import {
-  ArrowUpRight,
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
@@ -400,7 +399,10 @@ export function EmailsPage() {
                   {formatDate(email.updatedAt)}
                 </div>
               </div>
-              <EmailBindStatusBadge bindStatus={email.bindStatus} />
+              <div className="flex shrink-0 flex-col items-end gap-2">
+                <EmailBindStatusBadge bindStatus={email.bindStatus} />
+                <LinkedAccountBadge email={email} />
+              </div>
             </div>
             <div className="mt-3 grid grid-cols-[1fr_auto] gap-2 border-t border-border pt-3">
               <Button asChild size="sm" variant="outline">
@@ -449,7 +451,7 @@ export function EmailsPage() {
       <Card className="hidden overflow-hidden rounded-md shadow-none sm:block">
         <div>
           <div className="h-[calc(100dvh-22rem)] min-h-[420px] max-h-[620px] overflow-auto">
-            <Table className="min-w-[760px]">
+            <Table className="min-w-[880px]">
               <TableHeader className="sticky top-0 z-10 bg-card shadow-[0_1px_0_var(--border)]">
                 <TableRow>
                   <TableHead className="min-w-96 whitespace-nowrap">
@@ -457,6 +459,9 @@ export function EmailsPage() {
                   </TableHead>
                   <TableHead className="min-w-28 whitespace-nowrap">
                     状态
+                  </TableHead>
+                  <TableHead className="min-w-28 whitespace-nowrap">
+                    关联账号
                   </TableHead>
                   <TableHead className="min-w-36 whitespace-nowrap">
                     更新
@@ -477,6 +482,9 @@ export function EmailsPage() {
                       </TableCell>
                       <TableCell>
                         <EmailBindStatusBadge bindStatus={email.bindStatus} />
+                      </TableCell>
+                      <TableCell>
+                        <LinkedAccountBadge email={email} showEmpty />
                       </TableCell>
                       <TableCell className="text-muted-foreground">
                         <CellTooltip content={formatDate(email.updatedAt)}>
@@ -522,7 +530,7 @@ export function EmailsPage() {
                   <TableRow>
                     <TableCell
                       className="py-10 text-center text-muted-foreground"
-                      colSpan={4}
+                      colSpan={5}
                     >
                       暂无邮箱
                     </TableCell>
@@ -615,6 +623,9 @@ function EmailTableSkeletonRows() {
       </TableCell>
       <TableCell>
         <Skeleton className="h-5 w-16" />
+      </TableCell>
+      <TableCell>
+        <Skeleton className="h-5 w-20" />
       </TableCell>
       <TableCell>
         <Skeleton className="h-4 w-24" />
@@ -750,45 +761,15 @@ function EmailAddress({
   truncate?: boolean;
 }) {
   if (email.boundAccountId) {
-    const content = (
-      <Link
-        className="group inline-flex max-w-full items-center gap-2 rounded-md border border-sky-200 bg-sky-50 px-2.5 py-1.5 text-sky-800 transition-colors hover:border-sky-300 hover:bg-sky-100 dark:border-sky-900/70 dark:bg-sky-950/50 dark:text-sky-200 dark:hover:bg-sky-950"
-        href={`/accounts/${email.boundAccountId}/edit`}
-        scroll={false}
-      >
-        <span className="min-w-0">
-          <span
-            className={
-              truncate
-                ? "block max-w-72 truncate font-medium"
-                : "block break-all font-medium"
-            }
-          >
-            {email.email}
-          </span>
-          <span className="mt-0.5 block text-xs text-sky-700/80 dark:text-sky-300/80">
-            已关联账号 #{email.boundAccountId}，点击查看
-          </span>
-        </span>
-        <ArrowUpRight
-          className="size-4 shrink-0 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
-          aria-hidden="true"
-        />
-      </Link>
-    );
-
     if (truncate) {
       return (
-        <CellTooltip
-          asChild
-          content={`${email.email}，已关联账号 #${email.boundAccountId}`}
-        >
-          {content}
+        <CellTooltip className="max-w-96 font-medium" content={email.email}>
+          {email.email}
         </CellTooltip>
       );
     }
 
-    return content;
+    return <span className="break-all font-medium">{email.email}</span>;
   }
 
   if (truncate) {
@@ -804,4 +785,29 @@ function EmailAddress({
 
 function isEmailLinked(email: AdminEmail) {
   return email.boundAccountId !== undefined;
+}
+
+function LinkedAccountBadge({
+  email,
+  showEmpty = false,
+}: {
+  email: AdminEmail;
+  showEmpty?: boolean;
+}) {
+  if (!email.boundAccountId) {
+    return showEmpty ? (
+      <span className="text-sm text-muted-foreground">-</span>
+    ) : null;
+  }
+
+  return (
+    <Link
+      className="inline-flex h-6 items-center rounded-sm border border-sky-200 bg-sky-50 px-2 text-xs font-medium text-sky-700 transition-colors hover:border-sky-300 hover:bg-sky-100 dark:border-sky-900/70 dark:bg-sky-950/50 dark:text-sky-300 dark:hover:bg-sky-950"
+      href={`/accounts/${email.boundAccountId}/edit`}
+      scroll={false}
+      title={`查看账号 #${email.boundAccountId}`}
+    >
+      账号 #{email.boundAccountId}
+    </Link>
+  );
 }
