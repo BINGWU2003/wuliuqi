@@ -1,9 +1,15 @@
 import type { Prisma } from "@prisma/client";
 import type {
+  AccountAttributePrimitive,
+  AccountAttributeValue,
+  AccountAttributes,
   AdminEmail,
   AdminUser,
   Carousel,
   CarouselItem,
+  GameAttributeDefinition,
+  GameAttributeOption,
+  GameAttributeType,
   SequenceCounter,
   ShopAccount,
 } from "@wuliuqi/types";
@@ -12,12 +18,27 @@ type AccountRecord = {
   id: bigint;
   serialNumber: string;
   images: Prisma.JsonValue | null;
+  attributes: Prisma.JsonValue;
   price: Prisma.Decimal;
   title: string;
   describe: string | null;
   xianyuUrl: string | null;
   email: string | null;
   status: number;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type GameAttributeDefinitionRecord = {
+  id: bigint;
+  gameKey: string;
+  attrKey: string;
+  label: string;
+  type: string;
+  unit: string | null;
+  options: Prisma.JsonValue;
+  enabled: boolean;
+  sortOrder: number;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -77,6 +98,24 @@ function normalizeImages(value: Prisma.JsonValue | null): string[] {
   return value.filter((item): item is string => typeof item === "string");
 }
 
+export function normalizeAccountAttributes(
+  value: Prisma.JsonValue | null,
+): AccountAttributes {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+
+  const attributes: AccountAttributes = {};
+
+  for (const [key, rawValue] of Object.entries(value)) {
+    if (typeof rawValue === "number" || typeof rawValue === "string") {
+      attributes[key] = rawValue;
+    }
+  }
+
+  return attributes;
+}
+
 function normalizeCarouselItems(value: Prisma.JsonValue): CarouselItem[] {
   if (!Array.isArray(value)) {
     return [];
@@ -111,11 +150,108 @@ function normalizeCarouselItems(value: Prisma.JsonValue): CarouselItem[] {
   return items.sort((a, b) => a.sortOrder - b.sortOrder);
 }
 
-export function serializeAccount(account: AccountRecord): ShopAccount {
+function normalizeAttributeOptions(
+  value: Prisma.JsonValue,
+): GameAttributeOption[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  const options: GameAttributeOption[] = [];
+
+  for (const option of value) {
+    if (!option || typeof option !== "object" || Array.isArray(option)) {
+      continue;
+    }
+
+    const record = option as Record<string, unknown>;
+    const label = typeof record.label === "string" ? record.label : "";
+    const optionValue = typeof record.value === "string" ? record.value : "";
+
+    if (label && optionValue) {
+      options.push({ label, value: optionValue });
+    }
+  }
+
+  return options;
+}
+
+function attributeType(value: string): GameAttributeType {
+  return value === "select" ? "select" : "number";
+}
+
+function displayAttributeValue(
+  value: AccountAttributePrimitive,
+  definition: GameAttributeDefinition,
+) {
+  if (definition.type === "select") {
+    return (
+      definition.options.find((option) => option.value === value)?.label ??
+      String(value)
+    );
+  }
+
+  return `${value}${definition.unit ? ` ${definition.unit}` : ""}`;
+}
+
+export function serializeGameAttributeDefinition(
+  definition: GameAttributeDefinitionRecord,
+): GameAttributeDefinition {
+  return {
+    id: bigintToNumber(definition.id),
+    gameKey: definition.gameKey,
+    attrKey: definition.attrKey,
+    label: definition.label,
+    type: attributeType(definition.type),
+    unit: definition.unit ?? undefined,
+    options: normalizeAttributeOptions(definition.options),
+    enabled: definition.enabled,
+    sortOrder: definition.sortOrder,
+    createdAt: toIsoString(definition.createdAt),
+    updatedAt: toIsoString(definition.updatedAt),
+  };
+}
+
+export function serializeAccountAttributeValues(
+  attributes: AccountAttributes,
+  definitions: GameAttributeDefinition[],
+): AccountAttributeValue[] {
+  return definitions
+    .filter((definition) => definition.enabled)
+    .flatMap((definition) => {
+      const value = attributes[definition.attrKey];
+
+      if (value === undefined || value === "") {
+        return [];
+      }
+
+      return [
+        {
+          key: definition.attrKey,
+          label: definition.label,
+          type: definition.type,
+          value,
+          displayValue: displayAttributeValue(value, definition),
+          unit: definition.unit,
+          sortOrder: definition.sortOrder,
+        },
+      ];
+    })
+    .sort((a, b) => a.sortOrder - b.sortOrder);
+}
+
+export function serializeAccount(
+  account: AccountRecord,
+  definitions: GameAttributeDefinition[] = [],
+): ShopAccount {
+  const attributes = normalizeAccountAttributes(account.attributes);
+
   return {
     id: bigintToNumber(account.id),
     serialNumber: account.serialNumber,
     images: normalizeImages(account.images),
+    attributes,
+    attributeValues: serializeAccountAttributeValues(attributes, definitions),
     price: Number(account.price),
     title: account.title,
     description: account.describe ?? "",

@@ -5,8 +5,12 @@ import type {
   AdminEmailListResult,
   AdminUser,
   ApiResponse,
+  AccountAttributes,
   Carousel,
   CarouselItem,
+  GameAttributeDefinition,
+  GameAttributeOption,
+  GameAttributeType,
   SequenceCounter,
   UploadResult,
 } from "@wuliuqi/types";
@@ -14,6 +18,7 @@ import type {
 type AccountPayload = {
   serialNumber?: string;
   images: string[];
+  attributes?: AccountAttributes;
   price: number;
   title: string;
   description: string;
@@ -26,6 +31,17 @@ type EmailPayload = {
   prefix: string;
   postfix: string;
   bindStatus?: 1 | 2;
+};
+
+type AttributeDefinitionPayload = {
+  gameKey?: string;
+  attrKey?: string;
+  label?: string;
+  type?: GameAttributeType;
+  unit?: string;
+  options?: GameAttributeOption[];
+  enabled?: boolean;
+  sortOrder?: number;
 };
 
 async function readApi<T>(response: Response): Promise<T> {
@@ -120,6 +136,44 @@ export async function deleteAccount(id: number) {
   });
 }
 
+export async function fetchAttributeDefinitions(gameKey = "codm") {
+  const params = paramsFrom({ game_key: gameKey });
+  return requestJson<GameAttributeDefinition[]>(
+    `/api/attribute-definitions?${params}`,
+  );
+}
+
+export async function createAttributeDefinition(
+  payload: AttributeDefinitionPayload,
+) {
+  return requestJson<GameAttributeDefinition>("/api/attribute-definitions", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateAttributeDefinition(
+  id: number,
+  payload: AttributeDefinitionPayload,
+) {
+  return requestJson<GameAttributeDefinition>(
+    `/api/attribute-definitions/${id}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    },
+  );
+}
+
+export async function disableAttributeDefinition(id: number) {
+  return requestJson<GameAttributeDefinition>(
+    `/api/attribute-definitions/${id}`,
+    {
+      method: "DELETE",
+    },
+  );
+}
+
 export async function fetchEmails(values: {
   page?: number;
   limit?: number;
@@ -190,10 +244,13 @@ export async function resetSequenceCounterValue(
   counterName: string,
   value: number,
 ) {
-  return requestJson<SequenceCounter>(`/api/sequence-counters/${counterName}/reset`, {
-    method: "POST",
-    body: JSON.stringify({ value }),
-  });
+  return requestJson<SequenceCounter>(
+    `/api/sequence-counters/${counterName}/reset`,
+    {
+      method: "POST",
+      body: JSON.stringify({ value }),
+    },
+  );
 }
 
 export async function uploadImage(file: File, folder: string) {

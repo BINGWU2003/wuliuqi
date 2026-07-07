@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "exports": {
-    "./browser/image-download": "./src/browser/image-download.ts"
+    "./browser/image-download": "./src/browser/image-download.ts",
+    "./codm-attributes": "./src/codm-attributes.ts"
   },
   "scripts": {
     "lint": "eslint . --max-warnings 0",

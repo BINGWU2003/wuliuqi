@@ -444,6 +444,7 @@ export function AccountsPage() {
                   </Badge>
                   {account.images.length} 图
                 </div>
+                <AccountAttributeBadges account={account} />
                 <div className="mt-2 font-mono text-sm font-semibold text-price">
                   {formatPrice(account.price)}
                 </div>
@@ -555,6 +556,7 @@ export function AccountsPage() {
                               </Badge>
                               {account.images.length} 图
                             </div>
+                            <AccountAttributeBadges account={account} />
                           </div>
                         </div>
                       </TableCell>
@@ -668,6 +670,26 @@ export function AccountsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </div>
+  );
+}
+
+function AccountAttributeBadges({ account }: { account: AdminAccount }) {
+  if (account.attributeValues.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="mt-2 flex flex-wrap gap-1">
+      {account.attributeValues.slice(0, 3).map((attribute) => (
+        <Badge
+          className="rounded-sm font-normal"
+          key={attribute.key}
+          variant="outline"
+        >
+          {attribute.label}：{attribute.displayValue}
+        </Badge>
+      ))}
     </div>
   );
 }

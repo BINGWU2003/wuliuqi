@@ -13,6 +13,8 @@ export interface ShopAccount {
   id: number;
   serialNumber: string;
   images: string[];
+  attributes: AccountAttributes;
+  attributeValues: AccountAttributeValue[];
   price: number;
   title: string;
   description: string;
@@ -83,6 +85,41 @@ export interface SequenceCounter {
   updatedAt?: string;
 }
 
+export type GameAttributeType = "number" | "select";
+
+export type AccountAttributePrimitive = number | string;
+
+export type AccountAttributes = Record<string, AccountAttributePrimitive>;
+
+export interface GameAttributeOption {
+  label: string;
+  value: string;
+}
+
+export interface GameAttributeDefinition {
+  id: number;
+  gameKey: string;
+  attrKey: string;
+  label: string;
+  type: GameAttributeType;
+  unit?: string;
+  options: GameAttributeOption[];
+  enabled: boolean;
+  sortOrder: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface AccountAttributeValue {
+  key: string;
+  label: string;
+  type: GameAttributeType;
+  value: AccountAttributePrimitive;
+  displayValue: string;
+  unit?: string;
+  sortOrder: number;
+}
+
 export interface AdminUser {
   id: number;
   name: string;
@@ -101,10 +138,7 @@ export interface UploadResult {
 export type KnowledgeStatus = "draft" | "published" | "archived";
 export type KnowledgeVisibility = "public" | "private";
 export type KnowledgeIndexStatus =
-  | "pending"
-  | "indexing"
-  | "indexed"
-  | "failed";
+  "pending" | "indexing" | "indexed" | "failed";
 
 export interface KnowledgeBase {
   id: string;

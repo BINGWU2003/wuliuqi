@@ -1,6 +1,11 @@
 "use client";
 
-import type { AdminEmail } from "@wuliuqi/types";
+import type {
+  AccountAttributePrimitive,
+  AccountAttributes,
+  AdminEmail,
+  GameAttributeDefinition,
+} from "@wuliuqi/types";
 import { Badge } from "@wuliuqi/ui/components/badge";
 import { Button } from "@wuliuqi/ui/components/button";
 import {
@@ -30,6 +35,7 @@ import { EmailBindStatusBadge } from "@/components/status-badge";
 import {
   createAccount,
   fetchAccount,
+  fetchAttributeDefinitions,
   fetchEmails,
   updateAccount,
 } from "@/lib/client-api";
@@ -39,6 +45,7 @@ import { errorMessage } from "@/lib/feedback";
 type AccountFormState = {
   serialNumber: string;
   images: string[];
+  attributes: AccountAttributes;
   price: number;
   title: string;
   description: string;
@@ -50,6 +57,7 @@ type AccountFormState = {
 const emptyForm: AccountFormState = {
   serialNumber: "",
   images: [],
+  attributes: {},
   price: 0,
   title: "",
   description: "",
@@ -59,6 +67,7 @@ const emptyForm: AccountFormState = {
 };
 
 type AccountFormPresentation = "page" | "modal";
+const EMPTY_SELECT_VALUE = "__empty";
 
 export function AccountForm({
   accountId,
@@ -72,9 +81,13 @@ export function AccountForm({
   const router = useRouter();
   const isModal = presentation === "modal";
   const [form, setForm] = useState<AccountFormState>(emptyForm);
+  const [attributeDefinitions, setAttributeDefinitions] = useState<
+    GameAttributeDefinition[]
+  >([]);
   const [emailKeyword, setEmailKeyword] = useState("");
   const [emailOptions, setEmailOptions] = useState<AdminEmail[]>([]);
   const [loading, setLoading] = useState(Boolean(accountId));
+  const [attributesLoading, setAttributesLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [searchingEmails, setSearchingEmails] = useState(false);
   const [imageUploading, setImageUploading] = useState(false);
@@ -87,6 +100,21 @@ export function AccountForm({
   }, [imageUploading, onBusyChange, saving]);
 
   useEffect(() => {
+    setAttributesLoading(true);
+
+    fetchAttributeDefinitions("codm")
+      .then((definitions) =>
+        setAttributeDefinitions(
+          definitions.filter((definition) => definition.enabled),
+        ),
+      )
+      .catch((loadError) => {
+        toast.error(errorMessage(loadError, "加载属性配置失败"));
+      })
+      .finally(() => setAttributesLoading(false));
+  }, []);
+
+  useEffect(() => {
     if (!accountId) {
       return;
     }
@@ -97,6 +125,7 @@ export function AccountForm({
         setForm({
           serialNumber: account.serialNumber,
           images: account.images,
+          attributes: account.attributes,
           price: account.price,
           title: account.title,
           description: account.description,
@@ -115,6 +144,23 @@ export function AccountForm({
 
   function updateForm(patch: Partial<AccountFormState>) {
     setForm((current) => ({ ...current, ...patch }));
+  }
+
+  function updateAttribute(
+    key: string,
+    value: AccountAttributePrimitive | undefined,
+  ) {
+    setForm((current) => {
+      const attributes = { ...current.attributes };
+
+      if (value === undefined || value === "") {
+        delete attributes[key];
+      } else {
+        attributes[key] = value;
+      }
+
+      return { ...current, attributes };
+    });
   }
 
   async function searchEmails() {
@@ -150,6 +196,7 @@ export function AccountForm({
     try {
       const payload = {
         ...form,
+        attributes: form.attributes,
         email: form.email.trim() || undefined,
         serialNumber: form.serialNumber.trim() || undefined,
         xianyuUrl: form.xianyuUrl.trim() || undefined,
@@ -294,6 +341,27 @@ export function AccountForm({
                 </SelectContent>
               </Select>
             </label>
+            {attributesLoading ? (
+              <div className="space-y-2 border-t border-border pt-3">
+                <Skeleton className="h-4 w-20" />
+                <Skeleton className="h-9 w-full" />
+                <Skeleton className="h-9 w-full" />
+              </div>
+            ) : attributeDefinitions.length > 0 ? (
+              <div className="space-y-3 border-t border-border pt-3">
+                <div className="text-sm font-medium">自定义属性</div>
+                {attributeDefinitions.map((definition) => (
+                  <AttributeField
+                    definition={definition}
+                    key={definition.attrKey}
+                    value={form.attributes[definition.attrKey]}
+                    onChange={(value) =>
+                      updateAttribute(definition.attrKey, value)
+                    }
+                  />
+                ))}
+              </div>
+            ) : null}
             <label className="block space-y-1.5">
               <span className="text-sm font-medium">闲鱼链接</span>
               <Input
@@ -357,6 +425,64 @@ export function AccountForm({
         </Card>
       </div>
     </form>
+  );
+}
+
+function AttributeField({
+  definition,
+  onChange,
+  value,
+}: {
+  definition: GameAttributeDefinition;
+  onChange: (value: AccountAttributePrimitive | undefined) => void;
+  value: AccountAttributePrimitive | undefined;
+}) {
+  if (definition.type === "select") {
+    const selectValue = typeof value === "string" ? value : EMPTY_SELECT_VALUE;
+
+    return (
+      <label className="block space-y-1.5">
+        <span className="text-sm font-medium">{definition.label}</span>
+        <Select
+          value={selectValue}
+          onValueChange={(nextValue) =>
+            onChange(nextValue === EMPTY_SELECT_VALUE ? undefined : nextValue)
+          }
+        >
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={EMPTY_SELECT_VALUE}>未选择</SelectItem>
+            {definition.options.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </label>
+    );
+  }
+
+  return (
+    <label className="block space-y-1.5">
+      <span className="text-sm font-medium">
+        {definition.label}
+        {definition.unit ? `（${definition.unit}）` : ""}
+      </span>
+      <Input
+        min={0}
+        step={1}
+        type="number"
+        value={typeof value === "number" ? value : ""}
+        onChange={(event) => {
+          const nextValue = event.target.value;
+
+          onChange(nextValue ? Number(nextValue) : undefined);
+        }}
+      />
+    </label>
   );
 }
 

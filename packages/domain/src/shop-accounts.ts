@@ -2,7 +2,24 @@ import type { Prisma } from "@prisma/client";
 import type { ShopAccount, ShopAccountListResult } from "@wuliuqi/types";
 import type { AccountListQuery } from "@wuliuqi/validators";
 import { prisma } from "@wuliuqi/db";
-import { serializeAccount } from "./serializers";
+import {
+  serializeAccount,
+  serializeGameAttributeDefinition,
+} from "./serializers";
+
+const CODM_GAME_KEY = "codm";
+
+async function listEnabledCodmAttributeDefinitions() {
+  const definitions = await prisma.gameAttributeDefinition.findMany({
+    where: {
+      gameKey: CODM_GAME_KEY,
+      enabled: true,
+    },
+    orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
+  });
+
+  return definitions.map(serializeGameAttributeDefinition);
+}
 
 export async function listShopAccounts(
   query: AccountListQuery,
@@ -36,16 +53,21 @@ export async function listShopAccounts(
         ? { price: "desc" }
         : { updatedAt: "desc" };
 
-  const total = await prisma.codmAccount.count({ where });
-  const accounts = await prisma.codmAccount.findMany({
-    where,
-    orderBy,
-    skip: (page - 1) * limit,
-    take: limit,
-  });
+  const [total, accounts, attributeDefinitions] = await Promise.all([
+    prisma.codmAccount.count({ where }),
+    prisma.codmAccount.findMany({
+      where,
+      orderBy,
+      skip: (page - 1) * limit,
+      take: limit,
+    }),
+    listEnabledCodmAttributeDefinitions(),
+  ]);
 
   return {
-    list: accounts.map(serializeAccount),
+    list: accounts.map((account) =>
+      serializeAccount(account, attributeDefinitions),
+    ),
     pagination: {
       page,
       limit,
@@ -66,9 +88,12 @@ export async function listShopAccounts(
 export async function getShopAccountById(
   id: number,
 ): Promise<ShopAccount | null> {
-  const account = await prisma.codmAccount.findUnique({
-    where: { id },
-  });
+  const [account, attributeDefinitions] = await Promise.all([
+    prisma.codmAccount.findUnique({
+      where: { id },
+    }),
+    listEnabledCodmAttributeDefinitions(),
+  ]);
 
-  return account ? serializeAccount(account) : null;
+  return account ? serializeAccount(account, attributeDefinitions) : null;
 }

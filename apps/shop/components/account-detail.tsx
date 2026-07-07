@@ -83,9 +83,7 @@ export function AccountDetail({
         }
 
         const message =
-          fetchError instanceof Error
-            ? fetchError.message
-            : "获取账号信息失败";
+          fetchError instanceof Error ? fetchError.message : "获取账号信息失败";
         setError(message);
         toast.error(message);
       })
@@ -180,11 +178,14 @@ export function AccountDetail({
 
         <Card className="rounded-md border-amber-200 bg-amber-50/60 shadow-none dark:border-amber-900/60 dark:bg-amber-950/30">
           <CardHeader className="border-b border-amber-200/70 dark:border-amber-900/60">
-            <CardTitle className="text-base text-amber-950 dark:text-amber-200">交易提醒</CardTitle>
+            <CardTitle className="text-base text-amber-950 dark:text-amber-200">
+              交易提醒
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 p-4 text-sm leading-7 text-amber-950/85 dark:text-amber-100/80">
             <p>
-              购买可点击链接跳入闲鱼 app 联系，认准店铺：567手游店。私下购买认准微信号：wlq16680802181。
+              购买可点击链接跳入闲鱼 app
+              联系，认准店铺：567手游店。私下购买认准微信号：wlq16680802181。
             </p>
             <p>购买账号支持分期、预定服务等。</p>
             <p>国家法律规定，未成年人不能参与虚拟物品交易。</p>
@@ -242,6 +243,29 @@ export function AccountDetail({
               </div>
             </div>
 
+            {account.attributeValues.length > 0 ? (
+              <div className="space-y-2">
+                <div className="text-xs font-semibold uppercase text-muted-foreground">
+                  账号属性
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {account.attributeValues.map((attribute) => (
+                    <div
+                      className="rounded-md border border-border bg-background p-3"
+                      key={attribute.key}
+                    >
+                      <div className="truncate text-xs font-medium text-muted-foreground">
+                        {attribute.label}
+                      </div>
+                      <div className="mt-1 truncate text-sm font-semibold">
+                        {attribute.displayValue}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
             {account.xianyuUrl ? (
               <Button asChild className="h-11 w-full rounded-md">
                 <a
@@ -268,13 +292,21 @@ export function AccountDetail({
                 label="截图"
                 value={`${account.images.length} 张`}
               />
-              <Metric icon={<Store size={16} />} label="店铺" value="567手游店" />
+              <Metric
+                icon={<Store size={16} />}
+                label="店铺"
+                value="567手游店"
+              />
               <Metric
                 icon={<Clock3 size={16} />}
                 label="更新"
                 value={formatDate(account.updatedAt)}
               />
-              <Metric icon={<ShieldCheck size={16} />} label="交易" value="闲鱼联系" />
+              <Metric
+                icon={<ShieldCheck size={16} />}
+                label="交易"
+                value="闲鱼联系"
+              />
             </div>
           </CardContent>
         </Card>
@@ -350,7 +382,8 @@ function AccountGallery({
               aria-label={`选择第 ${index + 1} 张账号截图`}
               className={cn(
                 "relative aspect-square overflow-hidden rounded-sm border border-border bg-muted transition-opacity active:opacity-80",
-                index === selectedIndex && "ring-2 ring-foreground ring-offset-2",
+                index === selectedIndex &&
+                  "ring-2 ring-foreground ring-offset-2",
               )}
               title={`选择第 ${index + 1} 张账号截图`}
               type="button"

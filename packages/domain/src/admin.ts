@@ -1,10 +1,13 @@
 import type { Prisma } from "@prisma/client";
 import type {
+  AccountAttributes,
   AdminAccount,
   AdminAccountListResult,
   AdminEmail,
   AdminEmailListResult,
   Carousel,
+  GameAttributeDefinition,
+  GameAttributeOption,
   SequenceCounter,
 } from "@wuliuqi/types";
 import type {
@@ -15,6 +18,8 @@ import type {
   AdminEmailListQuery,
   AdminEmailUpdateInput,
   CarouselUpdateInput,
+  GameAttributeDefinitionCreateInput,
+  GameAttributeDefinitionUpdateInput,
   SequenceCounterCreateInput,
 } from "@wuliuqi/validators";
 import { prisma } from "@wuliuqi/db";
@@ -22,16 +27,22 @@ import {
   serializeAccount,
   serializeCarousel,
   serializeEmail,
+  serializeGameAttributeDefinition,
   serializeSequenceCounter,
 } from "./serializers";
 
 type TransactionClient = Prisma.TransactionClient;
 type AccountLookupClient = Pick<TransactionClient, "codmAccount">;
+type AttributeDefinitionClient = Pick<
+  TransactionClient,
+  "gameAttributeDefinition"
+>;
 type LinkedEmailAccount = {
   id: bigint;
   serialNumber: string;
 };
 
+const CODM_GAME_KEY = "codm";
 const ACCOUNT_LISTED_STATUS = 1;
 const EMAIL_BOUND_STATUS = 1;
 const EMAIL_UNBOUND_STATUS = 2;
@@ -80,6 +91,85 @@ function assertValidOptionalUrl(url?: string): void {
 
 function composeEmailAddress(prefix: string, postfix: string): string {
   return `${prefix}${postfix}`;
+}
+
+function normalizeDefinitionOptions(
+  definition: Pick<GameAttributeDefinitionCreateInput, "options" | "type">,
+): GameAttributeOption[] {
+  if (definition.type === "number") {
+    return [];
+  }
+
+  return definition.options;
+}
+
+function assertSelectOptions(options: GameAttributeOption[]) {
+  if (options.length === 0) {
+    throw new DomainError("BAD_REQUEST", "下拉属性至少需要一个选项");
+  }
+}
+
+async function listAttributeDefinitionsForGame(
+  client: AttributeDefinitionClient,
+  gameKey = CODM_GAME_KEY,
+  enabledOnly = false,
+): Promise<GameAttributeDefinition[]> {
+  const definitions = await client.gameAttributeDefinition.findMany({
+    where: {
+      gameKey,
+      ...(enabledOnly ? { enabled: true } : {}),
+    },
+    orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
+  });
+
+  return definitions.map(serializeGameAttributeDefinition);
+}
+
+function normalizeAccountAttributesForWrite(
+  attributes: AccountAttributes | undefined,
+  definitions: GameAttributeDefinition[],
+): AccountAttributes {
+  if (!attributes) {
+    return {};
+  }
+
+  const nextAttributes: AccountAttributes = {};
+
+  for (const definition of definitions) {
+    const value = attributes[definition.attrKey];
+
+    if (value === undefined || value === "") {
+      continue;
+    }
+
+    if (definition.type === "number") {
+      const numberValue =
+        typeof value === "number" ? value : Number(String(value).trim());
+
+      if (!Number.isInteger(numberValue) || numberValue < 0) {
+        throw new DomainError(
+          "BAD_ACCOUNT_ATTRIBUTE",
+          `${definition.label}必须是非负整数`,
+        );
+      }
+
+      nextAttributes[definition.attrKey] = numberValue;
+      continue;
+    }
+
+    const stringValue = String(value);
+
+    if (!definition.options.some((option) => option.value === stringValue)) {
+      throw new DomainError(
+        "BAD_ACCOUNT_ATTRIBUTE",
+        `${definition.label}选项无效`,
+      );
+    }
+
+    nextAttributes[definition.attrKey] = stringValue;
+  }
+
+  return nextAttributes;
 }
 
 function assertNewEmailPrefix(prefix: string): void {
@@ -218,10 +308,14 @@ async function getNextCounterValue(tx: TransactionClient, counterName: string) {
   }
 }
 
-function accountWriteData(input: AdminAccountUpdateInput) {
+function accountWriteData(
+  input: AdminAccountUpdateInput,
+  attributes?: AccountAttributes,
+) {
   return {
     serialNumber: input.serialNumber,
     images: input.images,
+    attributes,
     price: input.price,
     title: input.title,
     describe: input.description,
@@ -263,16 +357,21 @@ export async function listAdminAccounts(
         ? { price: "desc" }
         : { updatedAt: "desc" };
 
-  const total = await prisma.codmAccount.count({ where });
-  const accounts = await prisma.codmAccount.findMany({
-    where,
-    orderBy,
-    skip: (query.page - 1) * query.limit,
-    take: query.limit,
-  });
+  const [total, accounts, attributeDefinitions] = await Promise.all([
+    prisma.codmAccount.count({ where }),
+    prisma.codmAccount.findMany({
+      where,
+      orderBy,
+      skip: (query.page - 1) * query.limit,
+      take: query.limit,
+    }),
+    listAttributeDefinitionsForGame(prisma, CODM_GAME_KEY, true),
+  ]);
 
   return {
-    list: accounts.map(serializeAccount),
+    list: accounts.map((account) =>
+      serializeAccount(account, attributeDefinitions),
+    ),
     pagination: {
       page: query.page,
       limit: query.limit,
@@ -290,9 +389,12 @@ export async function listAdminAccounts(
 export async function getAdminAccountById(
   id: number,
 ): Promise<AdminAccount | null> {
-  const account = await prisma.codmAccount.findUnique({ where: { id } });
+  const [account, attributeDefinitions] = await Promise.all([
+    prisma.codmAccount.findUnique({ where: { id } }),
+    listAttributeDefinitionsForGame(prisma, CODM_GAME_KEY, true),
+  ]);
 
-  return account ? serializeAccount(account) : null;
+  return account ? serializeAccount(account, attributeDefinitions) : null;
 }
 
 export async function createAdminAccount(
@@ -301,6 +403,16 @@ export async function createAdminAccount(
   assertValidOptionalUrl(input.xianyuUrl);
 
   return prisma.$transaction(async (tx) => {
+    const attributeDefinitions = await listAttributeDefinitionsForGame(
+      tx,
+      CODM_GAME_KEY,
+      true,
+    );
+    const attributes = normalizeAccountAttributesForWrite(
+      input.attributes,
+      attributeDefinitions,
+    );
+
     if (input.status === ACCOUNT_LISTED_STATUS) {
       await assertListedAccountCanUseEmail(tx, input.email);
     }
@@ -321,6 +433,7 @@ export async function createAdminAccount(
       data: {
         serialNumber,
         images: input.images,
+        attributes,
         price: input.price,
         title: input.title,
         describe: input.description,
@@ -332,7 +445,7 @@ export async function createAdminAccount(
 
     await syncEmailBindStatusFromAccounts(tx, input.email);
 
-    return serializeAccount(account);
+    return serializeAccount(account, attributeDefinitions);
   });
 }
 
@@ -344,6 +457,11 @@ export async function updateAdminAccount(
 
   return prisma.$transaction(async (tx) => {
     const existingAccount = await tx.codmAccount.findUnique({ where: { id } });
+    const attributeDefinitions = await listAttributeDefinitionsForGame(
+      tx,
+      CODM_GAME_KEY,
+      true,
+    );
 
     if (!existingAccount) {
       throw new DomainError("NOT_FOUND", "CODM账号未找到", 404);
@@ -370,9 +488,17 @@ export async function updateAdminAccount(
       await assertListedAccountCanUseEmail(tx, nextEmail, id);
     }
 
+    const attributes =
+      input.attributes === undefined
+        ? undefined
+        : normalizeAccountAttributesForWrite(
+            input.attributes,
+            attributeDefinitions,
+          );
+
     const account = await tx.codmAccount.update({
       where: { id },
-      data: accountWriteData(input),
+      data: accountWriteData(input, attributes),
     });
 
     await syncEmailBindStatusFromAccounts(tx, existingAccount.email);
@@ -381,7 +507,7 @@ export async function updateAdminAccount(
       await syncEmailBindStatusFromAccounts(tx, nextEmail);
     }
 
-    return serializeAccount(account);
+    return serializeAccount(account, attributeDefinitions);
   });
 }
 
@@ -420,7 +546,13 @@ export async function updateAdminAccountStatus(
 
     await syncEmailBindStatusFromAccounts(tx, existingAccount.email);
 
-    return serializeAccount(account);
+    const attributeDefinitions = await listAttributeDefinitionsForGame(
+      tx,
+      CODM_GAME_KEY,
+      true,
+    );
+
+    return serializeAccount(account, attributeDefinitions);
   });
 }
 
@@ -642,6 +774,127 @@ export async function updateAdminEmailBindStatus(
 
     return serializeEmail(email);
   });
+}
+
+export async function listAdminGameAttributeDefinitions(
+  gameKey = CODM_GAME_KEY,
+): Promise<GameAttributeDefinition[]> {
+  return listAttributeDefinitionsForGame(prisma, gameKey);
+}
+
+export async function createAdminGameAttributeDefinition(
+  input: GameAttributeDefinitionCreateInput,
+): Promise<GameAttributeDefinition> {
+  const options = normalizeDefinitionOptions(input);
+
+  if (input.type === "select") {
+    assertSelectOptions(options);
+  }
+
+  const existing = await prisma.gameAttributeDefinition.findUnique({
+    where: {
+      gameKey_attrKey: {
+        gameKey: input.gameKey,
+        attrKey: input.attrKey,
+      },
+    },
+  });
+
+  if (existing) {
+    throw new DomainError("DUPLICATE_ATTRIBUTE", "该属性标识已存在");
+  }
+
+  const definition = await prisma.gameAttributeDefinition.create({
+    data: {
+      gameKey: input.gameKey,
+      attrKey: input.attrKey,
+      label: input.label,
+      type: input.type,
+      unit: input.unit,
+      options: options as unknown as Prisma.InputJsonValue,
+      enabled: input.enabled,
+      sortOrder: input.sortOrder,
+    },
+  });
+
+  return serializeGameAttributeDefinition(definition);
+}
+
+export async function updateAdminGameAttributeDefinition(
+  id: number,
+  input: GameAttributeDefinitionUpdateInput,
+): Promise<GameAttributeDefinition> {
+  const existing = await prisma.gameAttributeDefinition.findUnique({
+    where: { id },
+  });
+
+  if (!existing) {
+    throw new DomainError("NOT_FOUND", "属性配置不存在", 404);
+  }
+
+  const existingDefinition = serializeGameAttributeDefinition(existing);
+  const nextGameKey = input.gameKey ?? existingDefinition.gameKey;
+  const nextAttrKey = input.attrKey ?? existingDefinition.attrKey;
+  const nextType = input.type ?? existingDefinition.type;
+  const nextOptions = normalizeDefinitionOptions({
+    type: nextType,
+    options: input.options ?? existingDefinition.options,
+  });
+
+  if (nextType === "select") {
+    assertSelectOptions(nextOptions);
+  }
+
+  if (
+    nextGameKey !== existingDefinition.gameKey ||
+    nextAttrKey !== existingDefinition.attrKey
+  ) {
+    const conflict = await prisma.gameAttributeDefinition.findUnique({
+      where: {
+        gameKey_attrKey: {
+          gameKey: nextGameKey,
+          attrKey: nextAttrKey,
+        },
+      },
+    });
+
+    if (conflict && conflict.id !== existing.id) {
+      throw new DomainError("DUPLICATE_ATTRIBUTE", "该属性标识已存在");
+    }
+  }
+
+  const definition = await prisma.gameAttributeDefinition.update({
+    where: { id },
+    data: {
+      gameKey: input.gameKey,
+      attrKey: input.attrKey,
+      label: input.label,
+      type: input.type,
+      unit: nextType === "number" ? input.unit : null,
+      options: nextOptions as unknown as Prisma.InputJsonValue,
+      enabled: input.enabled,
+      sortOrder: input.sortOrder,
+    },
+  });
+
+  return serializeGameAttributeDefinition(definition);
+}
+
+export async function disableAdminGameAttributeDefinition(
+  id: number,
+): Promise<GameAttributeDefinition> {
+  const definition = await prisma.gameAttributeDefinition
+    .update({
+      where: { id },
+      data: { enabled: false },
+    })
+    .catch(() => null);
+
+  if (!definition) {
+    throw new DomainError("NOT_FOUND", "属性配置不存在", 404);
+  }
+
+  return serializeGameAttributeDefinition(definition);
 }
 
 export async function updateCarouselByName(

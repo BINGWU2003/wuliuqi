@@ -22,6 +22,19 @@ const optionalString = z
   .optional()
   .transform((value) => (value ? value : undefined));
 
+const optionalShortString = z
+  .string()
+  .trim()
+  .optional()
+  .transform((value) => (value ? value : undefined));
+
+const accountAttributeValueSchema = z.union([z.number(), z.string()]);
+
+export const accountAttributesSchema = z.record(
+  z.string().trim().min(1),
+  accountAttributeValueSchema,
+);
+
 const paginationQuery = {
   page: z
     .string()
@@ -45,7 +58,9 @@ export const accountListQuerySchema = z
       .trim()
       .optional()
       .transform((value) => (value ? value : undefined)),
-    status: optionalNumberFromQuery.pipe(z.number().int().min(1).max(2).optional()),
+    status: optionalNumberFromQuery.pipe(
+      z.number().int().min(1).max(2).optional(),
+    ),
     min_price: optionalNumberFromQuery.pipe(z.number().min(0).optional()),
     max_price: optionalNumberFromQuery.pipe(z.number().min(0).optional()),
     sort: z
@@ -71,6 +86,7 @@ export const adminAccountListQuerySchema = accountListQuerySchema;
 export const adminAccountCreateSchema = z.object({
   serialNumber: optionalString,
   images: z.array(z.string().trim().min(1)).min(1, "请至少上传一张图片"),
+  attributes: accountAttributesSchema.default({}),
   price: z.coerce.number().min(0, "价格不能为负数"),
   title: z.string().trim().min(1, "标题为必填项"),
   description: z.string().trim().min(1, "描述为必填项"),
@@ -79,8 +95,21 @@ export const adminAccountCreateSchema = z.object({
   status: z.union([z.literal(1), z.literal(2)]).default(1),
 });
 
-export const adminAccountUpdateSchema = adminAccountCreateSchema
-  .partial()
+export const adminAccountUpdateSchema = z
+  .object({
+    serialNumber: optionalString,
+    images: z
+      .array(z.string().trim().min(1))
+      .min(1, "请至少上传一张图片")
+      .optional(),
+    attributes: accountAttributesSchema.optional(),
+    price: z.coerce.number().min(0, "价格不能为负数").optional(),
+    title: z.string().trim().min(1, "标题为必填项").optional(),
+    description: z.string().trim().min(1, "描述为必填项").optional(),
+    xianyuUrl: optionalString,
+    email: optionalString,
+    status: z.union([z.literal(1), z.literal(2)]).optional(),
+  })
   .refine((data) => Object.keys(data).length > 0, {
     message: "请至少提供一个要更新的字段",
   });
@@ -152,6 +181,72 @@ export const sequenceCounterResetSchema = z.object({
   value: z.coerce.number().int().min(0).default(0),
 });
 
+export const gameAttributeOptionSchema = z.object({
+  label: z.string().trim().min(1, "选项名称为必填项").max(80),
+  value: z.string().trim().min(1, "选项值为必填项").max(80),
+});
+
+const gameAttributeDefinitionBaseSchema = z.object({
+  gameKey: z.string().trim().min(1).max(50).default("codm"),
+  attrKey: z
+    .string()
+    .trim()
+    .min(1, "属性标识为必填项")
+    .max(80)
+    .regex(/^[a-z][a-z0-9_]*$/, "属性标识只能包含小写字母、数字和下划线"),
+  label: z.string().trim().min(1, "属性名称为必填项").max(80),
+  type: z.enum(["number", "select"]),
+  unit: optionalShortString.pipe(z.string().max(20).optional()),
+  options: z.array(gameAttributeOptionSchema).default([]),
+  enabled: z.boolean().default(true),
+  sortOrder: z.coerce.number().int().min(0).default(0),
+});
+
+function validateAttributeDefinitionOptions(
+  definition: {
+    type?: "number" | "select";
+    options?: Array<{ value: string }>;
+  },
+  context: z.RefinementCtx,
+) {
+    const options = definition.options ?? [];
+
+    if (definition.type === "select" && options.length === 0) {
+      context.addIssue({
+        code: "custom",
+        message: "下拉属性至少需要一个选项",
+        path: ["options"],
+      });
+    }
+
+    const optionValues = new Set<string>();
+
+    for (const [index, option] of options.entries()) {
+      if (optionValues.has(option.value)) {
+        context.addIssue({
+          code: "custom",
+          message: "选项值不能重复",
+          path: ["options", index, "value"],
+        });
+      }
+
+      optionValues.add(option.value);
+    }
+}
+
+export const gameAttributeDefinitionCreateSchema =
+  gameAttributeDefinitionBaseSchema.superRefine(
+    validateAttributeDefinitionOptions,
+  );
+
+export const gameAttributeDefinitionUpdateSchema =
+  gameAttributeDefinitionBaseSchema
+    .partial()
+    .superRefine(validateAttributeDefinitionOptions)
+    .refine((data) => Object.keys(data).length > 0, {
+      message: "请至少提供一个要更新的字段",
+    });
+
 export const loginSchema = z.object({
   email: z.string().trim().email("邮箱格式不正确"),
   password: z.string().min(1, "密码为必填项"),
@@ -162,7 +257,10 @@ const slugSchema = z
   .trim()
   .min(1, "路径标识为必填项")
   .max(120)
-  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "路径标识只能包含小写字母、数字和连字符");
+  .regex(
+    /^[a-z0-9]+(?:-[a-z0-9]+)*$/,
+    "路径标识只能包含小写字母、数字和连字符",
+  );
 
 const stringListSchema = z
   .union([
@@ -254,6 +352,12 @@ export const publicChatSchema = z.object({
 export type AdminAccountListQuery = z.infer<typeof adminAccountListQuerySchema>;
 export type AdminAccountCreateInput = z.infer<typeof adminAccountCreateSchema>;
 export type AdminAccountUpdateInput = z.infer<typeof adminAccountUpdateSchema>;
+export type GameAttributeDefinitionCreateInput = z.infer<
+  typeof gameAttributeDefinitionCreateSchema
+>;
+export type GameAttributeDefinitionUpdateInput = z.infer<
+  typeof gameAttributeDefinitionUpdateSchema
+>;
 export type AdminEmailListQuery = z.infer<typeof adminEmailListQuerySchema>;
 export type AdminEmailCreateInput = z.infer<typeof adminEmailCreateSchema>;
 export type AdminEmailUpdateInput = z.infer<typeof adminEmailUpdateSchema>;

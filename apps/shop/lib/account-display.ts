@@ -26,17 +26,16 @@ export function getAccountName(account: ShopAccount) {
 }
 
 export function getAccountBadges(account: ShopAccount) {
-  const source = `${account.title} ${account.description}`;
   const badges: string[] = [];
-  const mythic = source.match(/(\d+)\s*神(?:话)?/);
-  const legendary = source.match(/(\d+)\s*传(?:说)?/);
+  const mythic = account.attributes.mythic_skins;
+  const legendary = account.attributes.legendary_skins;
 
-  if (mythic?.[1]) {
-    badges.push(`${mythic[1]} 神话`);
+  if (typeof mythic === "number" && Number.isFinite(mythic)) {
+    badges.push(`${mythic} 神话`);
   }
 
-  if (legendary?.[1]) {
-    badges.push(`${legendary[1]} 传说`);
+  if (typeof legendary === "number" && Number.isFinite(legendary)) {
+    badges.push(`${legendary} 传说`);
   }
 
   if (account.images.length > 0) {

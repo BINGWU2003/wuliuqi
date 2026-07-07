@@ -14,10 +14,13 @@
     "migrate:dev": "prisma migrate dev",
     "migrate:deploy": "prisma migrate deploy",
     "db:pull": "prisma db pull",
+    "backfill:codm-skin-attributes": "node scripts/backfill-codm-skin-attributes.mjs",
     "fix:email-bind-status": "node scripts/reconcile-email-bind-status.mjs"
   },
   "dependencies": {
-    "@prisma/client": "catalog:"
+    "@prisma/client": "catalog:",
+    "@wuliuqi/utils": "workspace:*",
+    "postgres": "catalog:"
   },
   "devDependencies": {
     "@types/node": "catalog:",

@@ -11,6 +11,7 @@ model CodmAccount {
   id           BigInt   @id @default(autoincrement())
   serialNumber String   @unique @map("serial_number") @db.VarChar(50)
   images       Json?
+  attributes   Json     @default("{}")
   price        Decimal  @default(0.00) @db.Decimal(10, 2)
   title        String   @db.VarChar(255)
   describe     String?  @db.Text
@@ -54,6 +55,24 @@ model SequenceCounter {
   updatedAt    DateTime @default(now()) @updatedAt @map("updated_at")
 
   @@map("sequence_counters")
+}
+
+model GameAttributeDefinition {
+  id        BigInt   @id @default(autoincrement())
+  gameKey   String   @map("game_key") @db.VarChar(50)
+  attrKey   String   @map("attr_key") @db.VarChar(80)
+  label     String   @db.VarChar(80)
+  type      String   @db.VarChar(20)
+  unit      String?  @db.VarChar(20)
+  options   Json     @default("[]")
+  enabled   Boolean  @default(true)
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@unique([gameKey, attrKey], map: "game_attribute_definitions_game_attr_key")
+  @@index([gameKey, enabled, sortOrder], map: "game_attribute_definitions_game_enabled_sort_idx")
+  @@map("game_attribute_definitions")
 }
 
 model User {
