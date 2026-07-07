@@ -368,7 +368,7 @@ export function EmailsPage() {
             variant="outline"
             onClick={handleSearch}
           >
-            {loading ? <Spinner /> : <RefreshCw size={16} />}
+            <RefreshCw size={16} />
             刷新
           </Button>
         </CardContent>
@@ -438,7 +438,7 @@ export function EmailsPage() {
       </div>
 
       <Card className="hidden overflow-hidden rounded-md shadow-none sm:block">
-        <div className="relative">
+        <div>
           <div className="h-[calc(100dvh-22rem)] min-h-[420px] max-h-[620px] overflow-auto">
             <Table>
               <TableHeader className="sticky top-0 z-10 bg-card shadow-[0_1px_0_var(--border)]">
@@ -450,52 +450,55 @@ export function EmailsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {isInitialLoading ? <EmailTableSkeletonRows /> : null}
-                {emails.map((email) => (
-                  <TableRow key={email.id}>
-                    <TableCell>
-                      <EmailAddress email={email} />
-                    </TableCell>
-                    <TableCell>
-                      <EmailBindStatusBadge bindStatus={email.bindStatus} />
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {formatDate(email.updatedAt)}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex justify-end gap-1">
-                        <Button asChild size="sm" variant="ghost">
-                          <Link
-                            href={`/emails/${email.id}/edit`}
-                            scroll={false}
+                {loading ? (
+                  <EmailTableSkeletonRows />
+                ) : (
+                  emails.map((email) => (
+                    <TableRow key={email.id}>
+                      <TableCell>
+                        <EmailAddress email={email} />
+                      </TableCell>
+                      <TableCell>
+                        <EmailBindStatusBadge bindStatus={email.bindStatus} />
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {formatDate(email.updatedAt)}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex justify-end gap-1">
+                          <Button asChild size="sm" variant="ghost">
+                            <Link
+                              href={`/emails/${email.id}/edit`}
+                              scroll={false}
+                            >
+                              <Edit size={15} />
+                              编辑
+                            </Link>
+                          </Button>
+                          <Button
+                            aria-label={`删除邮箱 ${email.email}`}
+                            disabled={isMutating || isEmailLinked(email)}
+                            size="sm"
+                            title={
+                              isEmailLinked(email)
+                                ? "已关联账号，无法删除"
+                                : `删除邮箱 ${email.email}`
+                            }
+                            type="button"
+                            variant="ghost"
+                            onClick={() => setDeleteTarget(email)}
                           >
-                            <Edit size={15} />
-                            编辑
-                          </Link>
-                        </Button>
-                        <Button
-                          aria-label={`删除邮箱 ${email.email}`}
-                          disabled={isMutating || isEmailLinked(email)}
-                          size="sm"
-                          title={
-                            isEmailLinked(email)
-                              ? "已关联账号，无法删除"
-                              : `删除邮箱 ${email.email}`
-                          }
-                          type="button"
-                          variant="ghost"
-                          onClick={() => setDeleteTarget(email)}
-                        >
-                          {deletingId === email.id ? (
-                            <Spinner />
-                          ) : (
-                            <Trash2 size={15} />
-                          )}
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                            {deletingId === email.id ? (
+                              <Spinner />
+                            ) : (
+                              <Trash2 size={15} />
+                            )}
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
                 {!loading && emails.length === 0 ? (
                   <TableRow>
                     <TableCell
@@ -509,11 +512,6 @@ export function EmailsPage() {
               </TableBody>
             </Table>
           </div>
-          {loading ? (
-            <TableLoadingOverlay
-              label={emails.length > 0 ? "正在刷新" : "加载邮箱"}
-            />
-          ) : null}
         </div>
         {total > 0 ? (
           <EmailsPagination
@@ -568,20 +566,6 @@ function LoadingLine({ label }: { label: string }) {
       <Spinner />
       {label}
     </span>
-  );
-}
-
-function TableLoadingOverlay({ label }: { label: string }) {
-  return (
-    <div
-      aria-live="polite"
-      className="absolute inset-0 z-20 flex items-center justify-center bg-card/65 backdrop-blur-[1px]"
-    >
-      <div className="inline-flex items-center gap-2 rounded-md border border-border bg-popover px-4 py-2 text-sm text-popover-foreground shadow-sm">
-        <Spinner />
-        {label}
-      </div>
-    </div>
   );
 }
 
