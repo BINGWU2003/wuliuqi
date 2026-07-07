@@ -5,6 +5,16 @@ import type {
   GameAttributeOption,
   GameAttributeType,
 } from "@wuliuqi/types";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@wuliuqi/ui/components/alert-dialog";
 import { Badge } from "@wuliuqi/ui/components/badge";
 import { Button } from "@wuliuqi/ui/components/button";
 import {
@@ -32,7 +42,7 @@ import {
   TableHeader,
   TableRow,
 } from "@wuliuqi/ui/components/table";
-import { Edit, Plus, RefreshCw, Save, Trash2, X } from "lucide-react";
+import { Edit, Eraser, Plus, RefreshCw, Save, Trash2, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import {
   CellTooltip,
@@ -40,8 +50,9 @@ import {
   TABLE_ACTION_HEAD_CLASS,
 } from "@/components/cell-tooltip";
 import {
+  clearAttributeDefinitionValues,
   createAttributeDefinition,
-  disableAttributeDefinition,
+  deleteAttributeDefinition,
   fetchAttributeDefinitions,
   updateAttributeDefinition,
 } from "@/lib/client-api";
@@ -56,6 +67,11 @@ type AttributeFormState = {
   enabled: "true" | "false";
   sortOrder: number;
   options: GameAttributeOption[];
+};
+
+type AttributeConfirmTarget = {
+  type: "clear" | "delete";
+  definition: GameAttributeDefinition;
 };
 
 const emptyForm: AttributeFormState = {
@@ -73,7 +89,9 @@ export function AttributeDefinitionsPage() {
   const [form, setForm] = useState<AttributeFormState>(emptyForm);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [confirmTarget, setConfirmTarget] =
+    useState<AttributeConfirmTarget | null>(null);
+  const [confirmPending, setConfirmPending] = useState(false);
 
   const sortedDefinitions = useMemo(
     () =>
@@ -83,6 +101,14 @@ export function AttributeDefinitionsPage() {
       ),
     [definitions],
   );
+  const editingDefinition = useMemo(
+    () =>
+      form.id === undefined
+        ? undefined
+        : definitions.find((definition) => definition.id === form.id),
+    [definitions, form.id],
+  );
+  const identityLocked = (editingDefinition?.usageCount ?? 0) > 0;
 
   useEffect(() => {
     void loadDefinitions();
@@ -192,23 +218,47 @@ export function AttributeDefinitionsPage() {
     }
   }
 
-  async function disableDefinition(definition: GameAttributeDefinition) {
-    if (deletingId !== null) {
+  async function confirmAttributeAction() {
+    if (!confirmTarget || confirmPending) {
       return;
     }
 
-    setDeletingId(definition.id);
+    setConfirmPending(true);
 
     try {
-      await disableAttributeDefinition(definition.id);
-      toast.success("属性配置已禁用");
+      if (confirmTarget.type === "clear") {
+        const result = await clearAttributeDefinitionValues(
+          confirmTarget.definition.id,
+        );
+
+        toast.success(`已清空 ${result.clearedCount} 个账号的属性值`);
+      } else {
+        await deleteAttributeDefinition(confirmTarget.definition.id);
+
+        if (form.id === confirmTarget.definition.id) {
+          resetForm();
+        }
+
+        toast.success("属性配置已删除");
+      }
+
+      setConfirmTarget(null);
       await loadDefinitions();
-    } catch (deleteError) {
-      toast.error(errorMessage(deleteError, "禁用属性配置失败"));
+    } catch (actionError) {
+      toast.error(
+        errorMessage(
+          actionError,
+          confirmTarget.type === "clear"
+            ? "清空属性值失败"
+            : "删除属性配置失败",
+        ),
+      );
     } finally {
-      setDeletingId(null);
+      setConfirmPending(false);
     }
   }
+
+  const confirmUsageCount = confirmTarget?.definition.usageCount ?? 0;
 
   return (
     <div className="space-y-4">
@@ -237,7 +287,7 @@ export function AttributeDefinitionsPage() {
             <CardTitle className="text-base">CODM 属性</CardTitle>
           </CardHeader>
           <div className="overflow-auto">
-            <Table className="min-w-[920px]">
+            <Table className="min-w-[1080px]">
               <TableHeader>
                 <TableRow>
                   <TableHead className="min-w-56 whitespace-nowrap">
@@ -251,6 +301,9 @@ export function AttributeDefinitionsPage() {
                   </TableHead>
                   <TableHead className="min-w-24 whitespace-nowrap">
                     状态
+                  </TableHead>
+                  <TableHead className="min-w-24 whitespace-nowrap">
+                    使用账号
                   </TableHead>
                   <TableHead className="min-w-20 whitespace-nowrap">
                     排序
@@ -266,7 +319,7 @@ export function AttributeDefinitionsPage() {
                   <TableRow>
                     <TableCell
                       className="py-10 text-center text-muted-foreground"
-                      colSpan={6}
+                      colSpan={7}
                     >
                       暂无属性配置
                     </TableCell>
@@ -276,6 +329,7 @@ export function AttributeDefinitionsPage() {
                   ? sortedDefinitions.map((definition) => {
                       const optionSummary =
                         getAttributeDefinitionOptionSummary(definition);
+                      const usageCount = definition.usageCount ?? 0;
 
                       return (
                       <TableRow key={definition.id}>
@@ -339,6 +393,11 @@ export function AttributeDefinitionsPage() {
                           </Badge>
                         </TableCell>
                         <TableCell className="whitespace-nowrap">
+                          <CellTooltip content={`${usageCount} 个账号`}>
+                            {usageCount}
+                          </CellTooltip>
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap">
                           <CellTooltip content={definition.sortOrder}>
                             {definition.sortOrder}
                           </CellTooltip>
@@ -354,20 +413,45 @@ export function AttributeDefinitionsPage() {
                               <Edit size={15} />
                               编辑
                             </Button>
+                            {usageCount > 0 ? (
+                              <Button
+                                disabled={confirmPending}
+                                size="sm"
+                                title={`清空 ${usageCount} 个账号中的该属性值`}
+                                type="button"
+                                variant="ghost"
+                                onClick={() =>
+                                  setConfirmTarget({
+                                    type: "clear",
+                                    definition,
+                                  })
+                                }
+                              >
+                                <Eraser size={15} />
+                                清空值
+                              </Button>
+                            ) : null}
                             <Button
                               disabled={
-                                !definition.enabled || deletingId !== null
+                                usageCount > 0 || confirmPending
                               }
                               size="sm"
+                              title={
+                                usageCount > 0
+                                  ? `已有 ${usageCount} 个账号使用该属性，不能删除`
+                                  : "删除属性配置"
+                              }
                               type="button"
                               variant="ghost"
-                              onClick={() => void disableDefinition(definition)}
+                              onClick={() =>
+                                setConfirmTarget({
+                                  type: "delete",
+                                  definition,
+                                })
+                              }
                             >
-                              {deletingId === definition.id ? (
-                                <Spinner />
-                              ) : (
-                                <Trash2 size={15} />
-                              )}
+                              <Trash2 size={15} />
+                              删除
                             </Button>
                           </div>
                         </TableCell>
@@ -391,7 +475,13 @@ export function AttributeDefinitionsPage() {
               <label className="block space-y-1.5">
                 <span className="text-sm font-medium">属性标识</span>
                 <Input
+                  disabled={identityLocked}
                   required
+                  title={
+                    identityLocked
+                      ? "该属性已被账号使用，不能修改属性标识"
+                      : undefined
+                  }
                   value={form.attrKey}
                   onChange={(event) =>
                     updateForm({ attrKey: event.target.value })
@@ -411,6 +501,7 @@ export function AttributeDefinitionsPage() {
               <label className="block space-y-1.5">
                 <span className="text-sm font-medium">类型</span>
                 <Select
+                  disabled={identityLocked}
                   value={form.type}
                   onValueChange={(value) =>
                     updateForm({
@@ -549,6 +640,46 @@ export function AttributeDefinitionsPage() {
           </CardContent>
         </Card>
       </div>
+      <AlertDialog
+        open={confirmTarget !== null}
+        onOpenChange={(open) => {
+          if (!open && !confirmPending) {
+            setConfirmTarget(null);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {confirmTarget?.type === "clear" ? "清空属性值" : "删除属性配置"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmTarget?.type === "clear"
+                ? `确认从 ${confirmUsageCount} 个账号中清空「${confirmTarget.definition.label}」？这会移除账号 attributes 中的 ${confirmTarget.definition.attrKey}。`
+                : `确认删除「${confirmTarget?.definition.label ?? ""}」？删除后该属性不会再出现在配置、账号表单或详情中。`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={confirmPending}>
+              取消
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={confirmPending}
+              onClick={(event) => {
+                event.preventDefault();
+                void confirmAttributeAction();
+              }}
+            >
+              {confirmPending ? <Spinner /> : null}
+              {confirmPending
+                ? confirmTarget?.type === "clear"
+                  ? "清空中..."
+                  : "删除中..."
+                : "确认"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -574,8 +705,12 @@ function AttributeSkeletonRows() {
       <TableCell>
         <Skeleton className="h-4 w-10" />
       </TableCell>
+      <TableCell>
+        <Skeleton className="h-4 w-10" />
+      </TableCell>
       <TableCell className={TABLE_ACTION_CELL_CLASS}>
         <div className="flex justify-end gap-1">
+          <Skeleton className="h-8 w-16" />
           <Skeleton className="h-8 w-16" />
           <Skeleton className="h-8 w-8" />
         </div>

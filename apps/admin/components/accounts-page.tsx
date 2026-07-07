@@ -713,7 +713,8 @@ function AccountAttributeBadges({ account }: { account: AdminAccount }) {
           key={attribute.key}
           variant="outline"
         >
-          {attribute.label}：{attribute.displayValue}
+          {attribute.label}
+          {!attribute.enabled ? "（停用）" : ""}：{attribute.displayValue}
         </Badge>
       ))}
     </div>

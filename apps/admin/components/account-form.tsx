@@ -28,7 +28,7 @@ import { toast } from "@wuliuqi/ui/components/sonner";
 import { ArrowLeft, Save, Search } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ImageUploader } from "@/components/image-uploader";
 import { RichTextEditor } from "@/components/rich-text-editor";
 import { EmailBindStatusBadge } from "@/components/status-badge";
@@ -92,6 +92,23 @@ export function AccountForm({
   const [searchingEmails, setSearchingEmails] = useState(false);
   const [imageUploading, setImageUploading] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
+  const visibleAttributeDefinitions = useMemo(
+    () =>
+      attributeDefinitions.filter((definition) => {
+        if (definition.enabled) {
+          return true;
+        }
+
+        if (!accountId) {
+          return false;
+        }
+
+        const value = form.attributes[definition.attrKey];
+
+        return value !== undefined && value !== "";
+      }),
+    [accountId, attributeDefinitions, form.attributes],
+  );
 
   useEffect(() => {
     onBusyChange?.(saving || imageUploading);
@@ -103,11 +120,7 @@ export function AccountForm({
     setAttributesLoading(true);
 
     fetchAttributeDefinitions("codm")
-      .then((definitions) =>
-        setAttributeDefinitions(
-          definitions.filter((definition) => definition.enabled),
-        ),
-      )
+      .then((definitions) => setAttributeDefinitions(definitions))
       .catch((loadError) => {
         toast.error(errorMessage(loadError, "加载属性配置失败"));
       })
@@ -347,10 +360,10 @@ export function AccountForm({
                 <Skeleton className="h-9 w-full" />
                 <Skeleton className="h-9 w-full" />
               </div>
-            ) : attributeDefinitions.length > 0 ? (
+            ) : visibleAttributeDefinitions.length > 0 ? (
               <div className="space-y-3 border-t border-border pt-3">
                 <div className="text-sm font-medium">自定义属性</div>
-                {attributeDefinitions.map((definition) => (
+                {visibleAttributeDefinitions.map((definition) => (
                   <AttributeField
                     definition={definition}
                     key={definition.attrKey}
@@ -439,10 +452,23 @@ function AttributeField({
 }) {
   if (definition.type === "select") {
     const selectValue = typeof value === "string" ? value : EMPTY_SELECT_VALUE;
+    const currentValueOption =
+      typeof value === "string" &&
+      value &&
+      !definition.options.some((option) => option.value === value)
+        ? { label: `当前值：${value}`, value }
+        : null;
 
     return (
       <label className="block space-y-1.5">
-        <span className="text-sm font-medium">{definition.label}</span>
+        <span className="flex items-center gap-2 text-sm font-medium">
+          {definition.label}
+          {!definition.enabled ? (
+            <Badge className="rounded-sm" variant="secondary">
+              已停用
+            </Badge>
+          ) : null}
+        </span>
         <Select
           value={selectValue}
           onValueChange={(nextValue) =>
@@ -454,6 +480,11 @@ function AttributeField({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value={EMPTY_SELECT_VALUE}>未选择</SelectItem>
+            {currentValueOption ? (
+              <SelectItem value={currentValueOption.value}>
+                {currentValueOption.label}
+              </SelectItem>
+            ) : null}
             {definition.options.map((option) => (
               <SelectItem key={option.value} value={option.value}>
                 {option.label}
@@ -467,9 +498,16 @@ function AttributeField({
 
   return (
     <label className="block space-y-1.5">
-      <span className="text-sm font-medium">
-        {definition.label}
-        {definition.unit ? `（${definition.unit}）` : ""}
+      <span className="flex items-center gap-2 text-sm font-medium">
+        <span>
+          {definition.label}
+          {definition.unit ? `（${definition.unit}）` : ""}
+        </span>
+        {!definition.enabled ? (
+          <Badge className="rounded-sm" variant="secondary">
+            已停用
+          </Badge>
+        ) : null}
       </span>
       <Input
         min={0}

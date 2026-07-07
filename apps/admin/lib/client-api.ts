@@ -165,11 +165,20 @@ export async function updateAttributeDefinition(
   );
 }
 
-export async function disableAttributeDefinition(id: number) {
+export async function deleteAttributeDefinition(id: number) {
   return requestJson<GameAttributeDefinition>(
     `/api/attribute-definitions/${id}`,
     {
       method: "DELETE",
+    },
+  );
+}
+
+export async function clearAttributeDefinitionValues(id: number) {
+  return requestJson<{ clearedCount: number }>(
+    `/api/attribute-definitions/${id}/clear-values`,
+    {
+      method: "POST",
     },
   );
 }

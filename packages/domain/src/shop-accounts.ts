@@ -9,11 +9,11 @@ import {
 
 const CODM_GAME_KEY = "codm";
 
-async function listEnabledCodmAttributeDefinitions() {
+async function listCodmAttributeDefinitions() {
   const definitions = await prisma.gameAttributeDefinition.findMany({
     where: {
       gameKey: CODM_GAME_KEY,
-      enabled: true,
+      deletedAt: null,
     },
     orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
   });
@@ -61,7 +61,7 @@ export async function listShopAccounts(
       skip: (page - 1) * limit,
       take: limit,
     }),
-    listEnabledCodmAttributeDefinitions(),
+    listCodmAttributeDefinitions(),
   ]);
 
   return {
@@ -92,7 +92,7 @@ export async function getShopAccountById(
     prisma.codmAccount.findUnique({
       where: { id },
     }),
-    listEnabledCodmAttributeDefinitions(),
+    listCodmAttributeDefinitions(),
   ]);
 
   return account ? serializeAccount(account, attributeDefinitions) : null;

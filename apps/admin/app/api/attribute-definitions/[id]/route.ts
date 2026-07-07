@@ -1,5 +1,5 @@
 import {
-  disableAdminGameAttributeDefinition,
+  deleteAdminGameAttributeDefinition,
   updateAdminGameAttributeDefinition,
 } from "@wuliuqi/domain";
 import { gameAttributeDefinitionUpdateSchema } from "@wuliuqi/validators";
@@ -46,10 +46,10 @@ export async function DELETE(
       return fail("BAD_REQUEST", "无效的属性配置ID", 400);
     }
 
-    const definition = await disableAdminGameAttributeDefinition(id);
+    const definition = await deleteAdminGameAttributeDefinition(id);
 
     return ok(definition);
   } catch (error) {
-    return handleError(error, "禁用属性配置失败");
+    return handleError(error, "删除属性配置失败");
   }
 }

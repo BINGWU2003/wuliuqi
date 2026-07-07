@@ -256,6 +256,7 @@ export function AccountDetail({
                     >
                       <div className="truncate text-xs font-medium text-muted-foreground">
                         {attribute.label}
+                        {!attribute.enabled ? "（已停用）" : ""}
                       </div>
                       <div className="mt-1 truncate text-sm font-semibold">
                         {attribute.displayValue}

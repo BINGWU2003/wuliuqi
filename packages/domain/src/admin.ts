@@ -24,6 +24,7 @@ import type {
 } from "@wuliuqi/validators";
 import { prisma } from "@wuliuqi/db";
 import {
+  normalizeAccountAttributes,
   serializeAccount,
   serializeCarousel,
   serializeEmail,
@@ -37,6 +38,7 @@ type AttributeDefinitionClient = Pick<
   TransactionClient,
   "gameAttributeDefinition"
 >;
+type RawQueryClient = Pick<TransactionClient, "$executeRaw" | "$queryRaw">;
 type LinkedEmailAccount = {
   id: bigint;
   serialNumber: string;
@@ -117,6 +119,7 @@ async function listAttributeDefinitionsForGame(
   const definitions = await client.gameAttributeDefinition.findMany({
     where: {
       gameKey,
+      deletedAt: null,
       ...(enabledOnly ? { enabled: true } : {}),
     },
     orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
@@ -125,9 +128,70 @@ async function listAttributeDefinitionsForGame(
   return definitions.map(serializeGameAttributeDefinition);
 }
 
+function hasAccountAttributeValue(
+  attributes: AccountAttributes,
+  attrKey: string,
+) {
+  const value = attributes[attrKey];
+
+  return value !== undefined && value !== "";
+}
+
+async function listAttributeDefinitionsForAccountUpdate(
+  client: AttributeDefinitionClient,
+  existingAttributes: AccountAttributes,
+) {
+  const definitions = await listAttributeDefinitionsForGame(
+    client,
+    CODM_GAME_KEY,
+  );
+
+  return definitions.filter(
+    (definition) =>
+      definition.enabled ||
+      hasAccountAttributeValue(existingAttributes, definition.attrKey),
+  );
+}
+
+async function countGameAttributeUsage(
+  client: Pick<RawQueryClient, "$queryRaw">,
+  attrKey: string,
+) {
+  const [row] = await client.$queryRaw<Array<{ usageCount: bigint }>>`
+    SELECT count(*)::bigint AS "usageCount"
+    FROM "codm_accounts"
+    WHERE "attributes" ? ${attrKey}
+      AND "attributes" ->> ${attrKey} <> ''
+  `;
+
+  return Number(row?.usageCount ?? 0);
+}
+
+async function listGameAttributeUsageCounts(gameKey: string) {
+  const rows = await prisma.$queryRaw<
+    Array<{ id: bigint; usageCount: bigint }>
+  >`
+    SELECT
+      definitions."id",
+      count(accounts."id")::bigint AS "usageCount"
+    FROM "game_attribute_definitions" definitions
+    LEFT JOIN "codm_accounts" accounts
+      ON accounts."attributes" ? definitions."attr_key"
+      AND accounts."attributes" ->> definitions."attr_key" <> ''
+    WHERE definitions."game_key" = ${gameKey}
+      AND definitions."deleted_at" IS NULL
+    GROUP BY definitions."id"
+  `;
+
+  return new Map(
+    rows.map((row) => [row.id.toString(), Number(row.usageCount)]),
+  );
+}
+
 function normalizeAccountAttributesForWrite(
   attributes: AccountAttributes | undefined,
   definitions: GameAttributeDefinition[],
+  existingAttributes?: AccountAttributes,
 ): AccountAttributes {
   if (!attributes) {
     return {};
@@ -158,8 +222,14 @@ function normalizeAccountAttributesForWrite(
     }
 
     const stringValue = String(value);
+    const existingValue = existingAttributes?.[definition.attrKey];
+    const isUnchangedDisabledValue =
+      !definition.enabled && existingValue === stringValue;
 
-    if (!definition.options.some((option) => option.value === stringValue)) {
+    if (
+      !isUnchangedDisabledValue &&
+      !definition.options.some((option) => option.value === stringValue)
+    ) {
       throw new DomainError(
         "BAD_ACCOUNT_ATTRIBUTE",
         `${definition.label}选项无效`,
@@ -365,7 +435,7 @@ export async function listAdminAccounts(
       skip: (query.page - 1) * query.limit,
       take: query.limit,
     }),
-    listAttributeDefinitionsForGame(prisma, CODM_GAME_KEY, true),
+    listAttributeDefinitionsForGame(prisma, CODM_GAME_KEY),
   ]);
 
   return {
@@ -391,7 +461,7 @@ export async function getAdminAccountById(
 ): Promise<AdminAccount | null> {
   const [account, attributeDefinitions] = await Promise.all([
     prisma.codmAccount.findUnique({ where: { id } }),
-    listAttributeDefinitionsForGame(prisma, CODM_GAME_KEY, true),
+    listAttributeDefinitionsForGame(prisma, CODM_GAME_KEY),
   ]);
 
   return account ? serializeAccount(account, attributeDefinitions) : null;
@@ -457,15 +527,18 @@ export async function updateAdminAccount(
 
   return prisma.$transaction(async (tx) => {
     const existingAccount = await tx.codmAccount.findUnique({ where: { id } });
-    const attributeDefinitions = await listAttributeDefinitionsForGame(
-      tx,
-      CODM_GAME_KEY,
-      true,
-    );
 
     if (!existingAccount) {
       throw new DomainError("NOT_FOUND", "CODM账号未找到", 404);
     }
+
+    const existingAttributes = normalizeAccountAttributes(
+      existingAccount.attributes,
+    );
+    const attributeDefinitions = await listAttributeDefinitionsForAccountUpdate(
+      tx,
+      existingAttributes,
+    );
 
     if (
       input.serialNumber &&
@@ -494,6 +567,7 @@ export async function updateAdminAccount(
         : normalizeAccountAttributesForWrite(
             input.attributes,
             attributeDefinitions,
+            existingAttributes,
           );
 
     const account = await tx.codmAccount.update({
@@ -549,7 +623,6 @@ export async function updateAdminAccountStatus(
     const attributeDefinitions = await listAttributeDefinitionsForGame(
       tx,
       CODM_GAME_KEY,
-      true,
     );
 
     return serializeAccount(account, attributeDefinitions);
@@ -779,7 +852,23 @@ export async function updateAdminEmailBindStatus(
 export async function listAdminGameAttributeDefinitions(
   gameKey = CODM_GAME_KEY,
 ): Promise<GameAttributeDefinition[]> {
-  return listAttributeDefinitionsForGame(prisma, gameKey);
+  const [definitions, usageCounts] = await Promise.all([
+    prisma.gameAttributeDefinition.findMany({
+      where: {
+        gameKey,
+        deletedAt: null,
+      },
+      orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
+    }),
+    listGameAttributeUsageCounts(gameKey),
+  ]);
+
+  return definitions.map((definition) =>
+    serializeGameAttributeDefinition(
+      definition,
+      usageCounts.get(definition.id.toString()) ?? 0,
+    ),
+  );
 }
 
 export async function createAdminGameAttributeDefinition(
@@ -824,8 +913,8 @@ export async function updateAdminGameAttributeDefinition(
   id: number,
   input: GameAttributeDefinitionUpdateInput,
 ): Promise<GameAttributeDefinition> {
-  const existing = await prisma.gameAttributeDefinition.findUnique({
-    where: { id },
+  const existing = await prisma.gameAttributeDefinition.findFirst({
+    where: { id, deletedAt: null },
   });
 
   if (!existing) {
@@ -840,6 +929,20 @@ export async function updateAdminGameAttributeDefinition(
     type: nextType,
     options: input.options ?? existingDefinition.options,
   });
+  const usageCount =
+    nextGameKey !== existingDefinition.gameKey ||
+    nextAttrKey !== existingDefinition.attrKey ||
+    nextType !== existingDefinition.type
+      ? await countGameAttributeUsage(prisma, existingDefinition.attrKey)
+      : 0;
+
+  if (usageCount > 0) {
+    throw new DomainError(
+      "ATTRIBUTE_IN_USE",
+      `已有 ${usageCount} 个账号使用该属性，不能修改属性标识或类型。`,
+      409,
+    );
+  }
 
   if (nextType === "select") {
     assertSelectOptions(nextOptions);
@@ -880,21 +983,57 @@ export async function updateAdminGameAttributeDefinition(
   return serializeGameAttributeDefinition(definition);
 }
 
-export async function disableAdminGameAttributeDefinition(
+export async function deleteAdminGameAttributeDefinition(
   id: number,
 ): Promise<GameAttributeDefinition> {
-  const definition = await prisma.gameAttributeDefinition
-    .update({
-      where: { id },
-      data: { enabled: false },
-    })
-    .catch(() => null);
+  const existing = await prisma.gameAttributeDefinition.findFirst({
+    where: { id, deletedAt: null },
+  });
 
-  if (!definition) {
+  if (!existing) {
     throw new DomainError("NOT_FOUND", "属性配置不存在", 404);
   }
 
+  const usageCount = await countGameAttributeUsage(prisma, existing.attrKey);
+
+  if (usageCount > 0) {
+    throw new DomainError(
+      "ATTRIBUTE_IN_USE",
+      `已有 ${usageCount} 个账号使用该属性，不能删除。请先停用或清空账号属性值。`,
+      409,
+    );
+  }
+
+  const definition = await prisma.gameAttributeDefinition.update({
+    where: { id },
+    data: {
+      enabled: false,
+      deletedAt: new Date(),
+    },
+  });
+
   return serializeGameAttributeDefinition(definition);
+}
+
+export async function clearAdminGameAttributeDefinitionValues(
+  id: number,
+): Promise<{ clearedCount: number }> {
+  const existing = await prisma.gameAttributeDefinition.findFirst({
+    where: { id, deletedAt: null },
+  });
+
+  if (!existing) {
+    throw new DomainError("NOT_FOUND", "属性配置不存在", 404);
+  }
+
+  const clearedCount = await prisma.$executeRaw`
+    UPDATE "codm_accounts"
+    SET "attributes" = "attributes" - ${existing.attrKey}
+    WHERE "attributes" ? ${existing.attrKey}
+      AND "attributes" ->> ${existing.attrKey} <> ''
+  `;
+
+  return { clearedCount };
 }
 
 export async function updateCarouselByName(

@@ -69,9 +69,11 @@ model GameAttributeDefinition {
   sortOrder Int      @default(0) @map("sort_order")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
 
   @@unique([gameKey, attrKey], map: "game_attribute_definitions_game_attr_key")
   @@index([gameKey, enabled, sortOrder], map: "game_attribute_definitions_game_enabled_sort_idx")
+  @@index([gameKey, deletedAt, enabled, sortOrder], map: "game_attribute_definitions_game_deleted_enabled_sort_idx")
   @@map("game_attribute_definitions")
 }
 

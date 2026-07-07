@@ -41,6 +41,7 @@ type GameAttributeDefinitionRecord = {
   sortOrder: number;
   createdAt: Date;
   updatedAt: Date;
+  deletedAt: Date | null;
 };
 
 type CarouselRecord = {
@@ -196,6 +197,7 @@ function displayAttributeValue(
 
 export function serializeGameAttributeDefinition(
   definition: GameAttributeDefinitionRecord,
+  usageCount?: number,
 ): GameAttributeDefinition {
   return {
     id: bigintToNumber(definition.id),
@@ -209,6 +211,8 @@ export function serializeGameAttributeDefinition(
     sortOrder: definition.sortOrder,
     createdAt: toIsoString(definition.createdAt),
     updatedAt: toIsoString(definition.updatedAt),
+    deletedAt: toIsoString(definition.deletedAt),
+    usageCount,
   };
 }
 
@@ -217,7 +221,6 @@ export function serializeAccountAttributeValues(
   definitions: GameAttributeDefinition[],
 ): AccountAttributeValue[] {
   return definitions
-    .filter((definition) => definition.enabled)
     .flatMap((definition) => {
       const value = attributes[definition.attrKey];
 
@@ -230,6 +233,7 @@ export function serializeAccountAttributeValues(
           key: definition.attrKey,
           label: definition.label,
           type: definition.type,
+          enabled: definition.enabled,
           value,
           displayValue: displayAttributeValue(value, definition),
           unit: definition.unit,

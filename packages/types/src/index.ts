@@ -108,12 +108,15 @@ export interface GameAttributeDefinition {
   sortOrder: number;
   createdAt?: string;
   updatedAt?: string;
+  deletedAt?: string;
+  usageCount?: number;
 }
 
 export interface AccountAttributeValue {
   key: string;
   label: string;
   type: GameAttributeType;
+  enabled: boolean;
   value: AccountAttributePrimitive;
   displayValue: string;
   unit?: string;
