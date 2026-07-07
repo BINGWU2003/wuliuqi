@@ -36,15 +36,13 @@ export async function listShopAccounts(
         ? { price: "desc" }
         : { updatedAt: "desc" };
 
-  const [total, accounts] = await Promise.all([
-    prisma.codmAccount.count({ where }),
-    prisma.codmAccount.findMany({
-      where,
-      orderBy,
-      skip: (page - 1) * limit,
-      take: limit,
-    }),
-  ]);
+  const total = await prisma.codmAccount.count({ where });
+  const accounts = await prisma.codmAccount.findMany({
+    where,
+    orderBy,
+    skip: (page - 1) * limit,
+    take: limit,
+  });
 
   return {
     list: accounts.map(serializeAccount),
