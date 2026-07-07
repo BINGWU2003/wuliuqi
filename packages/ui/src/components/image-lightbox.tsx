@@ -120,7 +120,24 @@ export function ImageLightbox({
     onClose();
   }
 
+  function isInteractiveTouchTarget(target: EventTarget | null) {
+    return (
+      target instanceof Element &&
+      Boolean(
+        target.closest(
+          "button,a,input,select,textarea,[role='button'],[role='link']",
+        ),
+      )
+    );
+  }
+
   function handleTouchStart(event: TouchEvent<HTMLDivElement>) {
+    if (isInteractiveTouchTarget(event.target)) {
+      touchStartRef.current = null;
+      touchEndRef.current = null;
+      return;
+    }
+
     event.stopPropagation();
 
     const touch = event.touches[0];
@@ -134,6 +151,10 @@ export function ImageLightbox({
   }
 
   function handleTouchMove(event: TouchEvent<HTMLDivElement>) {
+    if (isInteractiveTouchTarget(event.target)) {
+      return;
+    }
+
     event.preventDefault();
     event.stopPropagation();
 
@@ -147,6 +168,10 @@ export function ImageLightbox({
   }
 
   function handleTouchEnd(event: TouchEvent<HTMLDivElement>) {
+    if (isInteractiveTouchTarget(event.target)) {
+      return;
+    }
+
     event.preventDefault();
     event.stopPropagation();
 
@@ -156,7 +181,12 @@ export function ImageLightbox({
     touchStartRef.current = null;
     touchEndRef.current = null;
 
-    if (!start || !end) {
+    if (!start) {
+      return;
+    }
+
+    if (!end) {
+      onClose();
       return;
     }
 
