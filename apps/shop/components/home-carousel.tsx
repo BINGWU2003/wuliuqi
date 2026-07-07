@@ -158,16 +158,10 @@ export function HomeCarousel() {
   if (loading && !error) {
     return (
       <section
-        aria-label="首页轮播图加载中"
+        aria-label="首页轮播图占位"
         className="relative mx-auto aspect-[16/6] min-h-[150px] w-full max-w-6xl overflow-hidden rounded-md border border-border bg-card shadow-xs"
       >
         <Skeleton className="size-full rounded-none" />
-        <div className="absolute inset-0 flex items-center justify-center">
-          <span className="inline-flex items-center gap-2 rounded-md bg-background/85 px-3 py-2 text-sm text-muted-foreground shadow-sm backdrop-blur">
-            <Spinner />
-            加载轮播图
-          </span>
-        </div>
       </section>
     );
   }

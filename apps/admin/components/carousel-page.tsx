@@ -331,10 +331,6 @@ function CarouselLoadingGrid() {
           </div>
         </div>
       ))}
-      <div className="flex min-h-32 items-center justify-center rounded-md border border-dashed border-input text-sm text-muted-foreground">
-        <Spinner />
-        <span className="ml-2">加载轮播图</span>
-      </div>
     </div>
   );
 }
