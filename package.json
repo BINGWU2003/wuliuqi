@@ -15,6 +15,7 @@
     "deploy:shop": "sh scripts/deploy.sh shop",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "check-types": "turbo run check-types --force",
+    "test": "turbo run test",
     "postinstall": "pnpm --filter @wuliuqi/db generate"
   },
   "devDependencies": {

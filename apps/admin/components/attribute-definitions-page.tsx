@@ -31,6 +31,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@wuliuqi/ui/components/select";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@wuliuqi/ui/components/sheet";
 import { Skeleton } from "@wuliuqi/ui/components/skeleton";
 import { Spinner } from "@wuliuqi/ui/components/spinner";
 import { toast } from "@wuliuqi/ui/components/sonner";
@@ -74,6 +81,19 @@ type AttributeConfirmTarget = {
   definition: GameAttributeDefinition;
 };
 
+type AttributeDefinitionFormProps = {
+  form: AttributeFormState;
+  identityLocked: boolean;
+  saving: boolean;
+  showCancel: boolean;
+  addOption: () => void;
+  onCancel: () => void;
+  onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
+  removeOption: (index: number) => void;
+  updateForm: (patch: Partial<AttributeFormState>) => void;
+  updateOption: (index: number, patch: Partial<GameAttributeOption>) => void;
+};
+
 const emptyForm: AttributeFormState = {
   attrKey: "",
   label: "",
@@ -89,6 +109,7 @@ export function AttributeDefinitionsPage() {
   const [form, setForm] = useState<AttributeFormState>(emptyForm);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [mobileFormOpen, setMobileFormOpen] = useState(false);
   const [confirmTarget, setConfirmTarget] =
     useState<AttributeConfirmTarget | null>(null);
   const [confirmPending, setConfirmPending] = useState(false);
@@ -134,6 +155,11 @@ export function AttributeDefinitionsPage() {
     setForm(emptyForm);
   }
 
+  function openMobileCreateForm() {
+    resetForm();
+    setMobileFormOpen(true);
+  }
+
   function editDefinition(definition: GameAttributeDefinition) {
     setForm({
       id: definition.id,
@@ -145,6 +171,29 @@ export function AttributeDefinitionsPage() {
       sortOrder: definition.sortOrder,
       options: definition.options.length > 0 ? definition.options : [],
     });
+  }
+
+  function editMobileDefinition(definition: GameAttributeDefinition) {
+    editDefinition(definition);
+    setMobileFormOpen(true);
+  }
+
+  function closeMobileForm() {
+    if (saving) {
+      return;
+    }
+
+    setMobileFormOpen(false);
+    resetForm();
+  }
+
+  function handleMobileFormOpenChange(open: boolean) {
+    if (open) {
+      setMobileFormOpen(true);
+      return;
+    }
+
+    closeMobileForm();
   }
 
   function updateOption(index: number, patch: Partial<GameAttributeOption>) {
@@ -210,6 +259,7 @@ export function AttributeDefinitionsPage() {
 
       toast.success(form.id ? "属性配置已保存" : "属性配置已创建");
       resetForm();
+      setMobileFormOpen(false);
       await loadDefinitions();
     } catch (submitError) {
       toast.error(errorMessage(submitError, "保存属性配置失败"));
@@ -269,19 +319,53 @@ export function AttributeDefinitionsPage() {
             共 {definitions.length} 个 CODM 属性
           </p>
         </div>
-        <Button
-          disabled={loading}
-          className="w-full sm:w-auto"
-          type="button"
-          variant="outline"
-          onClick={() => void loadDefinitions()}
-        >
-          <RefreshCw size={16} />
-          刷新
-        </Button>
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
+          <Button
+            className="w-full sm:w-auto lg:hidden"
+            disabled={loading}
+            type="button"
+            onClick={openMobileCreateForm}
+          >
+            <Plus size={16} />
+            新建属性
+          </Button>
+          <Button
+            disabled={loading}
+            className="w-full sm:w-auto"
+            type="button"
+            variant="outline"
+            onClick={() => void loadDefinitions()}
+          >
+            <RefreshCw size={16} />
+            刷新
+          </Button>
+        </div>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="grid gap-3 lg:hidden">
+        {loading ? <MobileAttributeSkeletonCards /> : null}
+        {!loading && sortedDefinitions.length === 0 ? (
+          <div className="rounded-md border border-border bg-card px-4 py-10 text-center text-sm text-muted-foreground">
+            暂无属性配置
+          </div>
+        ) : null}
+        {!loading
+          ? sortedDefinitions.map((definition) => (
+              <MobileAttributeCard
+                confirmPending={confirmPending}
+                definition={definition}
+                key={definition.id}
+                onClear={() => setConfirmTarget({ type: "clear", definition })}
+                onDelete={() =>
+                  setConfirmTarget({ type: "delete", definition })
+                }
+                onEdit={() => editMobileDefinition(definition)}
+              />
+            ))
+          : null}
+      </div>
+
+      <div className="hidden gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_360px]">
         <Card className="overflow-hidden rounded-md shadow-none">
           <CardHeader className="border-b border-border">
             <CardTitle className="text-base">CODM 属性</CardTitle>
@@ -332,88 +416,88 @@ export function AttributeDefinitionsPage() {
                       const usageCount = definition.usageCount ?? 0;
 
                       return (
-                      <TableRow key={definition.id}>
-                        <TableCell className="max-w-56">
-                          <CellTooltip
-                            className="font-medium"
-                            content={definition.label}
-                          >
-                            {definition.label}
-                          </CellTooltip>
-                          <div className="mt-1 text-xs text-muted-foreground">
-                            <CellTooltip content={definition.attrKey}>
-                              {definition.attrKey}
-                            </CellTooltip>
-                          </div>
-                        </TableCell>
-                        <TableCell className="whitespace-nowrap">
-                          <CellTooltip
-                            content={
-                              definition.type === "number" ? "数字" : "下拉"
-                            }
-                          >
-                            {definition.type === "number" ? "数字" : "下拉"}
-                          </CellTooltip>
-                        </TableCell>
-                        <TableCell className="max-w-72">
-                          {definition.type === "number" ? (
-                            <CellTooltip content={optionSummary}>
-                              {optionSummary}
-                            </CellTooltip>
-                          ) : (
-                            <CellTooltip asChild content={optionSummary}>
-                              <div className="flex max-w-72 flex-nowrap gap-1 overflow-hidden">
-                                {definition.options.length > 0 ? (
-                                  definition.options.map((option) => (
-                                    <Badge
-                                      className="shrink-0 rounded-sm font-normal"
-                                      key={option.value}
-                                      variant="secondary"
-                                    >
-                                      {option.label}
-                                    </Badge>
-                                  ))
-                                ) : (
-                                  <span className="text-muted-foreground">
-                                    -
-                                  </span>
-                                )}
-                              </div>
-                            </CellTooltip>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <Badge
-                            className="rounded-sm"
-                            variant={
-                              definition.enabled ? "default" : "secondary"
-                            }
-                          >
-                            {definition.enabled ? "启用" : "停用"}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="whitespace-nowrap">
-                          <CellTooltip content={`${usageCount} 个账号`}>
-                            {usageCount}
-                          </CellTooltip>
-                        </TableCell>
-                        <TableCell className="whitespace-nowrap">
-                          <CellTooltip content={definition.sortOrder}>
-                            {definition.sortOrder}
-                          </CellTooltip>
-                        </TableCell>
-                        <TableCell className={TABLE_ACTION_CELL_CLASS}>
-                          <div className="flex justify-end gap-1">
-                            <Button
-                              size="sm"
-                              type="button"
-                              variant="ghost"
-                              onClick={() => editDefinition(definition)}
+                        <TableRow key={definition.id}>
+                          <TableCell className="max-w-56">
+                            <CellTooltip
+                              className="font-medium"
+                              content={definition.label}
                             >
-                              <Edit size={15} />
-                              编辑
-                            </Button>
-                            {usageCount > 0 ? (
+                              {definition.label}
+                            </CellTooltip>
+                            <div className="mt-1 text-xs text-muted-foreground">
+                              <CellTooltip content={definition.attrKey}>
+                                {definition.attrKey}
+                              </CellTooltip>
+                            </div>
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap">
+                            <CellTooltip
+                              content={
+                                definition.type === "number" ? "数字" : "下拉"
+                              }
+                            >
+                              {definition.type === "number" ? "数字" : "下拉"}
+                            </CellTooltip>
+                          </TableCell>
+                          <TableCell className="max-w-72">
+                            {definition.type === "number" ? (
+                              <CellTooltip content={optionSummary}>
+                                {optionSummary}
+                              </CellTooltip>
+                            ) : (
+                              <CellTooltip asChild content={optionSummary}>
+                                <div className="flex max-w-72 flex-nowrap gap-1 overflow-hidden">
+                                  {definition.options.length > 0 ? (
+                                    definition.options.map((option) => (
+                                      <Badge
+                                        className="shrink-0 rounded-sm font-normal"
+                                        key={option.value}
+                                        variant="secondary"
+                                      >
+                                        {option.label}
+                                      </Badge>
+                                    ))
+                                  ) : (
+                                    <span className="text-muted-foreground">
+                                      -
+                                    </span>
+                                  )}
+                                </div>
+                              </CellTooltip>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              className="rounded-sm"
+                              variant={
+                                definition.enabled ? "default" : "secondary"
+                              }
+                            >
+                              {definition.enabled ? "启用" : "停用"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap">
+                            <CellTooltip content={`${usageCount} 个账号`}>
+                              {usageCount}
+                            </CellTooltip>
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap">
+                            <CellTooltip content={definition.sortOrder}>
+                              {definition.sortOrder}
+                            </CellTooltip>
+                          </TableCell>
+                          <TableCell className={TABLE_ACTION_CELL_CLASS}>
+                            <div className="flex justify-end gap-1">
+                              <Button
+                                size="sm"
+                                type="button"
+                                variant="ghost"
+                                onClick={() => editDefinition(definition)}
+                              >
+                                <Edit size={15} />
+                                编辑
+                              </Button>
+                              {usageCount > 0 ? (
                               <Button
                                 disabled={confirmPending}
                                 size="sm"
@@ -430,32 +514,30 @@ export function AttributeDefinitionsPage() {
                                 <Eraser size={15} />
                                 清空值
                               </Button>
-                            ) : null}
-                            <Button
-                              disabled={
-                                usageCount > 0 || confirmPending
-                              }
-                              size="sm"
-                              title={
-                                usageCount > 0
-                                  ? `已有 ${usageCount} 个账号使用该属性，不能删除`
-                                  : "删除属性配置"
-                              }
-                              type="button"
-                              variant="ghost"
-                              onClick={() =>
-                                setConfirmTarget({
-                                  type: "delete",
-                                  definition,
-                                })
-                              }
-                            >
-                              <Trash2 size={15} />
-                              删除
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
+                              ) : null}
+                              <Button
+                                disabled={usageCount > 0 || confirmPending}
+                                size="sm"
+                                title={
+                                  usageCount > 0
+                                    ? `已有 ${usageCount} 个账号使用该属性，不能删除`
+                                    : "删除属性配置"
+                                }
+                                type="button"
+                                variant="ghost"
+                                onClick={() =>
+                                  setConfirmTarget({
+                                    type: "delete",
+                                    definition,
+                                  })
+                                }
+                              >
+                                <Trash2 size={15} />
+                                删除
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
                       );
                     })
                   : null}
@@ -471,175 +553,48 @@ export function AttributeDefinitionsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-4">
-            <form className="space-y-3" onSubmit={handleSubmit}>
-              <label className="block space-y-1.5">
-                <span className="text-sm font-medium">属性标识</span>
-                <Input
-                  disabled={identityLocked}
-                  required
-                  title={
-                    identityLocked
-                      ? "该属性已被账号使用，不能修改属性标识"
-                      : undefined
-                  }
-                  value={form.attrKey}
-                  onChange={(event) =>
-                    updateForm({ attrKey: event.target.value })
-                  }
-                />
-              </label>
-              <label className="block space-y-1.5">
-                <span className="text-sm font-medium">属性名称</span>
-                <Input
-                  required
-                  value={form.label}
-                  onChange={(event) =>
-                    updateForm({ label: event.target.value })
-                  }
-                />
-              </label>
-              <label className="block space-y-1.5">
-                <span className="text-sm font-medium">类型</span>
-                <Select
-                  disabled={identityLocked}
-                  value={form.type}
-                  onValueChange={(value) =>
-                    updateForm({
-                      type: value === "select" ? "select" : "number",
-                    })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="number">数字</SelectItem>
-                    <SelectItem value="select">下拉</SelectItem>
-                  </SelectContent>
-                </Select>
-              </label>
-              {form.type === "number" ? (
-                <label className="block space-y-1.5">
-                  <span className="text-sm font-medium">单位</span>
-                  <Input
-                    value={form.unit}
-                    onChange={(event) =>
-                      updateForm({ unit: event.target.value })
-                    }
-                  />
-                </label>
-              ) : (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-sm font-medium">下拉选项</span>
-                    <Button
-                      size="sm"
-                      type="button"
-                      variant="outline"
-                      onClick={addOption}
-                    >
-                      <Plus size={15} />
-                      添加
-                    </Button>
-                  </div>
-                  <div className="space-y-2">
-                    {form.options.map((option, index) => (
-                      <div
-                        className="grid grid-cols-[1fr_1fr_auto] gap-2"
-                        key={index}
-                      >
-                        <Input
-                          placeholder="名称"
-                          value={option.label}
-                          onChange={(event) =>
-                            updateOption(index, { label: event.target.value })
-                          }
-                        />
-                        <Input
-                          placeholder="值"
-                          value={option.value}
-                          onChange={(event) =>
-                            updateOption(index, { value: event.target.value })
-                          }
-                        />
-                        <Button
-                          aria-label="移除选项"
-                          size="icon"
-                          title="移除选项"
-                          type="button"
-                          variant="ghost"
-                          onClick={() => removeOption(index)}
-                        >
-                          <X size={15} />
-                        </Button>
-                      </div>
-                    ))}
-                    {form.options.length === 0 ? (
-                      <Button
-                        className="w-full"
-                        type="button"
-                        variant="outline"
-                        onClick={addOption}
-                      >
-                        <Plus size={15} />
-                        添加选项
-                      </Button>
-                    ) : null}
-                  </div>
-                </div>
-              )}
-              <div className="grid grid-cols-2 gap-2">
-                <label className="block space-y-1.5">
-                  <span className="text-sm font-medium">状态</span>
-                  <Select
-                    value={form.enabled}
-                    onValueChange={(value) =>
-                      updateForm({
-                        enabled: value === "false" ? "false" : "true",
-                      })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="true">启用</SelectItem>
-                      <SelectItem value="false">停用</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </label>
-                <label className="block space-y-1.5">
-                  <span className="text-sm font-medium">排序</span>
-                  <Input
-                    min={0}
-                    type="number"
-                    value={form.sortOrder}
-                    onChange={(event) =>
-                      updateForm({ sortOrder: Number(event.target.value) })
-                    }
-                  />
-                </label>
-              </div>
-              <div className="flex gap-2 pt-2">
-                <Button className="flex-1" disabled={saving} type="submit">
-                  {saving ? <Spinner /> : <Save size={16} />}
-                  保存
-                </Button>
-                {form.id ? (
-                  <Button
-                    disabled={saving}
-                    type="button"
-                    variant="outline"
-                    onClick={resetForm}
-                  >
-                    取消
-                  </Button>
-                ) : null}
-              </div>
-            </form>
+            <AttributeDefinitionForm
+              addOption={addOption}
+              form={form}
+              identityLocked={identityLocked}
+              saving={saving}
+              showCancel={form.id !== undefined}
+              updateForm={updateForm}
+              updateOption={updateOption}
+              onCancel={resetForm}
+              onSubmit={handleSubmit}
+              removeOption={removeOption}
+            />
           </CardContent>
         </Card>
       </div>
+      <Sheet open={mobileFormOpen} onOpenChange={handleMobileFormOpenChange}>
+        <SheetContent
+          className="max-h-[90dvh] overflow-hidden rounded-t-md p-0"
+          side="bottom"
+        >
+          <SheetHeader className="border-b border-border p-4 text-left">
+            <SheetTitle>{form.id ? "编辑属性" : "新建属性"}</SheetTitle>
+            <SheetDescription className="sr-only">
+              配置 CODM 属性名称、类型、选项、状态和排序。
+            </SheetDescription>
+          </SheetHeader>
+          <div className="max-h-[calc(90dvh-4.5rem)] overflow-y-auto p-4">
+            <AttributeDefinitionForm
+              addOption={addOption}
+              form={form}
+              identityLocked={identityLocked}
+              saving={saving}
+              showCancel
+              updateForm={updateForm}
+              updateOption={updateOption}
+              onCancel={closeMobileForm}
+              onSubmit={handleSubmit}
+              removeOption={removeOption}
+            />
+          </div>
+        </SheetContent>
+      </Sheet>
       <AlertDialog
         open={confirmTarget !== null}
         onOpenChange={(open) => {
@@ -681,6 +636,305 @@ export function AttributeDefinitionsPage() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  );
+}
+
+function MobileAttributeCard({
+  confirmPending,
+  definition,
+  onClear,
+  onDelete,
+  onEdit,
+}: {
+  confirmPending: boolean;
+  definition: GameAttributeDefinition;
+  onClear: () => void;
+  onDelete: () => void;
+  onEdit: () => void;
+}) {
+  const optionSummary = getAttributeDefinitionOptionSummary(definition);
+  const usageCount = definition.usageCount ?? 0;
+
+  return (
+    <Card className="rounded-md shadow-none">
+      <CardContent className="space-y-3 p-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="truncate font-medium">{definition.label}</div>
+            <div className="mt-1 break-all text-xs text-muted-foreground">
+              {definition.attrKey}
+            </div>
+          </div>
+          <Badge
+            className="shrink-0 rounded-sm"
+            variant={definition.enabled ? "default" : "secondary"}
+          >
+            {definition.enabled ? "启用" : "停用"}
+          </Badge>
+        </div>
+
+        <div className="grid grid-cols-3 gap-2 text-xs">
+          <AttributeSummaryItem
+            label="类型"
+            value={definition.type === "number" ? "数字" : "下拉"}
+          />
+          <AttributeSummaryItem label="使用" value={`${usageCount} 个`} />
+          <AttributeSummaryItem label="排序" value={definition.sortOrder} />
+        </div>
+
+        <div className="rounded-md border border-border bg-muted/40 px-3 py-2">
+          <div className="text-xs font-medium text-muted-foreground">
+            {definition.type === "number" ? "单位" : "选项"}
+          </div>
+          <div className="mt-1 line-clamp-2 text-sm">{optionSummary}</div>
+        </div>
+
+        <div className="grid grid-cols-3 gap-2 border-t border-border pt-3">
+          <Button size="sm" type="button" variant="outline" onClick={onEdit}>
+            <Edit size={15} />
+            编辑
+          </Button>
+          <Button
+            disabled={usageCount === 0 || confirmPending}
+            size="sm"
+            title={
+              usageCount > 0
+                ? `清空 ${usageCount} 个账号中的该属性值`
+                : "暂无账号使用该属性"
+            }
+            type="button"
+            variant="outline"
+            onClick={onClear}
+          >
+            <Eraser size={15} />
+            清空
+          </Button>
+          <Button
+            disabled={usageCount > 0 || confirmPending}
+            size="sm"
+            title={
+              usageCount > 0
+                ? `已有 ${usageCount} 个账号使用该属性，不能删除`
+                : "删除属性配置"
+            }
+            type="button"
+            variant="ghost"
+            onClick={onDelete}
+          >
+            <Trash2 size={15} />
+            删除
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function AttributeSummaryItem({
+  label,
+  value,
+}: {
+  label: string;
+  value: number | string;
+}) {
+  return (
+    <div className="rounded-md border border-border bg-background px-2 py-2">
+      <div className="text-muted-foreground">{label}</div>
+      <div className="mt-1 truncate font-medium">{value}</div>
+    </div>
+  );
+}
+
+function MobileAttributeSkeletonCards() {
+  return Array.from({ length: 3 }).map((_, index) => (
+    <Card className="rounded-md shadow-none" key={index}>
+      <CardContent className="space-y-3 p-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1 space-y-2">
+            <Skeleton className="h-4 w-2/3" />
+            <Skeleton className="h-3 w-1/2" />
+          </div>
+          <Skeleton className="h-5 w-12" />
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          <Skeleton className="h-12" />
+          <Skeleton className="h-12" />
+          <Skeleton className="h-12" />
+        </div>
+        <Skeleton className="h-14" />
+        <div className="grid grid-cols-3 gap-2 border-t border-border pt-3">
+          <Skeleton className="h-8" />
+          <Skeleton className="h-8" />
+          <Skeleton className="h-8" />
+        </div>
+      </CardContent>
+    </Card>
+  ));
+}
+
+function AttributeDefinitionForm({
+  addOption,
+  form,
+  identityLocked,
+  onCancel,
+  onSubmit,
+  removeOption,
+  saving,
+  showCancel,
+  updateForm,
+  updateOption,
+}: AttributeDefinitionFormProps) {
+  return (
+    <form className="space-y-3" onSubmit={onSubmit}>
+      <label className="block space-y-1.5">
+        <span className="text-sm font-medium">属性标识</span>
+        <Input
+          disabled={identityLocked}
+          required
+          title={
+            identityLocked ? "该属性已被账号使用，不能修改属性标识" : undefined
+          }
+          value={form.attrKey}
+          onChange={(event) => updateForm({ attrKey: event.target.value })}
+        />
+      </label>
+      <label className="block space-y-1.5">
+        <span className="text-sm font-medium">属性名称</span>
+        <Input
+          required
+          value={form.label}
+          onChange={(event) => updateForm({ label: event.target.value })}
+        />
+      </label>
+      <label className="block space-y-1.5">
+        <span className="text-sm font-medium">类型</span>
+        <Select
+          disabled={identityLocked}
+          value={form.type}
+          onValueChange={(value) =>
+            updateForm({
+              type: value === "select" ? "select" : "number",
+            })
+          }
+        >
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="number">数字</SelectItem>
+            <SelectItem value="select">下拉</SelectItem>
+          </SelectContent>
+        </Select>
+      </label>
+      {form.type === "number" ? (
+        <label className="block space-y-1.5">
+          <span className="text-sm font-medium">单位</span>
+          <Input
+            value={form.unit}
+            onChange={(event) => updateForm({ unit: event.target.value })}
+          />
+        </label>
+      ) : (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-sm font-medium">下拉选项</span>
+            <Button size="sm" type="button" variant="outline" onClick={addOption}>
+              <Plus size={15} />
+              添加
+            </Button>
+          </div>
+          <div className="space-y-2">
+            {form.options.map((option, index) => (
+              <div className="grid grid-cols-[1fr_1fr_auto] gap-2" key={index}>
+                <Input
+                  placeholder="名称"
+                  value={option.label}
+                  onChange={(event) =>
+                    updateOption(index, { label: event.target.value })
+                  }
+                />
+                <Input
+                  placeholder="值"
+                  value={option.value}
+                  onChange={(event) =>
+                    updateOption(index, { value: event.target.value })
+                  }
+                />
+                <Button
+                  aria-label="移除选项"
+                  size="icon"
+                  title="移除选项"
+                  type="button"
+                  variant="ghost"
+                  onClick={() => removeOption(index)}
+                >
+                  <X size={15} />
+                </Button>
+              </div>
+            ))}
+            {form.options.length === 0 ? (
+              <Button
+                className="w-full"
+                type="button"
+                variant="outline"
+                onClick={addOption}
+              >
+                <Plus size={15} />
+                添加选项
+              </Button>
+            ) : null}
+          </div>
+        </div>
+      )}
+      <div className="grid grid-cols-2 gap-2">
+        <label className="block space-y-1.5">
+          <span className="text-sm font-medium">状态</span>
+          <Select
+            value={form.enabled}
+            onValueChange={(value) =>
+              updateForm({
+                enabled: value === "false" ? "false" : "true",
+              })
+            }
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="true">启用</SelectItem>
+              <SelectItem value="false">停用</SelectItem>
+            </SelectContent>
+          </Select>
+        </label>
+        <label className="block space-y-1.5">
+          <span className="text-sm font-medium">排序</span>
+          <Input
+            min={0}
+            type="number"
+            value={form.sortOrder}
+            onChange={(event) =>
+              updateForm({ sortOrder: Number(event.target.value) })
+            }
+          />
+        </label>
+      </div>
+      <div className="flex gap-2 pt-2">
+        <Button className="flex-1" disabled={saving} type="submit">
+          {saving ? <Spinner /> : <Save size={16} />}
+          保存
+        </Button>
+        {showCancel ? (
+          <Button
+            disabled={saving}
+            type="button"
+            variant="outline"
+            onClick={onCancel}
+          >
+            取消
+          </Button>
+        ) : null}
+      </div>
+    </form>
   );
 }
 
