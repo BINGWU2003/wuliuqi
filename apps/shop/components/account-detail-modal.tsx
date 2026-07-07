@@ -18,12 +18,6 @@ export function AccountDetailModal({ id }: { id: number | null }) {
     router.back();
   }
 
-  function isImageLightboxOpen() {
-    return Boolean(
-      document.querySelector("[data-account-image-lightbox='true']"),
-    );
-  }
-
   return (
     <Dialog
       open
@@ -33,14 +27,7 @@ export function AccountDetailModal({ id }: { id: number | null }) {
         }
       }}
     >
-      <DialogContent
-        className="h-[100dvh] w-screen max-w-none gap-0 overflow-hidden rounded-none border-0 p-0 sm:h-[calc(100dvh-2rem)] sm:w-[calc(100vw-2rem)] sm:max-w-6xl sm:rounded-md sm:border"
-        onEscapeKeyDown={(event) => {
-          if (isImageLightboxOpen()) {
-            event.preventDefault();
-          }
-        }}
-      >
+      <DialogContent className="h-[100dvh] w-screen max-w-none gap-0 overflow-hidden rounded-none border-0 p-0 sm:h-[calc(100dvh-2rem)] sm:w-[calc(100vw-2rem)] sm:max-w-6xl sm:rounded-md sm:border">
         <DialogTitle className="sr-only">CODM 账号详情</DialogTitle>
         <DialogDescription className="sr-only">
           查看账号截图、价格、说明和交易信息。

@@ -1,9 +1,9 @@
 "use client";
 
+import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { ChevronLeft, ChevronRight, Download, X } from "lucide-react";
-import type { MouseEvent, TouchEvent, WheelEvent } from "react";
+import type { KeyboardEvent, MouseEvent, TouchEvent, WheelEvent } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { useScrollLock } from "../lib/use-scroll-lock";
 import { Button } from "./button";
 
@@ -70,27 +70,6 @@ export function ImageLightbox({
     setMounted(true);
   }, []);
 
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        onClose();
-      }
-      if (event.key === "ArrowLeft") {
-        goPrevious();
-      }
-      if (event.key === "ArrowRight") {
-        goNext();
-      }
-    }
-
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [goNext, goPrevious, onClose, open]);
-
   if (!mounted || !open || images.length === 0) {
     return null;
   }
@@ -114,7 +93,14 @@ export function ImageLightbox({
   }
 
   function stopClickPropagation(event: MouseEvent) {
+    event.preventDefault();
     event.stopPropagation();
+  }
+
+  function runClickAction(event: MouseEvent, action: () => void) {
+    event.preventDefault();
+    event.stopPropagation();
+    action();
   }
 
   function stopWheelPropagation(event: WheelEvent<HTMLDivElement>) {
@@ -122,7 +108,10 @@ export function ImageLightbox({
     event.stopPropagation();
   }
 
-  function handleBackdropClick() {
+  function handleBackdropClick(event: MouseEvent<HTMLDivElement>) {
+    event.preventDefault();
+    event.stopPropagation();
+
     if (ignoreNextClickRef.current) {
       ignoreNextClickRef.current = false;
       return;
@@ -132,6 +121,8 @@ export function ImageLightbox({
   }
 
   function handleTouchStart(event: TouchEvent<HTMLDivElement>) {
+    event.stopPropagation();
+
     const touch = event.touches[0];
 
     if (!touch) {
@@ -155,7 +146,10 @@ export function ImageLightbox({
     touchEndRef.current = { x: touch.clientX, y: touch.clientY };
   }
 
-  function handleTouchEnd() {
+  function handleTouchEnd(event: TouchEvent<HTMLDivElement>) {
+    event.preventDefault();
+    event.stopPropagation();
+
     const start = touchStartRef.current;
     const end = touchEndRef.current;
 
@@ -184,104 +178,136 @@ export function ImageLightbox({
     }
   }
 
-  return createPortal(
-    <div
-      data-account-image-lightbox="true"
-      className="fixed inset-0 z-50 flex touch-none items-center justify-center bg-black/90 select-none"
-      role="dialog"
-      aria-modal="true"
-      onClick={handleBackdropClick}
-      onWheel={stopWheelPropagation}
-      onTouchEnd={handleTouchEnd}
-      onTouchMove={handleTouchMove}
-      onTouchStart={handleTouchStart}
+  function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      event.stopPropagation();
+      goPrevious();
+    }
+
+    if (event.key === "ArrowRight") {
+      event.preventDefault();
+      event.stopPropagation();
+      goNext();
+    }
+  }
+
+  return (
+    <DialogPrimitive.Root
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) {
+          onClose();
+        }
+      }}
     >
-      <div
-        className="absolute inset-x-3 top-3 z-10 flex items-center justify-between text-white"
-        onClick={stopClickPropagation}
-      >
-        <span className="rounded-full bg-white/15 px-3 py-1 text-sm">
-          {index + 1} / {images.length}
-        </span>
-        <Button
-          aria-label={closeLabel}
-          className="rounded-full bg-white/15 text-white hover:bg-white/25"
-          size="icon"
-          type="button"
-          variant="ghost"
-          onClick={onClose}
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay className="fixed inset-0 z-[70] bg-black/90" />
+        <DialogPrimitive.Content
+          data-account-image-lightbox="true"
+          data-image-lightbox="true"
+          className="fixed inset-0 z-[71] flex touch-none items-center justify-center bg-black/90 select-none outline-none"
+          onClick={handleBackdropClick}
+          onKeyDown={handleKeyDown}
+          onOpenAutoFocus={(event) => event.preventDefault()}
+          onWheel={stopWheelPropagation}
+          onTouchEnd={handleTouchEnd}
+          onTouchMove={handleTouchMove}
+          onTouchStart={handleTouchStart}
         >
-          <X size={21} />
-        </Button>
-      </div>
+          <DialogPrimitive.Title className="sr-only">
+            {imageAlt}
+          </DialogPrimitive.Title>
 
-      {currentImage ? (
-        <img
-          className="pointer-events-none h-full w-full object-contain"
-          src={currentImage}
-          alt={imageAlt}
-          draggable={false}
-        />
-      ) : null}
-
-      {index > 0 ? (
-        <Button
-          aria-label={previousLabel}
-          className="absolute left-3 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white/15 text-white hover:bg-white/25"
-          size="icon"
-          type="button"
-          variant="ghost"
-          onClick={(event) => {
-            event.stopPropagation();
-            goPrevious();
-          }}
-        >
-          <ChevronLeft size={28} />
-        </Button>
-      ) : null}
-
-      {index < images.length - 1 ? (
-        <Button
-          aria-label={nextLabel}
-          className="absolute right-3 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white/15 text-white hover:bg-white/25"
-          size="icon"
-          type="button"
-          variant="ghost"
-          onClick={(event) => {
-            event.stopPropagation();
-            goNext();
-          }}
-        >
-          <ChevronRight size={28} />
-        </Button>
-      ) : null}
-
-      {downloadImage ? (
-        <div
-          className="absolute bottom-5 right-3 z-10 flex gap-2"
-          onClick={stopClickPropagation}
-        >
-          <Button
-            className="rounded-full bg-white/15 text-white hover:bg-white/25"
-            type="button"
-            variant="ghost"
-            onClick={() => void saveCurrent()}
+          <div
+            className="absolute inset-x-3 top-3 z-10 flex items-center justify-between text-white"
+            onClick={stopClickPropagation}
           >
-            <Download size={17} />
-            {saveCurrentLabel}
-          </Button>
-          <Button
-            className="rounded-full bg-white/15 text-white hover:bg-white/25"
-            type="button"
-            variant="ghost"
-            onClick={() => void saveAll()}
-          >
-            <Download size={17} />
-            {saveAllLabel}
-          </Button>
-        </div>
-      ) : null}
-    </div>,
-    document.body,
+            <span className="rounded-full bg-white/15 px-3 py-1 text-sm">
+              {index + 1} / {images.length}
+            </span>
+            <Button
+              aria-label={closeLabel}
+              className="rounded-full bg-white/15 text-white hover:bg-white/25"
+              size="icon"
+              type="button"
+              variant="ghost"
+              onClick={(event) => runClickAction(event, onClose)}
+            >
+              <X size={21} />
+            </Button>
+          </div>
+
+          {currentImage ? (
+            <img
+              className="pointer-events-none h-full w-full object-contain"
+              src={currentImage}
+              alt={imageAlt}
+              draggable={false}
+            />
+          ) : null}
+
+          {index > 0 ? (
+            <Button
+              aria-label={previousLabel}
+              className="absolute left-3 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white/15 text-white hover:bg-white/25"
+              size="icon"
+              type="button"
+              variant="ghost"
+              onClick={(event) => runClickAction(event, goPrevious)}
+            >
+              <ChevronLeft size={28} />
+            </Button>
+          ) : null}
+
+          {index < images.length - 1 ? (
+            <Button
+              aria-label={nextLabel}
+              className="absolute right-3 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white/15 text-white hover:bg-white/25"
+              size="icon"
+              type="button"
+              variant="ghost"
+              onClick={(event) => runClickAction(event, goNext)}
+            >
+              <ChevronRight size={28} />
+            </Button>
+          ) : null}
+
+          {downloadImage ? (
+            <div
+              className="absolute bottom-5 right-3 z-10 flex gap-2"
+              onClick={stopClickPropagation}
+            >
+              <Button
+                className="rounded-full bg-white/15 text-white hover:bg-white/25"
+                type="button"
+                variant="ghost"
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  void saveCurrent();
+                }}
+              >
+                <Download size={17} />
+                {saveCurrentLabel}
+              </Button>
+              <Button
+                className="rounded-full bg-white/15 text-white hover:bg-white/25"
+                type="button"
+                variant="ghost"
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  void saveAll();
+                }}
+              >
+                <Download size={17} />
+                {saveAllLabel}
+              </Button>
+            </div>
+          ) : null}
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
   );
 }
