@@ -6,12 +6,11 @@ import { toast } from "@wuliuqi/ui/components/sonner";
 import { ThemeToggle } from "@wuliuqi/ui/components/theme-toggle";
 import { cn } from "@wuliuqi/ui/lib/utils";
 import {
-  GalleryHorizontalEnd,
-  Hash,
   Library,
   LogOut,
   Mail,
   PackageSearch,
+  Settings,
   SlidersHorizontal,
   type LucideIcon,
 } from "lucide-react";
@@ -31,8 +30,7 @@ const navItems = [
   { href: "/accounts", label: "账号", icon: PackageSearch },
   { href: "/attribute-definitions", label: "属性", icon: SlidersHorizontal },
   { href: "/emails", label: "邮箱", icon: Mail },
-  { href: "/carousels/home_ads", label: "轮播", icon: GalleryHorizontalEnd },
-  { href: "/sequence-counters", label: "计数器", icon: Hash },
+  { href: "/system", label: "系统", icon: Settings },
   { href: "/knowledge", label: "知识库", icon: Library },
 ] satisfies [NavItem, ...NavItem[]];
 
@@ -112,7 +110,7 @@ export function AdminFrame({ children }: { children: ReactNode }) {
       </main>
       <nav
         aria-label="底部管理导航"
-        className="fixed inset-x-0 bottom-0 z-30 grid h-[calc(4rem+env(safe-area-inset-bottom))] grid-cols-6 border-t border-border bg-card/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_24px_rgba(0,0,0,0.08)] backdrop-blur sm:hidden"
+        className="fixed inset-x-0 bottom-0 z-30 grid h-[calc(4rem+env(safe-area-inset-bottom))] grid-cols-5 border-t border-border bg-card/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_24px_rgba(0,0,0,0.08)] backdrop-blur sm:hidden"
       >
         {navItems.map((item) => (
           <BottomTabLink
@@ -134,8 +132,12 @@ function isNavActive(pathname: string, href: string) {
     return pathname.startsWith("/accounts");
   }
 
-  if (href === "/carousels/home_ads") {
-    return pathname.startsWith("/carousels");
+  if (href === "/system") {
+    return (
+      pathname.startsWith("/system") ||
+      pathname.startsWith("/carousels") ||
+      pathname.startsWith("/sequence-counters")
+    );
   }
 
   return pathname === href || pathname.startsWith(`${href}/`);

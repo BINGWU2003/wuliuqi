@@ -50,8 +50,20 @@ loadEnvFile(path.join(repoRoot, "apps/admin/.env"));
 
 const sql = postgres(process.env.DATABASE_URL, { max: 1, prepare: false });
 
-function normalizeAttributes(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
+function normalizeAttributes(value, depth = 0) {
+  if (!value) {
+    return {};
+  }
+
+  if (typeof value === "string" && depth < 3) {
+    try {
+      return normalizeAttributes(JSON.parse(value), depth + 1);
+    } catch {
+      return {};
+    }
+  }
+
+  if (typeof value !== "object" || Array.isArray(value)) {
     return {};
   }
 
@@ -60,6 +72,13 @@ function normalizeAttributes(value) {
       ([, attributeValue]) =>
         typeof attributeValue === "number" || typeof attributeValue === "string",
     ),
+  );
+}
+
+function hasSkinAttributes(parsedAttributes) {
+  return (
+    parsedAttributes.mythic_skins !== undefined ||
+    parsedAttributes.legendary_skins !== undefined
   );
 }
 
@@ -104,7 +123,8 @@ async function main() {
       serial_number,
       title,
       describe,
-      attributes
+      attributes,
+      jsonb_typeof(attributes) AS attributes_type
     FROM codm_accounts
     ORDER BY id ASC
   `;
@@ -129,8 +149,10 @@ async function main() {
       currentAttributes,
       parsedAttributes,
     );
+    const needsShapeRepair =
+      account.attributes_type !== "object" && hasSkinAttributes(parsedAttributes);
 
-    if (changed) {
+    if (changed || needsShapeRepair) {
       changes.push(serializeChange(account, parsedAttributes, attributes));
     }
   }
@@ -145,7 +167,7 @@ async function main() {
         for (const change of changes) {
           await tx`
             UPDATE codm_accounts
-            SET attributes = ${JSON.stringify(change.nextAttributes)}::jsonb
+            SET attributes = ${sql.json(change.nextAttributes)}
             WHERE id = ${change.id}::bigint
           `;
         }
@@ -163,17 +185,11 @@ async function main() {
         mode: shouldWrite ? "write" : "dry-run",
         overwrite: shouldOverwrite,
         total: accounts.length,
-        matchedAny: accounts.filter((account) => {
-          const parsedAttributes = parseCodmSkinAttributes(
-            account.title,
-            account.describe,
-          );
-
-          return (
-            parsedAttributes.mythic_skins !== undefined ||
-            parsedAttributes.legendary_skins !== undefined
-          );
-        }).length,
+        matchedAny: accounts.filter((account) =>
+          hasSkinAttributes(
+            parseCodmSkinAttributes(account.title, account.describe),
+          ),
+        ).length,
         matchedMythic,
         matchedLegendary,
         pendingUpdates: shouldWrite ? 0 : changes.length,
