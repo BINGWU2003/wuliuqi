@@ -158,7 +158,7 @@ export function SequenceCountersPage() {
           disabled={loading}
           onClick={loadCounters}
         >
-          {loading ? <Spinner /> : <RefreshCw size={16} />}
+          <RefreshCw size={16} />
           刷新
         </Button>
       </div>
@@ -290,11 +290,9 @@ export function SequenceCountersPage() {
             暂无计数器
           </div>
         ) : null}
-        {loading ? (
+        {loading && counters.length > 0 ? (
           <div className="rounded-md border border-border bg-card px-4 py-3">
-            <LoadingLine
-              label={counters.length > 0 ? "正在刷新" : "加载计数器"}
-            />
+            <LoadingLine label="正在刷新" />
           </div>
         ) : null}
       </div>
@@ -401,11 +399,9 @@ export function SequenceCountersPage() {
             ) : null}
           </TableBody>
         </Table>
-        {loading ? (
+        {loading && counters.length > 0 ? (
           <div className="border-t border-border px-4 py-3">
-            <LoadingLine
-              label={counters.length > 0 ? "正在刷新" : "加载计数器"}
-            />
+            <LoadingLine label="正在刷新" />
           </div>
         ) : null}
       </Card>

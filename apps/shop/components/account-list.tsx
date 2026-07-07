@@ -309,6 +309,8 @@ export function AccountList({
     sortOptions.find((option) => option.value === sort)?.label ?? "最新上架";
   const isReplaceLoading = loading && loadingMode !== "append";
   const isRetryLoading = loading && loadingMode === "retry";
+  const isSkeletonLoading = loading && accounts.length === 0 && !error;
+  const showInlineLoading = !isSkeletonLoading;
   const controlsDisabled = isReplaceLoading;
 
   return (
@@ -358,6 +360,7 @@ export function AccountList({
                   setSearchValue={setSearchValue}
                   sort={sort}
                   stacked
+                  showInlineLoading={showInlineLoading}
                   onRangeChange={handleRangeChange}
                   onSearch={handleSearch}
                   onSortChange={handleSortChange}
@@ -369,8 +372,10 @@ export function AccountList({
                     title="查看筛选结果"
                     type="button"
                   >
-                    {isReplaceLoading ? <Spinner /> : null}
-                    {isReplaceLoading ? "加载中..." : "查看结果"}
+                    {isReplaceLoading && showInlineLoading ? <Spinner /> : null}
+                    {isReplaceLoading && showInlineLoading
+                      ? "加载中..."
+                      : "查看结果"}
                   </Button>
                 </SheetClose>
               </SheetContent>
@@ -388,6 +393,7 @@ export function AccountList({
             searchValue={searchValue}
             setSearchValue={setSearchValue}
             sort={sort}
+            showInlineLoading={showInlineLoading}
             onRangeChange={handleRangeChange}
             onSearch={handleSearch}
             onSortChange={handleSortChange}
@@ -419,7 +425,7 @@ export function AccountList({
         {accounts.map((account) => (
           <ProductCard key={account.id} account={account} />
         ))}
-        {!error && loading && accounts.length === 0
+        {isSkeletonLoading
           ? Array.from({ length: 8 }).map((_, index) => (
               <Card
                 key={index}
@@ -457,8 +463,6 @@ export function AccountList({
           <span className="text-sm text-muted-foreground">没有更多了</span>
         ) : accounts.length > 0 && !error ? (
           <span className="text-sm text-muted-foreground">下滑加载更多</span>
-        ) : loading && !error ? (
-          <LoadingLine label="加载账号" />
         ) : null}
       </div>
     </section>
@@ -476,6 +480,7 @@ function FilterControls({
   onSortChange,
   searchValue,
   setSearchValue,
+  showInlineLoading,
   sort,
   stacked = false,
 }: {
@@ -489,12 +494,16 @@ function FilterControls({
   onSortChange: (value: SortValue) => void;
   searchValue: string;
   setSearchValue: (value: string) => void;
+  showInlineLoading: boolean;
   sort: SortValue;
   stacked?: boolean;
 }) {
   const isFilterLoading = loadingMode === "filter";
   const isResetLoading = loadingMode === "reset";
   const isSearchLoading = loadingMode === "search";
+  const showFilterLoading = showInlineLoading && isFilterLoading;
+  const showResetLoading = showInlineLoading && isResetLoading;
+  const showSearchLoading = showInlineLoading && isSearchLoading;
 
   return (
     <div
@@ -531,8 +540,8 @@ function FilterControls({
           title="搜索账号"
           type="submit"
         >
-          {isSearchLoading ? <Spinner /> : null}
-          {isSearchLoading ? "搜索中..." : "搜索"}
+          {showSearchLoading ? <Spinner /> : null}
+          {showSearchLoading ? "搜索中..." : "搜索"}
         </Button>
       </form>
 
@@ -555,7 +564,7 @@ function FilterControls({
               variant={activeRange === index ? "default" : "outline"}
               onClick={() => onRangeChange(index)}
             >
-              {isFilterLoading && activeRange === index ? <Spinner /> : null}
+              {showFilterLoading && activeRange === index ? <Spinner /> : null}
               {range.label}
             </Button>
           ))}
@@ -591,8 +600,8 @@ function FilterControls({
           variant="outline"
           onClick={clearFilters}
         >
-          {isResetLoading ? <Spinner /> : <RotateCcw size={15} />}
-          {isResetLoading ? "重置中..." : "重置"}
+          {showResetLoading ? <Spinner /> : <RotateCcw size={15} />}
+          {showResetLoading ? "重置中..." : "重置"}
         </Button>
       </div>
     </div>

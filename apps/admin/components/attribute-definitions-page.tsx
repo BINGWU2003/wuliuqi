@@ -276,7 +276,7 @@ export function AttributeDefinitionsPage() {
           variant="outline"
           onClick={() => void loadDefinitions()}
         >
-          {loading ? <Spinner /> : <RefreshCw size={16} />}
+          <RefreshCw size={16} />
           刷新
         </Button>
       </div>

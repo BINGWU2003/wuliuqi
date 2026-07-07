@@ -532,10 +532,7 @@ function AccountFormSkeleton({ isModal }: { isModal: boolean }) {
           {!isModal ? <Skeleton className="h-8 w-32" /> : null}
           <Skeleton className={isModal ? "h-7 w-28" : "h-8 w-32"} />
         </div>
-        <div className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-md border border-border text-sm text-muted-foreground sm:w-28">
-          <Spinner />
-          加载账号
-        </div>
+        <Skeleton className="h-9 w-full sm:w-28" />
       </div>
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
         <div className="order-2 space-y-4 lg:order-1">

@@ -436,8 +436,6 @@ export function EmailsPage() {
             <span className="text-sm text-muted-foreground">没有更多了</span>
           ) : emails.length > 0 ? (
             <span className="text-sm text-muted-foreground">下滑加载更多</span>
-          ) : loading ? (
-            <LoadingLine label="加载邮箱" />
           ) : null}
         </div>
       </div>

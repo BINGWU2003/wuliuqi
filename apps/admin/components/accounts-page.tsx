@@ -511,8 +511,6 @@ export function AccountsPage() {
             <span className="text-sm text-muted-foreground">没有更多了</span>
           ) : accounts.length > 0 ? (
             <span className="text-sm text-muted-foreground">下滑加载更多</span>
-          ) : loading ? (
-            <LoadingLine label="加载账号" />
           ) : null}
         </div>
       </div>

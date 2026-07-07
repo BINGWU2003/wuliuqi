@@ -233,10 +233,7 @@ function EmailFormSkeleton({ isModal }: { isModal: boolean }) {
           {!isModal ? <Skeleton className="h-8 w-32" /> : null}
           <Skeleton className={isModal ? "h-7 w-28" : "h-8 w-28"} />
         </div>
-        <div className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-md border border-border text-sm text-muted-foreground sm:w-28">
-          <Spinner />
-          加载邮箱
-        </div>
+        <Skeleton className="h-9 w-full sm:w-28" />
       </div>
       <Card className="rounded-md shadow-none">
         <CardHeader className="border-b border-border">
