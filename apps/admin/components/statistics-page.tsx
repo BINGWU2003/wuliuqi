@@ -181,7 +181,7 @@ function StatisticsContent({
       <div className="grid gap-3 xl:grid-cols-3">
         <AccountListCard
           accounts={statistics.recentSold}
-          description="已售账号按最近更新时间倒序排列，当前用更新时间近似售出时间。"
+          description="已售账号按最近更新时间倒序排列。"
           title="最近售出"
         />
         <AccountListCard
