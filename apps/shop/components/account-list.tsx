@@ -319,7 +319,7 @@ export function AccountList({
       <div
         className={cn("flex flex-col gap-3", compactHeader ? "pt-1" : "pt-2")}
       >
-        <div className="flex flex-wrap items-end justify-between gap-3">
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-3">
           <div className="min-w-0">
             <div className="flex items-center gap-2 text-xs font-semibold uppercase text-muted-foreground">
               <Sparkles size={14} />
@@ -329,7 +329,7 @@ export function AccountList({
               {heading}
             </h1>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             <Badge className="rounded-sm px-2 py-1" variant="secondary">
               {total} 个账号
             </Badge>
