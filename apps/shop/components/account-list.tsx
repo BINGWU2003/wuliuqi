@@ -426,9 +426,9 @@ function FilterControls({
   const showSearchLoading = showInlineLoading && isSearchLoading;
 
   return (
-    <div className="grid gap-2 sm:grid-cols-[minmax(180px,1fr)_auto_minmax(150px,180px)_minmax(160px,190px)_auto]">
+    <div className="grid gap-2 sm:grid-cols-[minmax(220px,1fr)_minmax(150px,180px)_minmax(160px,190px)_auto]">
       <form
-        className="grid gap-2 sm:col-span-2 sm:grid-cols-[minmax(180px,1fr)_auto]"
+        className="min-w-0"
         onSubmit={(event) => {
           event.preventDefault();
           onSearch();
@@ -446,15 +446,6 @@ function FilterControls({
             onChange={(event) => setSearchValue(event.target.value)}
           />
         </div>
-        <Button
-          className="h-9 rounded-md"
-          disabled={controlsDisabled}
-          title="搜索账号"
-          type="submit"
-        >
-          {showSearchLoading ? <Spinner /> : null}
-          {showSearchLoading ? "搜索中..." : "搜索"}
-        </Button>
       </form>
 
       <Select
@@ -500,21 +491,33 @@ function FilterControls({
           ))}
         </SelectContent>
       </Select>
-      <Button
-        className="h-9 rounded-md border-border bg-background px-3 text-xs"
-        disabled={controlsDisabled}
-        title="重置账号筛选"
-        type="button"
-        variant="outline"
-        onClick={clearFilters}
-      >
-        {showResetLoading || showFilterLoading ? (
-          <Spinner />
-        ) : (
-          <RotateCcw size={15} />
-        )}
-        {showResetLoading || showFilterLoading ? "加载中..." : "重置"}
-      </Button>
+      <div className="grid grid-cols-2 gap-2">
+        <Button
+          className="h-9 rounded-md"
+          disabled={controlsDisabled}
+          title="搜索账号"
+          type="button"
+          onClick={onSearch}
+        >
+          {showSearchLoading ? <Spinner /> : null}
+          {showSearchLoading ? "搜索中..." : "搜索"}
+        </Button>
+        <Button
+          className="h-9 rounded-md border-border bg-background px-3 text-xs"
+          disabled={controlsDisabled}
+          title="重置账号筛选"
+          type="button"
+          variant="outline"
+          onClick={clearFilters}
+        >
+          {showResetLoading || showFilterLoading ? (
+            <Spinner />
+          ) : (
+            <RotateCcw size={15} />
+          )}
+          {showResetLoading || showFilterLoading ? "加载中..." : "重置"}
+        </Button>
+      </div>
     </div>
   );
 }
