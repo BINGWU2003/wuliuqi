@@ -6,7 +6,6 @@ import { toast } from "@wuliuqi/ui/components/sonner";
 import { ThemeToggle } from "@wuliuqi/ui/components/theme-toggle";
 import { cn } from "@wuliuqi/ui/lib/utils";
 import {
-  Library,
   LogOut,
   Mail,
   PackageSearch,
@@ -31,7 +30,6 @@ const navItems = [
   { href: "/attribute-definitions", label: "属性", icon: SlidersHorizontal },
   { href: "/emails", label: "邮箱", icon: Mail },
   { href: "/system", label: "系统", icon: Settings },
-  { href: "/knowledge", label: "知识库", icon: Library },
 ] satisfies [NavItem, ...NavItem[]];
 
 export function AdminFrame({ children }: { children: ReactNode }) {
@@ -110,7 +108,7 @@ export function AdminFrame({ children }: { children: ReactNode }) {
       </main>
       <nav
         aria-label="底部管理导航"
-        className="fixed inset-x-0 bottom-0 z-30 grid h-[calc(4rem+env(safe-area-inset-bottom))] grid-cols-5 border-t border-border bg-card/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_24px_rgba(0,0,0,0.08)] backdrop-blur sm:hidden"
+        className="fixed inset-x-0 bottom-0 z-30 grid h-[calc(4rem+env(safe-area-inset-bottom))] grid-cols-4 border-t border-border bg-card/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_24px_rgba(0,0,0,0.08)] backdrop-blur sm:hidden"
       >
         {navItems.map((item) => (
           <BottomTabLink
@@ -136,7 +134,8 @@ function isNavActive(pathname: string, href: string) {
     return (
       pathname.startsWith("/system") ||
       pathname.startsWith("/carousels") ||
-      pathname.startsWith("/sequence-counters")
+      pathname.startsWith("/sequence-counters") ||
+      pathname.startsWith("/knowledge")
     );
   }
 

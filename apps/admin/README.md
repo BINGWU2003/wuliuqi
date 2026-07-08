@@ -7,10 +7,10 @@
 - `/login`：管理员登录。
 - `/accounts`：账号管理。
 - `/emails`：邮箱管理。
-- `/system`：系统菜单，包含首页轮播和序号计数器入口。
+- `/system`：系统菜单，包含首页轮播、序号计数器和知识库入口。
 - `/carousels/home_ads`：首页轮播管理。
 - `/sequence-counters`：序号计数器。
-- `/knowledge`：知识库、分类、文章、FAQ 和索引管理。
+- `/knowledge`：知识库、分类、文章、FAQ 和索引管理，从系统菜单进入。
 
 ## 环境变量
 

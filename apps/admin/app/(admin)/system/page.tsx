@@ -5,7 +5,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@wuliuqi/ui/components/card";
-import { ChevronRight, GalleryHorizontalEnd, Hash } from "lucide-react";
+import { ChevronRight, GalleryHorizontalEnd, Hash, Library } from "lucide-react";
 import Link from "next/link";
 
 const systemMenuItems = [
@@ -20,6 +20,12 @@ const systemMenuItems = [
     title: "序号计数器",
     description: "查看、推进或重置账号等业务序号的当前值。",
     icon: Hash,
+  },
+  {
+    href: "/knowledge",
+    title: "知识库",
+    description: "维护帮助中心知识库、分类、文章、FAQ 和索引。",
+    icon: Library,
   },
 ];
 
