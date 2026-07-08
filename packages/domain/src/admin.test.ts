@@ -10,12 +10,14 @@ const { prismaMock } = vi.hoisted(() => {
       update: vi.fn(),
     },
     codmAccount: {
+      aggregate: vi.fn(),
       count: vi.fn(),
       create: vi.fn(),
       delete: vi.fn(),
       findFirst: vi.fn(),
       findMany: vi.fn(),
       findUnique: vi.fn(),
+      groupBy: vi.fn(),
       update: vi.fn(),
       updateMany: vi.fn(),
     },
@@ -58,6 +60,7 @@ import {
   createAdminGameAttributeDefinition,
   deleteAdminEmail,
   deleteAdminGameAttributeDefinition,
+  getAdminAccountStatistics,
   listAdminGameAttributeDefinitions,
   sellAdminAccount,
   updateAdminAccount,
@@ -112,6 +115,8 @@ function accountRecord(
     xianyuUrl: string | null;
     email: string | null;
     status: number;
+    createdAt: Date;
+    updatedAt: Date;
   }> = {},
 ) {
   return {
@@ -343,6 +348,137 @@ describe("后台属性标签", () => {
 });
 
 describe("后台账号", () => {
+  it("统计账号状态、金额和运营列表", async () => {
+    prismaMock.codmAccount.aggregate.mockResolvedValue({
+      _count: { _all: 6 },
+      _sum: { price: 2850 },
+    });
+    prismaMock.codmAccount.groupBy.mockResolvedValue([
+      { status: 1, _count: { _all: 2 }, _sum: { price: 1200 } },
+      { status: 2, _count: { _all: 1 }, _sum: { price: 400 } },
+      { status: 3, _count: { _all: 3 }, _sum: { price: 1250 } },
+    ]);
+    prismaMock.codmAccount.findMany
+      .mockResolvedValueOnce([
+        accountRecord({
+          id: 31n,
+          serialNumber: "#CODM-31",
+          price: 800,
+          status: 3,
+          updatedAt: new Date("2026-07-08T08:00:00.000Z"),
+        }),
+      ])
+      .mockResolvedValueOnce([
+        accountRecord({
+          id: 11n,
+          serialNumber: "#CODM-11",
+          price: 999,
+          status: 1,
+        }),
+      ])
+      .mockResolvedValueOnce([
+        accountRecord({
+          id: 12n,
+          serialNumber: "#CODM-12",
+          price: 199,
+          status: 1,
+          updatedAt: new Date("2026-07-01T08:00:00.000Z"),
+        }),
+      ]);
+    prismaMock.gameAttributeDefinition.findMany.mockResolvedValue([]);
+
+    const statistics = await getAdminAccountStatistics();
+
+    expect(prismaMock.codmAccount.aggregate).toHaveBeenCalledWith({
+      _count: { _all: true },
+      _sum: { price: true },
+    });
+    expect(prismaMock.codmAccount.groupBy).toHaveBeenCalledWith({
+      by: ["status"],
+      _count: { _all: true },
+      _sum: { price: true },
+    });
+    expect(prismaMock.codmAccount.findMany).toHaveBeenNthCalledWith(1, {
+      where: { status: 3 },
+      orderBy: { updatedAt: "desc" },
+      take: 5,
+    });
+    expect(prismaMock.codmAccount.findMany).toHaveBeenNthCalledWith(2, {
+      where: { status: { in: [1, 2] } },
+      orderBy: [{ price: "desc" }, { updatedAt: "desc" }],
+      take: 5,
+    });
+    expect(prismaMock.codmAccount.findMany).toHaveBeenNthCalledWith(3, {
+      where: { status: 1 },
+      orderBy: { updatedAt: "asc" },
+      take: 5,
+    });
+    expect(statistics.summary).toEqual({
+      availableValue: 1600,
+      listedCount: 2,
+      listedValue: 1200,
+      soldCount: 3,
+      soldValue: 1250,
+      totalCount: 6,
+      totalValue: 2850,
+      unlistedCount: 1,
+      unlistedValue: 400,
+    });
+    expect(statistics.statusBreakdown).toEqual([
+      { count: 2, label: "出售中", status: 1, totalValue: 1200 },
+      { count: 1, label: "已下架", status: 2, totalValue: 400 },
+      { count: 3, label: "已出售", status: 3, totalValue: 1250 },
+    ]);
+    expect(statistics.recentSold[0]).toMatchObject({
+      id: 31,
+      serialNumber: "#CODM-31",
+      status: 3,
+    });
+    expect(statistics.highValueAvailable[0]).toMatchObject({
+      id: 11,
+      serialNumber: "#CODM-11",
+    });
+    expect(statistics.staleListed[0]).toMatchObject({
+      id: 12,
+      serialNumber: "#CODM-12",
+    });
+  });
+
+  it("统计账号为空时返回零值和空列表", async () => {
+    prismaMock.codmAccount.aggregate.mockResolvedValue({
+      _count: { _all: 0 },
+      _sum: { price: null },
+    });
+    prismaMock.codmAccount.groupBy.mockResolvedValue([]);
+    prismaMock.codmAccount.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]);
+    prismaMock.gameAttributeDefinition.findMany.mockResolvedValue([]);
+
+    const statistics = await getAdminAccountStatistics();
+
+    expect(statistics.summary).toEqual({
+      availableValue: 0,
+      listedCount: 0,
+      listedValue: 0,
+      soldCount: 0,
+      soldValue: 0,
+      totalCount: 0,
+      totalValue: 0,
+      unlistedCount: 0,
+      unlistedValue: 0,
+    });
+    expect(statistics.statusBreakdown).toEqual([
+      { count: 0, label: "出售中", status: 1, totalValue: 0 },
+      { count: 0, label: "已下架", status: 2, totalValue: 0 },
+      { count: 0, label: "已出售", status: 3, totalValue: 0 },
+    ]);
+    expect(statistics.recentSold).toEqual([]);
+    expect(statistics.highValueAvailable).toEqual([]);
+    expect(statistics.staleListed).toEqual([]);
+  });
+
   it("创建上架账号时生成序列号并同步邮箱绑定状态", async () => {
     prismaMock.gameAttributeDefinition.findMany.mockResolvedValue([
       attributeDefinitionRecord({

@@ -5,10 +5,22 @@ import {
   CardHeader,
   CardTitle,
 } from "@wuliuqi/ui/components/card";
-import { ChevronRight, GalleryHorizontalEnd, Hash, Library } from "lucide-react";
+import {
+  BarChart3,
+  ChevronRight,
+  GalleryHorizontalEnd,
+  Hash,
+  Library,
+} from "lucide-react";
 import Link from "next/link";
 
 const systemMenuItems = [
+  {
+    href: "/statistics",
+    title: "数据统计",
+    description: "查看账号库存、销售金额和重点运营列表。",
+    icon: BarChart3,
+  },
   {
     href: "/carousels/home_ads",
     title: "首页轮播",

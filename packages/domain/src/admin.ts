@@ -3,6 +3,7 @@ import type {
   AccountAttributes,
   AdminAccount,
   AdminAccountListResult,
+  AdminAccountStatistics,
   AdminEmail,
   AdminEmailListResult,
   Carousel,
@@ -51,9 +52,16 @@ type EmailRecord = {
 };
 
 const CODM_GAME_KEY = "codm";
+const ACCOUNT_LISTED_STATUS = 1;
+const ACCOUNT_UNLISTED_STATUS = 2;
 const ACCOUNT_SOLD_STATUS = 3;
 const EMAIL_BOUND_STATUS = 1;
 const EMAIL_UNBOUND_STATUS = 2;
+const ACCOUNT_STATUSES = [
+  { status: ACCOUNT_LISTED_STATUS, label: "出售中" },
+  { status: ACCOUNT_UNLISTED_STATUS, label: "已下架" },
+  { status: ACCOUNT_SOLD_STATUS, label: "已出售" },
+] as const;
 
 export class DomainError extends Error {
   constructor(
@@ -83,6 +91,10 @@ function parseEmailAddress(
   const postfix = email.slice(separatorIndex + 1);
 
   return { prefix, postfix: `@${postfix}` };
+}
+
+function numberFromDb(value: unknown) {
+  return value === null || value === undefined ? 0 : Number(value);
 }
 
 function assertValidOptionalUrl(url?: string): void {
@@ -539,6 +551,106 @@ export async function listAdminAccounts(
       query.min_price !== undefined || query.max_price !== undefined
         ? { minPrice: query.min_price, maxPrice: query.max_price }
         : undefined,
+  };
+}
+
+export async function getAdminAccountStatistics(): Promise<AdminAccountStatistics> {
+  const [
+    totalAggregate,
+    statusGroups,
+    recentSold,
+    highValueAvailable,
+    staleListed,
+    attributeDefinitions,
+  ] = await Promise.all([
+    prisma.codmAccount.aggregate({
+      _count: { _all: true },
+      _sum: { price: true },
+    }),
+    prisma.codmAccount.groupBy({
+      by: ["status"],
+      _count: { _all: true },
+      _sum: { price: true },
+    }),
+    prisma.codmAccount.findMany({
+      where: { status: ACCOUNT_SOLD_STATUS },
+      orderBy: { updatedAt: "desc" },
+      take: 5,
+    }),
+    prisma.codmAccount.findMany({
+      where: { status: { in: [ACCOUNT_LISTED_STATUS, ACCOUNT_UNLISTED_STATUS] } },
+      orderBy: [{ price: "desc" }, { updatedAt: "desc" }],
+      take: 5,
+    }),
+    prisma.codmAccount.findMany({
+      where: { status: ACCOUNT_LISTED_STATUS },
+      orderBy: { updatedAt: "asc" },
+      take: 5,
+    }),
+    listAttributeDefinitionsForGame(prisma, CODM_GAME_KEY),
+  ]);
+  const statusMap = new Map(
+    statusGroups.map((group) => [
+      group.status,
+      {
+        count: group._count._all,
+        totalValue: numberFromDb(group._sum.price),
+      },
+    ]),
+  );
+  const statusBreakdown = ACCOUNT_STATUSES.map(({ label, status }) => ({
+    status,
+    label,
+    count: statusMap.get(status)?.count ?? 0,
+    totalValue: statusMap.get(status)?.totalValue ?? 0,
+  }));
+  const listed = statusBreakdown.find(
+    (item) => item.status === ACCOUNT_LISTED_STATUS,
+  ) ?? {
+    count: 0,
+    label: "出售中",
+    status: ACCOUNT_LISTED_STATUS,
+    totalValue: 0,
+  };
+  const unlisted = statusBreakdown.find(
+    (item) => item.status === ACCOUNT_UNLISTED_STATUS,
+  ) ?? {
+    count: 0,
+    label: "已下架",
+    status: ACCOUNT_UNLISTED_STATUS,
+    totalValue: 0,
+  };
+  const sold = statusBreakdown.find(
+    (item) => item.status === ACCOUNT_SOLD_STATUS,
+  ) ?? {
+    count: 0,
+    label: "已出售",
+    status: ACCOUNT_SOLD_STATUS,
+    totalValue: 0,
+  };
+
+  return {
+    summary: {
+      totalCount: totalAggregate._count._all,
+      listedCount: listed.count,
+      unlistedCount: unlisted.count,
+      soldCount: sold.count,
+      totalValue: numberFromDb(totalAggregate._sum.price),
+      listedValue: listed.totalValue,
+      unlistedValue: unlisted.totalValue,
+      soldValue: sold.totalValue,
+      availableValue: listed.totalValue + unlisted.totalValue,
+    },
+    statusBreakdown,
+    recentSold: recentSold.map((account) =>
+      serializeAccount(account, attributeDefinitions),
+    ),
+    highValueAvailable: highValueAvailable.map((account) =>
+      serializeAccount(account, attributeDefinitions),
+    ),
+    staleListed: staleListed.map((account) =>
+      serializeAccount(account, attributeDefinitions),
+    ),
   };
 }
 

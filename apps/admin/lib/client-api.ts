@@ -1,6 +1,7 @@
 import type {
   AdminAccount,
   AdminAccountListResult,
+  AdminAccountStatistics,
   AdminEmail,
   AdminEmailListResult,
   AdminUser,
@@ -106,6 +107,10 @@ export async function fetchAccounts(values: {
 }) {
   const params = paramsFrom(values);
   return requestJson<AdminAccountListResult>(`/api/accounts?${params}`);
+}
+
+export async function fetchAccountStatistics() {
+  return requestJson<AdminAccountStatistics>("/api/statistics/accounts");
 }
 
 export async function fetchAccount(id: number) {

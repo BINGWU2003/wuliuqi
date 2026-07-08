@@ -61,6 +61,31 @@ export interface AdminAccountListResult {
   };
 }
 
+export interface AdminAccountStatisticsStatus {
+  status: number;
+  label: string;
+  count: number;
+  totalValue: number;
+}
+
+export interface AdminAccountStatistics {
+  summary: {
+    totalCount: number;
+    listedCount: number;
+    unlistedCount: number;
+    soldCount: number;
+    totalValue: number;
+    listedValue: number;
+    unlistedValue: number;
+    soldValue: number;
+    availableValue: number;
+  };
+  statusBreakdown: AdminAccountStatisticsStatus[];
+  recentSold: AdminAccount[];
+  highValueAvailable: AdminAccount[];
+  staleListed: AdminAccount[];
+}
+
 export interface AdminEmail {
   id: number;
   prefix: string;
