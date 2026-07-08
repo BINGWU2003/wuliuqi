@@ -58,7 +58,7 @@ const ACCOUNT_SOLD_STATUS = 3;
 const EMAIL_BOUND_STATUS = 1;
 const EMAIL_UNBOUND_STATUS = 2;
 const ACCOUNT_STATUSES = [
-  { status: ACCOUNT_LISTED_STATUS, label: "出售中" },
+  { status: ACCOUNT_LISTED_STATUS, label: "已上架" },
   { status: ACCOUNT_UNLISTED_STATUS, label: "已下架" },
   { status: ACCOUNT_SOLD_STATUS, label: "已出售" },
 ] as const;
@@ -608,7 +608,7 @@ export async function getAdminAccountStatistics(): Promise<AdminAccountStatistic
     (item) => item.status === ACCOUNT_LISTED_STATUS,
   ) ?? {
     count: 0,
-    label: "出售中",
+    label: "已上架",
     status: ACCOUNT_LISTED_STATUS,
     totalValue: 0,
   };

@@ -124,7 +124,7 @@ function StatisticsContent({
       icon: PackageSearch,
     },
     {
-      label: "出售中",
+      label: "已上架",
       value: String(statistics.summary.listedCount),
       detail: formatPrice(statistics.summary.listedValue),
       icon: Store,
@@ -144,7 +144,7 @@ function StatisticsContent({
     {
       label: "可售总金额",
       value: formatPrice(statistics.summary.availableValue),
-      detail: "上架与下架账号标价合计",
+      detail: "已上架与已下架账号标价合计",
       icon: CircleDollarSign,
     },
     {
@@ -186,12 +186,12 @@ function StatisticsContent({
         />
         <AccountListCard
           accounts={statistics.highValueAvailable}
-          description="出售中和已下架账号按标价从高到低排列。"
+          description="已上架和已下架账号按标价从高到低排列。"
           title="高价未售"
         />
         <AccountListCard
           accounts={statistics.staleListed}
-          description="出售中账号按最近更新时间正序排列。"
+          description="已上架账号按最近更新时间正序排列。"
           title="长期未更新"
         />
       </div>

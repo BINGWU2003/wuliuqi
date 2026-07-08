@@ -425,7 +425,7 @@ describe("后台账号", () => {
       unlistedValue: 400,
     });
     expect(statistics.statusBreakdown).toEqual([
-      { count: 2, label: "出售中", status: 1, totalValue: 1200 },
+      { count: 2, label: "已上架", status: 1, totalValue: 1200 },
       { count: 1, label: "已下架", status: 2, totalValue: 400 },
       { count: 3, label: "已出售", status: 3, totalValue: 1250 },
     ]);
@@ -470,7 +470,7 @@ describe("后台账号", () => {
       unlistedValue: 0,
     });
     expect(statistics.statusBreakdown).toEqual([
-      { count: 0, label: "出售中", status: 1, totalValue: 0 },
+      { count: 0, label: "已上架", status: 1, totalValue: 0 },
       { count: 0, label: "已下架", status: 2, totalValue: 0 },
       { count: 0, label: "已出售", status: 3, totalValue: 0 },
     ]);
