@@ -25,10 +25,14 @@ const gameOrder = new Map<GameKey, number>([
   ["sanguosha", 1],
 ]);
 
+type HomeSort = "latest" | "price_asc" | "price_desc";
+
 type HomeCursor = {
   createdAt: string;
   gameKey: GameKey;
   id: number;
+  price?: number;
+  sort?: HomeSort;
 };
 
 type HomeAccountRecord = {
@@ -85,7 +89,7 @@ function decodeHomeCursor(cursor?: string): HomeCursor | null {
   return null;
 }
 
-function encodeHomeCursor(account: ShopAccount) {
+function encodeHomeCursor(account: ShopAccount, sort: HomeSort) {
   if (!account.createdAt) {
     return undefined;
   }
@@ -95,22 +99,43 @@ function encodeHomeCursor(account: ShopAccount) {
       createdAt: account.createdAt,
       gameKey: account.gameKey,
       id: account.id,
+      price: account.price,
+      sort,
     }),
     "utf8",
   ).toString("base64url");
 }
 
-function homeCursorWhere(gameKey: GameKey, cursor: HomeCursor | null) {
+function homeCursorWhere(
+  gameKey: GameKey,
+  cursor: HomeCursor | null,
+  sort: HomeSort,
+) {
   if (!cursor) {
+    return {};
+  }
+
+  if (cursor.sort && cursor.sort !== sort) {
     return {};
   }
 
   const cursorDate = new Date(cursor.createdAt);
   const currentGameOrder = gameOrder.get(gameKey) ?? 0;
   const cursorGameOrder = gameOrder.get(cursor.gameKey) ?? 0;
-  const conditions: Prisma.CodmAccountWhereInput[] = [
-    { createdAt: { lt: cursorDate } },
-  ];
+  const conditions: Prisma.CodmAccountWhereInput[] =
+    sort === "price_asc" || sort === "price_desc"
+      ? homePriceCursorConditions({
+          currentGameOrder,
+          cursor,
+          cursorDate,
+          cursorGameOrder,
+          sort,
+        })
+      : [{ createdAt: { lt: cursorDate } }];
+
+  if (sort !== "latest") {
+    return conditions.length > 0 ? { OR: conditions } : {};
+  }
 
   if (currentGameOrder > cursorGameOrder) {
     conditions.push({ createdAt: cursorDate });
@@ -124,7 +149,85 @@ function homeCursorWhere(gameKey: GameKey, cursor: HomeCursor | null) {
   return { OR: conditions };
 }
 
-function sortHomeAccounts(first: HomeAccountRecord, second: HomeAccountRecord) {
+function homePriceCursorConditions({
+  currentGameOrder,
+  cursor,
+  cursorDate,
+  cursorGameOrder,
+  sort,
+}: {
+  currentGameOrder: number;
+  cursor: HomeCursor;
+  cursorDate: Date;
+  cursorGameOrder: number;
+  sort: Extract<HomeSort, "price_asc" | "price_desc">;
+}) {
+  if (typeof cursor.price !== "number" || !Number.isFinite(cursor.price)) {
+    return [];
+  }
+
+  const priceCondition =
+    sort === "price_asc"
+      ? { price: { gt: cursor.price } }
+      : { price: { lt: cursor.price } };
+  const conditions: Prisma.CodmAccountWhereInput[] = [
+    priceCondition,
+    {
+      price: cursor.price,
+      createdAt: { lt: cursorDate },
+    },
+  ];
+
+  if (currentGameOrder > cursorGameOrder) {
+    conditions.push({
+      price: cursor.price,
+      createdAt: cursorDate,
+    });
+  } else if (currentGameOrder === cursorGameOrder) {
+    conditions.push({
+      price: cursor.price,
+      createdAt: cursorDate,
+      id: { lt: cursor.id },
+    });
+  }
+
+  return conditions;
+}
+
+function homeOrderBy(sort: HomeSort): Prisma.CodmAccountOrderByWithRelationInput[] {
+  if (sort === "price_asc") {
+    return [{ price: "asc" }, { createdAt: "desc" }, { id: "desc" }];
+  }
+
+  if (sort === "price_desc") {
+    return [{ price: "desc" }, { createdAt: "desc" }, { id: "desc" }];
+  }
+
+  return [{ createdAt: "desc" }, { id: "desc" }];
+}
+
+function accountPrice(account: AccountRecord) {
+  const price = Number(account.price);
+
+  return Number.isFinite(price) ? price : 0;
+}
+
+function sortHomeAccounts(
+  first: HomeAccountRecord,
+  second: HomeAccountRecord,
+  sort: HomeSort,
+) {
+  if (sort === "price_asc" || sort === "price_desc") {
+    const priceDelta =
+      sort === "price_asc"
+        ? accountPrice(first.account) - accountPrice(second.account)
+        : accountPrice(second.account) - accountPrice(first.account);
+
+    if (priceDelta !== 0) {
+      return priceDelta;
+    }
+  }
+
   const createdDelta =
     second.account.createdAt.getTime() - first.account.createdAt.getTime();
 
@@ -148,25 +251,40 @@ export async function listShopHomeAccounts(
   const limit = query.limit;
   const cursor = decodeHomeCursor(query.cursor);
   const createdAfter = recentCreatedAfter(query.months);
+  const sort = query.sort ?? "latest";
+  const games =
+    query.game_key === "codm" || query.game_key === "sanguosha"
+      ? GAME_OPTIONS.filter((game) => game.key === query.game_key)
+      : GAME_OPTIONS;
+  const priceWhere =
+    query.min_price !== undefined || query.max_price !== undefined
+      ? {
+          price: {
+            gte: query.min_price,
+            lte: query.max_price,
+          },
+        }
+      : {};
 
   const [definitionEntries, accountEntries] = await Promise.all([
     Promise.all(
-      GAME_OPTIONS.map(async (game) => [
+      games.map(async (game) => [
         game.key,
         await listAttributeDefinitions(game.key),
       ] as const),
     ),
     Promise.all(
-      GAME_OPTIONS.map(async (game) => {
+      games.map(async (game) => {
         const accounts = await accountDelegate(prisma, game.key).findMany({
           where: {
             status: ACCOUNT_LISTED_STATUS,
             createdAt: {
               gte: createdAfter,
             },
-            ...homeCursorWhere(game.key, cursor),
+            ...priceWhere,
+            ...homeCursorWhere(game.key, cursor, sort),
           },
-          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+          orderBy: homeOrderBy(sort),
           take: limit + 1,
         });
 
@@ -178,7 +296,9 @@ export async function listShopHomeAccounts(
     ),
   ]);
   const definitionsByGame = new Map(definitionEntries);
-  const merged = accountEntries.flat().sort(sortHomeAccounts);
+  const merged = accountEntries
+    .flat()
+    .sort((first, second) => sortHomeAccounts(first, second, sort));
   const pageAccounts = merged.slice(0, limit);
   const hasMore = merged.length > limit;
   const list = pageAccounts.map(({ account, gameKey }) =>
@@ -189,7 +309,7 @@ export async function listShopHomeAccounts(
   return {
     list,
     ...(hasMore && lastAccount
-      ? { nextCursor: encodeHomeCursor(lastAccount) }
+      ? { nextCursor: encodeHomeCursor(lastAccount, sort) }
       : {}),
   };
 }

@@ -70,6 +70,20 @@ model SanguoshaEmail {
   @@map("sanguosha_emails")
 }
 
+model GameEmailPostfix {
+  id        BigInt   @id @default(autoincrement())
+  gameKey   String   @default("global") @map("game_key") @db.VarChar(50)
+  postfix   String   @db.VarChar(255)
+  enabled   Boolean  @default(true)
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@unique([postfix], map: "game_email_postfixes_postfix_key")
+  @@index([enabled, sortOrder], map: "game_email_postfixes_enabled_sort_idx")
+  @@map("game_email_postfixes")
+}
+
 model Carousel {
   id        BigInt   @id @default(autoincrement())
   name      String   @unique @db.VarChar(255)

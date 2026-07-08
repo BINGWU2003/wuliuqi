@@ -19,6 +19,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@wuliuqi/ui/components/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@wuliuqi/ui/components/dialog";
 import { Input } from "@wuliuqi/ui/components/input";
 import {
   Select,
@@ -45,14 +51,16 @@ import {
   ChevronsRight,
   CircleDollarSign,
   Edit,
+  Gamepad2,
   Plus,
   RotateCcw,
   Search,
+  Swords,
   Trash2,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import {
   CellTooltip,
   TABLE_ACTION_CELL_CLASS,
@@ -102,13 +110,13 @@ export function AccountsPage() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [loadingPage, setLoadingPage] = useState<number | null>(null);
   const [error, setError] = useState("");
   const [total, setTotal] = useState(0);
   const [pendingAction, setPendingAction] =
     useState<AccountPendingAction>(null);
   const [deleteTarget, setDeleteTarget] = useState<AdminAccount | null>(null);
   const [sellTarget, setSellTarget] = useState<AdminAccount | null>(null);
+  const [gameSelectorOpen, setGameSelectorOpen] = useState(false);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const loadingRef = useRef(false);
   const pageRef = useRef(1);
@@ -146,7 +154,6 @@ export function AccountsPage() {
 
       loadingRef.current = true;
       errorRef.current = "";
-      setLoadingPage(mode === "replace" ? nextPage : null);
       setLoading(true);
       setError("");
 
@@ -173,7 +180,6 @@ export function AccountsPage() {
       } finally {
         if (requestId === requestIdRef.current) {
           loadingRef.current = false;
-          setLoadingPage(null);
           setLoading(false);
         }
       }
@@ -428,11 +434,13 @@ export function AccountsPage() {
             共 {total} 个账号，当前显示 {accounts.length} 个
           </p>
         </div>
-        <Button asChild className="w-full sm:w-auto">
-          <Link href={`/accounts/${gameKey}/new`}>
-            <Plus size={16} />
-            新建账号
-          </Link>
+        <Button
+          className="w-full sm:w-auto"
+          type="button"
+          onClick={() => setGameSelectorOpen(true)}
+        >
+          <Plus size={16} />
+          新建账号
         </Button>
       </div>
 
@@ -828,7 +836,6 @@ export function AccountsPage() {
         {total > 0 ? (
           <AccountsPagination
             loading={loading}
-            loadingPage={loadingPage}
             page={page}
             total={total}
             totalPages={totalPages}
@@ -870,6 +877,30 @@ export function AccountsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <Dialog open={gameSelectorOpen} onOpenChange={setGameSelectorOpen}>
+        <DialogContent className="max-w-md rounded-md">
+          <DialogTitle>选择账号游戏</DialogTitle>
+          <DialogDescription>
+            选择要新增的游戏类型，系统会打开对应的账号表单。
+          </DialogDescription>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <GameCreateLink
+              description="使命召唤手游账号"
+              href="/accounts/codm/new"
+              icon={<Gamepad2 size={22} />}
+              label="CODM"
+              onSelect={() => setGameSelectorOpen(false)}
+            />
+            <GameCreateLink
+              description="三国杀账号"
+              href="/accounts/sanguosha/new"
+              icon={<Swords size={22} />}
+              label="三国杀"
+              onSelect={() => setGameSelectorOpen(false)}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
       <AlertDialog
         open={Boolean(deleteTarget)}
         onOpenChange={(open) => {
@@ -904,6 +935,47 @@ export function AccountsPage() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  );
+}
+
+function GameCreateLink({
+  description,
+  href,
+  icon,
+  label,
+  onSelect,
+}: {
+  description: string;
+  href: string;
+  icon: ReactNode;
+  label: string;
+  onSelect: () => void;
+}) {
+  const isSanguosha = label === "三国杀";
+
+  return (
+    <Link
+      className="group flex items-center gap-3 rounded-md border border-border bg-card p-3 text-left transition-colors hover:border-foreground/30 hover:bg-accent"
+      href={href}
+      scroll={false}
+      onClick={onSelect}
+    >
+      <span
+        className={
+          isSanguosha
+            ? "grid size-11 shrink-0 place-items-center rounded-md bg-red-600 text-white"
+            : "grid size-11 shrink-0 place-items-center rounded-md bg-orange-500 text-white"
+        }
+      >
+        {icon}
+      </span>
+      <span className="min-w-0">
+        <span className="block text-sm font-semibold">{label}</span>
+        <span className="mt-0.5 block text-xs text-muted-foreground">
+          {description}
+        </span>
+      </span>
+    </Link>
   );
 }
 
@@ -995,14 +1067,12 @@ function AccountTableSkeletonRows() {
 
 function AccountsPagination({
   loading,
-  loadingPage,
   onPageChange,
   page,
   total,
   totalPages,
 }: {
   loading: boolean;
-  loadingPage: number | null;
   onPageChange: (page: number) => void;
   page: number;
   total: number;
@@ -1012,8 +1082,6 @@ function AccountsPagination({
   const pages = getPaginationPages(page, safeTotalPages);
   const isFirstPage = page <= 1;
   const isLastPage = page >= safeTotalPages;
-  const isLoadingPage = (pageNumber: number) =>
-    loading && loadingPage === pageNumber;
 
   return (
     <div className="flex flex-col gap-3 border-t border-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
@@ -1030,7 +1098,7 @@ function AccountsPagination({
           variant="outline"
           onClick={() => onPageChange(1)}
         >
-          {isLoadingPage(1) ? <Spinner /> : <ChevronsLeft size={15} />}
+          <ChevronsLeft size={15} />
         </Button>
         <Button
           aria-label="上一页"
@@ -1041,11 +1109,7 @@ function AccountsPagination({
           variant="outline"
           onClick={() => onPageChange(Math.max(page - 1, 1))}
         >
-          {isLoadingPage(Math.max(page - 1, 1)) ? (
-            <Spinner />
-          ) : (
-            <ChevronLeft size={15} />
-          )}
+          <ChevronLeft size={15} />
         </Button>
         {pages.map((pageNumber) => (
           <Button
@@ -1057,7 +1121,7 @@ function AccountsPagination({
             variant={pageNumber === page ? "default" : "outline"}
             onClick={() => onPageChange(pageNumber)}
           >
-            {isLoadingPage(pageNumber) ? <Spinner /> : pageNumber}
+            {pageNumber}
           </Button>
         ))}
         <Button
@@ -1069,11 +1133,7 @@ function AccountsPagination({
           variant="outline"
           onClick={() => onPageChange(Math.min(page + 1, safeTotalPages))}
         >
-          {isLoadingPage(Math.min(page + 1, safeTotalPages)) ? (
-            <Spinner />
-          ) : (
-            <ChevronRight size={15} />
-          )}
+          <ChevronRight size={15} />
         </Button>
         <Button
           aria-label="最后一页"
@@ -1084,11 +1144,7 @@ function AccountsPagination({
           variant="outline"
           onClick={() => onPageChange(safeTotalPages)}
         >
-          {isLoadingPage(safeTotalPages) ? (
-            <Spinner />
-          ) : (
-            <ChevronsRight size={15} />
-          )}
+          <ChevronsRight size={15} />
         </Button>
       </div>
     </div>

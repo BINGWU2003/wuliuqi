@@ -1,6 +1,6 @@
 "use client";
 
-import type { GameKey } from "@wuliuqi/types";
+import type { AdminEmailPostfix, GameKey } from "@wuliuqi/types";
 import { Button } from "@wuliuqi/ui/components/button";
 import {
   Card,
@@ -22,20 +22,15 @@ import { toast } from "@wuliuqi/ui/components/sonner";
 import { ArrowLeft, Save } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import { createEmail, fetchEmail, updateEmail } from "@/lib/client-api";
+import { useEffect, useMemo, useState } from "react";
+import {
+  createEmail,
+  fetchEmail,
+  fetchEmailPostfixes,
+  updateEmail,
+} from "@/lib/client-api";
 import { ADMIN_EMAILS_CHANGED_EVENT } from "@/lib/events";
 import { errorMessage } from "@/lib/feedback";
-
-const postfixOptions = [
-  "@163.com",
-  "@gmail.com",
-  "@outlook.com",
-  "@hotmail.com",
-  "@yahoo.com",
-  "@qq.com",
-  "@126.com",
-];
 
 type EmailFormPresentation = "page" | "modal";
 const gameOptions: Array<{ label: string; value: GameKey }> = [
@@ -59,18 +54,52 @@ export function EmailForm({
   const [gameKey, setGameKey] = useState<GameKey>(initialGameKey);
   const [prefix, setPrefix] = useState("");
   const [postfix, setPostfix] = useState("@163.com");
+  const [postfixOptions, setPostfixOptions] = useState<AdminEmailPostfix[]>(
+    [],
+  );
   const [bindStatus, setBindStatus] = useState<1 | 2>(2);
   const [boundAccountId, setBoundAccountId] = useState<number | null>(null);
   const [loading, setLoading] = useState(Boolean(emailId));
+  const [postfixLoading, setPostfixLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
   const isLinkedToAccount = Boolean(emailId && boundAccountId);
+  const selectablePostfixes = useMemo(
+    () =>
+      postfixOptions.filter(
+        (option) => option.enabled || option.postfix === postfix,
+      ),
+    [postfix, postfixOptions],
+  );
+  const hasEnabledPostfix = postfixOptions.some((option) => option.enabled);
 
   useEffect(() => {
     onBusyChange?.(saving);
 
     return () => onBusyChange?.(false);
   }, [onBusyChange, saving]);
+
+  useEffect(() => {
+    setPostfixLoading(true);
+
+    fetchEmailPostfixes()
+      .then((options) => {
+        setPostfixOptions(options);
+
+        if (!emailId) {
+          const firstEnabled = options.find((option) => option.enabled);
+
+          if (firstEnabled) {
+            setPostfix(firstEnabled.postfix);
+          }
+        }
+      })
+      .catch((loadError) => {
+        setLoadFailed(true);
+        toast.error(errorMessage(loadError, "加载邮箱后缀失败"));
+      })
+      .finally(() => setPostfixLoading(false));
+  }, [emailId]);
 
   useEffect(() => {
     if (!emailId) {
@@ -96,7 +125,13 @@ export function EmailForm({
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (saving || isLinkedToAccount || loadFailed) {
+    if (
+      saving ||
+      postfixLoading ||
+      isLinkedToAccount ||
+      loadFailed ||
+      (!emailId && !hasEnabledPostfix)
+    ) {
       return;
     }
 
@@ -125,7 +160,7 @@ export function EmailForm({
     }
   }
 
-  if (loading) {
+  if (loading || postfixLoading) {
     return <EmailFormSkeleton isModal={isModal} />;
   }
 
@@ -151,7 +186,12 @@ export function EmailForm({
         </div>
         <Button
           className="w-full sm:w-auto"
-          disabled={saving || isLinkedToAccount || loadFailed}
+          disabled={
+            saving ||
+            isLinkedToAccount ||
+            loadFailed ||
+            (!emailId && !hasEnabledPostfix)
+          }
           type="submit"
         >
           {saving ? <Spinner /> : <Save size={16} />}
@@ -215,9 +255,10 @@ export function EmailForm({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {postfixOptions.map((option) => (
-                  <SelectItem key={option} value={option}>
-                    {option}
+                {selectablePostfixes.map((option) => (
+                  <SelectItem key={option.id} value={option.postfix}>
+                    {option.postfix}
+                    {option.enabled ? "" : "（已停用）"}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -245,6 +286,11 @@ export function EmailForm({
               {prefix || "prefix"}
               {postfix}
             </div>
+            {!hasEnabledPostfix ? (
+              <div className="mt-2 text-xs text-destructive">
+                当前游戏没有启用的邮箱后缀，请先在邮箱列表中管理后缀。
+              </div>
+            ) : null}
           </div>
         </CardContent>
       </Card>

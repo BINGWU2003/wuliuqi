@@ -5,6 +5,7 @@ import type {
   AdminAccountListResult,
   AdminAccountStatistics,
   AdminEmail,
+  AdminEmailPostfix,
   AdminEmailListResult,
   Carousel,
   GameAttributeDefinition,
@@ -20,6 +21,8 @@ import type {
   AdminEmailListQuery,
   AdminEmailUpdateInput,
   CarouselUpdateInput,
+  EmailPostfixCreateInput,
+  EmailPostfixUpdateInput,
   GameAttributeDefinitionCreateInput,
   GameAttributeDefinitionUpdateInput,
   SequenceCounterCreateInput,
@@ -30,6 +33,7 @@ import {
   serializeAccount,
   serializeCarousel,
   serializeEmail,
+  serializeEmailPostfix,
   serializeGameAttributeDefinition,
   serializeSequenceCounter,
 } from "./serializers";
@@ -37,6 +41,7 @@ import type { AccountRecord as SerializedAccountRecord } from "./serializers";
 import {
   accountDelegate,
   emailDelegate,
+  GAME_OPTIONS,
   gameConfig,
   normalizeGameKey,
 } from "./games";
@@ -59,6 +64,15 @@ type EmailRecord = {
   createdAt: Date;
   updatedAt: Date;
 };
+type EmailPostfixRecord = {
+  id: bigint;
+  gameKey: string;
+  postfix: string;
+  enabled: boolean;
+  sortOrder: number;
+  createdAt: Date;
+  updatedAt: Date;
+};
 
 const CODM_GAME_KEY: GameKey = "codm";
 const ACCOUNT_LISTED_STATUS = 1;
@@ -66,6 +80,10 @@ const ACCOUNT_UNLISTED_STATUS = 2;
 const ACCOUNT_SOLD_STATUS = 3;
 const EMAIL_BOUND_STATUS = 1;
 const EMAIL_UNBOUND_STATUS = 2;
+const TRANSACTION_OPTIONS = {
+  maxWait: 10_000,
+  timeout: 20_000,
+} as const;
 const ACCOUNT_STATUSES = [
   { status: ACCOUNT_LISTED_STATUS, label: "已上架" },
   { status: ACCOUNT_UNLISTED_STATUS, label: "已下架" },
@@ -120,6 +138,49 @@ function assertValidOptionalUrl(url?: string): void {
 
 function composeEmailAddress(prefix: string, postfix: string): string {
   return `${prefix}${postfix}`;
+}
+
+function normalizeEmailPostfix(postfix: string): string {
+  const trimmed = postfix.trim();
+
+  return trimmed.startsWith("@") ? trimmed : `@${trimmed}`;
+}
+
+async function getEmailPostfixUsageCount(
+  client: unknown,
+  postfix: string,
+): Promise<number> {
+  const [codmUsageCount, sanguoshaUsageCount] = await Promise.all([
+    emailDelegate(client, "codm").count({ where: { postfix } }),
+    emailDelegate(client, "sanguosha").count({ where: { postfix } }),
+  ]);
+
+  return Number(codmUsageCount ?? 0) + Number(sanguoshaUsageCount ?? 0);
+}
+
+async function serializeEmailPostfixWithUsage(
+  client: unknown,
+  postfix: EmailPostfixRecord,
+): Promise<AdminEmailPostfix> {
+  const usageCount = await getEmailPostfixUsageCount(client, postfix.postfix);
+
+  return serializeEmailPostfix({ ...postfix, usageCount });
+}
+
+async function assertEmailPostfixEnabled(
+  tx: TransactionClient,
+  postfix: string,
+) {
+  const emailPostfix = await tx.gameEmailPostfix.findFirst({
+    where: {
+      postfix,
+      enabled: true,
+    },
+  });
+
+  if (!emailPostfix) {
+    throw new DomainError("EMAIL_POSTFIX_DISABLED", "邮箱后缀未启用或不存在");
+  }
 }
 
 function normalizeDefinitionOptions(
@@ -494,7 +555,11 @@ async function releaseEmailBindStatus(
   });
 }
 
-async function getNextCounterValue(tx: TransactionClient, counterName: string) {
+async function getNextCounterValue(
+  tx: TransactionClient,
+  counterName: string,
+  label?: string,
+) {
   try {
     const counter = await tx.sequenceCounter.update({
       where: { counterName },
@@ -505,7 +570,9 @@ async function getNextCounterValue(tx: TransactionClient, counterName: string) {
   } catch {
     throw new DomainError(
       "COUNTER_NOT_FOUND",
-      `计数器 ${counterName} 不存在`,
+      label
+        ? `${label} ${counterName} 不存在，请先初始化该计数器`
+        : `计数器 ${counterName} 不存在`,
       404,
     );
   }
@@ -726,18 +793,18 @@ export async function createAdminAccount(
 ): Promise<AdminAccount> {
   assertValidOptionalUrl(input.xianyuUrl);
   const game = gameConfig(input.gameKey);
+  const attributeDefinitions = await listAttributeDefinitionsForGame(
+    prisma,
+    game.key,
+    true,
+  );
+  const attributes = normalizeAccountAttributesForWrite(
+    input.attributes,
+    attributeDefinitions,
+  );
 
   return prisma.$transaction(async (tx) => {
     const accounts = accountDelegate(tx, game.key);
-    const attributeDefinitions = await listAttributeDefinitionsForGame(
-      tx,
-      game.key,
-      true,
-    );
-    const attributes = normalizeAccountAttributesForWrite(
-      input.attributes,
-      attributeDefinitions,
-    );
 
     const emailRecord = await assertAccountEmailForWrite(
       tx,
@@ -749,7 +816,11 @@ export async function createAdminAccount(
     const serialNumber =
       input.serialNumber ??
       `${game.serialPrefix}${String(
-        await getNextCounterValue(tx, game.accountCounterName),
+        await getNextCounterValue(
+          tx,
+          game.accountCounterName,
+          `${game.label}账号序号计数器`,
+        ),
       )}`;
 
     const existingAccount = await accounts.findUnique({
@@ -781,7 +852,7 @@ export async function createAdminAccount(
       attributeDefinitions,
       game.key,
     );
-  });
+  }, TRANSACTION_OPTIONS);
 }
 
 export async function updateAdminAccount(
@@ -868,7 +939,7 @@ export async function updateAdminAccount(
       attributeDefinitions,
       gameKey,
     );
-  });
+  }, TRANSACTION_OPTIONS);
 }
 
 export async function deleteAdminAccount(
@@ -889,7 +960,7 @@ export async function deleteAdminAccount(
 
     await accounts.delete({ where: { id } });
     await syncEmailBindStatusFromAccounts(tx, existingAccount.email, gameKey);
-  });
+  }, TRANSACTION_OPTIONS);
 }
 
 export async function updateAdminAccountStatus(
@@ -934,7 +1005,7 @@ export async function updateAdminAccountStatus(
       attributeDefinitions,
       gameKey,
     );
-  });
+  }, TRANSACTION_OPTIONS);
 }
 
 export async function sellAdminAccount(
@@ -987,7 +1058,118 @@ export async function sellAdminAccount(
       attributeDefinitions,
       gameKey,
     );
+  }, TRANSACTION_OPTIONS);
+}
+
+export async function listAdminEmailPostfixes(): Promise<AdminEmailPostfix[]> {
+  const postfixes = (await prisma.gameEmailPostfix.findMany({
+    orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
+  })) as EmailPostfixRecord[];
+
+  return Promise.all(
+    postfixes.map((postfix) => serializeEmailPostfixWithUsage(prisma, postfix)),
+  );
+}
+
+export async function createAdminEmailPostfix(
+  input: EmailPostfixCreateInput,
+): Promise<AdminEmailPostfix> {
+  const postfix = normalizeEmailPostfix(input.postfix);
+  const existingPostfix = await prisma.gameEmailPostfix.findUnique({
+    where: { postfix },
   });
+
+  if (existingPostfix) {
+    throw new DomainError("DUPLICATE_EMAIL_POSTFIX", "该邮箱后缀已存在");
+  }
+
+  const created = (await prisma.gameEmailPostfix.create({
+    data: {
+      gameKey: "global",
+      postfix,
+      enabled: input.enabled,
+      sortOrder: input.sortOrder,
+    },
+  })) as EmailPostfixRecord;
+
+  return serializeEmailPostfixWithUsage(prisma, created);
+}
+
+export async function updateAdminEmailPostfix(
+  id: number,
+  input: EmailPostfixUpdateInput,
+): Promise<AdminEmailPostfix> {
+  const existingPostfix = (await prisma.gameEmailPostfix.findUnique({
+    where: { id },
+  })) as EmailPostfixRecord | null;
+
+  if (!existingPostfix) {
+    throw new DomainError("NOT_FOUND", "邮箱后缀不存在", 404);
+  }
+
+  const nextPostfix =
+    input.postfix === undefined
+      ? existingPostfix.postfix
+      : normalizeEmailPostfix(input.postfix);
+
+  if (nextPostfix !== existingPostfix.postfix) {
+    const usageCount = await getEmailPostfixUsageCount(
+      prisma,
+      existingPostfix.postfix,
+    );
+
+    if (usageCount > 0) {
+      throw new DomainError(
+        "EMAIL_POSTFIX_IN_USE",
+        "该邮箱后缀已被邮箱使用，只能停用，不能修改",
+        409,
+      );
+    }
+
+    const conflictPostfix = await prisma.gameEmailPostfix.findUnique({
+      where: { postfix: nextPostfix },
+    });
+
+    if (conflictPostfix) {
+      throw new DomainError("DUPLICATE_EMAIL_POSTFIX", "该邮箱后缀已存在");
+    }
+  }
+
+  const updated = (await prisma.gameEmailPostfix.update({
+    where: { id },
+    data: {
+      postfix: input.postfix === undefined ? undefined : nextPostfix,
+      enabled: input.enabled,
+      sortOrder: input.sortOrder,
+    },
+  })) as EmailPostfixRecord;
+
+  return serializeEmailPostfixWithUsage(prisma, updated);
+}
+
+export async function deleteAdminEmailPostfix(id: number): Promise<void> {
+  const existingPostfix = (await prisma.gameEmailPostfix.findUnique({
+    where: { id },
+  })) as EmailPostfixRecord | null;
+
+  if (!existingPostfix) {
+    throw new DomainError("NOT_FOUND", "邮箱后缀不存在", 404);
+  }
+
+  const usageCount = await getEmailPostfixUsageCount(
+    prisma,
+    existingPostfix.postfix,
+  );
+
+  if (usageCount > 0) {
+    throw new DomainError(
+      "EMAIL_POSTFIX_IN_USE",
+      "该邮箱后缀已被邮箱使用，只能停用，不能删除",
+      409,
+    );
+  }
+
+  await prisma.gameEmailPostfix.delete({ where: { id } });
 }
 
 export async function listAdminEmails(
@@ -1088,26 +1270,29 @@ export async function createAdminEmail(
 ): Promise<AdminEmail> {
   assertNewEmailPrefix(input.prefix);
   const gameKey = normalizeGameKey(input.gameKey);
+  const postfix = normalizeEmailPostfix(input.postfix);
 
   return prisma.$transaction(async (tx) => {
     const emails = emailDelegate(tx, gameKey);
     const existingEmail = await emails.findFirst({
-      where: { prefix: input.prefix, postfix: input.postfix },
+      where: { prefix: input.prefix, postfix },
     });
 
     if (existingEmail) {
       throw new DomainError("DUPLICATE_EMAIL", "该邮箱已存在");
     }
 
+    await assertEmailPostfixEnabled(tx, postfix);
+
     const bindStatus = await getExpectedEmailBindStatus(
       tx,
-      composeEmailAddress(input.prefix, input.postfix),
+      composeEmailAddress(input.prefix, postfix),
       gameKey,
     );
     const email = await emails.create({
       data: {
         prefix: input.prefix,
-        postfix: input.postfix,
+        postfix,
         bindStatus,
       },
     });
@@ -1116,7 +1301,7 @@ export async function createAdminEmail(
       email as EmailRecord & { createdAt: Date; updatedAt: Date },
       gameKey,
     );
-  });
+  }, TRANSACTION_OPTIONS);
 }
 
 export async function updateAdminEmail(
@@ -1137,7 +1322,10 @@ export async function updateAdminEmail(
     }
 
     const nextPrefix = input.prefix ?? existingEmail.prefix;
-    const nextPostfix = input.postfix ?? existingEmail.postfix;
+    const nextPostfix =
+      input.postfix === undefined
+        ? existingEmail.postfix
+        : normalizeEmailPostfix(input.postfix);
     const existingAddress = composeEmailAddress(
       existingEmail.prefix,
       existingEmail.postfix,
@@ -1154,6 +1342,7 @@ export async function updateAdminEmail(
         "修改邮箱地址",
         gameKey,
       );
+      await assertEmailPostfixEnabled(tx, nextPostfix);
     }
 
     if (addressChanged) {
@@ -1179,7 +1368,7 @@ export async function updateAdminEmail(
       where: { id },
       data: {
         prefix: input.prefix,
-        postfix: input.postfix,
+        postfix: input.postfix === undefined ? undefined : nextPostfix,
         bindStatus,
       },
     });
@@ -1188,7 +1377,7 @@ export async function updateAdminEmail(
       email as EmailRecord & { createdAt: Date; updatedAt: Date },
       gameKey,
     );
-  });
+  }, TRANSACTION_OPTIONS);
 }
 
 export async function deleteAdminEmail(
@@ -1215,7 +1404,7 @@ export async function deleteAdminEmail(
     );
 
     await emails.delete({ where: { id } });
-  });
+  }, TRANSACTION_OPTIONS);
 }
 
 export async function updateAdminEmailBindStatus(
@@ -1259,7 +1448,7 @@ export async function updateAdminEmailBindStatus(
       email as EmailRecord & { createdAt: Date; updatedAt: Date },
       gameKey,
     );
-  });
+  }, TRANSACTION_OPTIONS);
 }
 
 export async function listAdminGameAttributeDefinitions(
@@ -1488,12 +1677,37 @@ export async function updateCarouselByName(
   return serializeCarousel(carousel);
 }
 
+function serializeSequenceCounterWithMetadata(
+  counter: Parameters<typeof serializeSequenceCounter>[0],
+): SequenceCounter {
+  const serialized = serializeSequenceCounter(counter);
+  const game = GAME_OPTIONS.find(
+    (option) => option.accountCounterName === serialized.counterName,
+  );
+
+  if (!game) {
+    return {
+      ...serialized,
+      displayName: serialized.counterName,
+      purpose: "自定义",
+    };
+  }
+
+  return {
+    ...serialized,
+    displayName: `${game.label} 账号编号`,
+    gameKey: game.key,
+    gameLabel: game.label,
+    purpose: "账号编号",
+  };
+}
+
 export async function listSequenceCounters(): Promise<SequenceCounter[]> {
   const counters = await prisma.sequenceCounter.findMany({
     orderBy: { counterName: "asc" },
   });
 
-  return counters.map(serializeSequenceCounter);
+  return counters.map(serializeSequenceCounterWithMetadata);
 }
 
 export async function createSequenceCounter(
@@ -1514,7 +1728,7 @@ export async function createSequenceCounter(
     },
   });
 
-  return serializeSequenceCounter(counter);
+  return serializeSequenceCounterWithMetadata(counter);
 }
 
 export async function getNextSequenceCounterValue(
@@ -1552,5 +1766,5 @@ export async function resetSequenceCounter(
     throw new DomainError("NOT_FOUND", "序号计数器未找到", 404);
   }
 
-  return serializeSequenceCounter(counter);
+  return serializeSequenceCounterWithMetadata(counter);
 }

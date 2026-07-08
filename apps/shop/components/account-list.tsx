@@ -12,27 +12,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@wuliuqi/ui/components/select";
-import { Separator } from "@wuliuqi/ui/components/separator";
-import {
-  Sheet,
-  SheetClose,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@wuliuqi/ui/components/sheet";
 import { Skeleton } from "@wuliuqi/ui/components/skeleton";
 import { toast } from "@wuliuqi/ui/components/sonner";
 import { Spinner } from "@wuliuqi/ui/components/spinner";
-import { preventOutsideDismiss } from "@wuliuqi/ui/lib/modal-interactions";
 import { cn } from "@wuliuqi/ui/lib/utils";
-import {
-  RefreshCw,
-  RotateCcw,
-  Search,
-  SlidersHorizontal,
-  Sparkles,
-} from "lucide-react";
+import { RefreshCw, RotateCcw, Search, Sparkles } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ProductCard } from "@/components/product-card";
 import { fetchAccounts } from "@/lib/client-api";
@@ -40,13 +24,13 @@ import { fetchAccounts } from "@/lib/client-api";
 const PAGE_SIZE = 12;
 
 const priceRanges = [
-  { label: "全部价格", min: 0, max: 0 },
-  { label: "¥0-500", min: 0, max: 500 },
-  { label: "¥501-1000", min: 501, max: 1000 },
-  { label: "¥1001-2000", min: 1001, max: 2000 },
-  { label: "¥2001-5000", min: 2001, max: 5000 },
-  { label: "¥5000+", min: 5001, max: 999999 },
-];
+  { label: "全部价格", min: 0, max: 0, value: "all" },
+  { label: "¥0-500", min: 0, max: 500, value: "0-500" },
+  { label: "¥501-1000", min: 501, max: 1000, value: "501-1000" },
+  { label: "¥1001-2000", min: 1001, max: 2000, value: "1001-2000" },
+  { label: "¥2001-5000", min: 2001, max: 5000, value: "2001-5000" },
+  { label: "¥5000+", min: 5001, max: 999999, value: "5000+" },
+] as const;
 
 const sortOptions = [
   { label: "最新上架", value: "latest" },
@@ -308,9 +292,6 @@ export function AccountList({
     void loadPage(failedLoad.page, "retry", failedLoad.replace);
   }
 
-  const activeRangeLabel = priceRanges[activeRange]?.label ?? "全部价格";
-  const activeSortLabel =
-    sortOptions.find((option) => option.value === sort)?.label ?? "最新上架";
   const isReplaceLoading = loading && loadingMode !== "append";
   const isRetryLoading = loading && loadingMode === "retry";
   const isSkeletonLoading = loading && accounts.length === 0 && !error;
@@ -336,67 +317,12 @@ export function AccountList({
             <Badge className="rounded-sm px-2 py-1" variant="secondary">
               {total} 个账号
             </Badge>
-            <Sheet>
-              <SheetTrigger asChild>
-                <Button
-                  aria-label="打开账号筛选"
-                  className="h-9 rounded-md md:hidden"
-                  disabled={controlsDisabled}
-                  title="打开账号筛选"
-                  type="button"
-                  variant="outline"
-                >
-                  <SlidersHorizontal size={16} />
-                  筛选
-                </Button>
-              </SheetTrigger>
-              <SheetContent
-                className="w-[86vw] p-4"
-                side="right"
-                onFocusOutside={preventOutsideDismiss}
-                onInteractOutside={preventOutsideDismiss}
-                onPointerDownOutside={preventOutsideDismiss}
-              >
-                <SheetHeader className="mb-4 text-left">
-                  <SheetTitle>筛选账号</SheetTitle>
-                </SheetHeader>
-                <FilterControls
-                  activeRange={activeRange}
-                  activeSortLabel={activeSortLabel}
-                  clearFilters={clearFilters}
-                  controlsDisabled={controlsDisabled}
-                  loadingMode={loadingMode}
-                  searchValue={searchValue}
-                  setSearchValue={setSearchValue}
-                  sort={sort}
-                  stacked
-                  showInlineLoading={showInlineLoading}
-                  onRangeChange={handleRangeChange}
-                  onSearch={handleSearch}
-                  onSortChange={handleSortChange}
-                />
-                <SheetClose asChild>
-                  <Button
-                    className="mt-4 w-full"
-                    disabled={isReplaceLoading}
-                    title="查看筛选结果"
-                    type="button"
-                  >
-                    {isReplaceLoading && showInlineLoading ? <Spinner /> : null}
-                    {isReplaceLoading && showInlineLoading
-                      ? "加载中..."
-                      : "查看结果"}
-                  </Button>
-                </SheetClose>
-              </SheetContent>
-            </Sheet>
           </div>
         </div>
 
-        <div className="hidden rounded-md border border-border bg-card p-3 shadow-xs md:block">
+        <div className="rounded-md border border-border bg-card p-3 shadow-xs">
           <FilterControls
             activeRange={activeRange}
-            activeSortLabel={activeSortLabel}
             clearFilters={clearFilters}
             controlsDisabled={controlsDisabled}
             loadingMode={loadingMode}
@@ -408,18 +334,6 @@ export function AccountList({
             onSearch={handleSearch}
             onSortChange={handleSortChange}
           />
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground md:hidden">
-          <span>{activeRangeLabel}</span>
-          <Separator className="h-3" orientation="vertical" />
-          <span>{activeSortLabel}</span>
-          {keyword ? (
-            <>
-              <Separator className="h-3" orientation="vertical" />
-              <span className="min-w-0 truncate">搜索：{keyword}</span>
-            </>
-          ) : null}
         </div>
       </div>
 
@@ -481,7 +395,6 @@ export function AccountList({
 
 function FilterControls({
   activeRange,
-  activeSortLabel,
   clearFilters,
   controlsDisabled,
   loadingMode,
@@ -492,10 +405,8 @@ function FilterControls({
   setSearchValue,
   showInlineLoading,
   sort,
-  stacked = false,
 }: {
   activeRange: number;
-  activeSortLabel: string;
   clearFilters: () => void;
   controlsDisabled: boolean;
   loadingMode: LoadingMode | null;
@@ -506,7 +417,6 @@ function FilterControls({
   setSearchValue: (value: string) => void;
   showInlineLoading: boolean;
   sort: SortValue;
-  stacked?: boolean;
 }) {
   const isFilterLoading = loadingMode === "filter";
   const isResetLoading = loadingMode === "reset";
@@ -516,17 +426,9 @@ function FilterControls({
   const showSearchLoading = showInlineLoading && isSearchLoading;
 
   return (
-    <div
-      className={cn(
-        "gap-3",
-        stacked ? "flex flex-col" : "grid grid-cols-[1fr_auto]",
-      )}
-    >
+    <div className="grid gap-2 sm:grid-cols-[minmax(180px,1fr)_auto_minmax(150px,180px)_minmax(160px,190px)_auto]">
       <form
-        className={cn(
-          "grid gap-2",
-          stacked ? "grid-cols-1" : "grid-cols-[minmax(180px,1fr)_auto]",
-        )}
+        className="grid gap-2 sm:col-span-2 sm:grid-cols-[minmax(180px,1fr)_auto]"
         onSubmit={(event) => {
           event.preventDefault();
           onSearch();
@@ -555,65 +457,64 @@ function FilterControls({
         </Button>
       </form>
 
-      <div
-        className={cn(
-          "flex gap-2",
-          stacked
-            ? "flex-col"
-            : "min-w-0 flex-wrap items-center justify-end xl:flex-nowrap",
-        )}
+      <Select
+        disabled={controlsDisabled}
+        value={String(activeRange)}
+        onValueChange={(value) => onRangeChange(Number(value))}
       >
-        <div className={cn("flex gap-2", stacked ? "flex-wrap" : "flex-wrap")}>
+        <SelectTrigger
+          aria-label="价格区间"
+          className="h-9 rounded-md"
+          title="选择价格区间"
+        >
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
           {priceRanges.map((range, index) => (
-            <Button
+            <SelectItem
               key={range.label}
-              className="h-9 rounded-md px-3 text-xs"
-              disabled={controlsDisabled}
-              title={`筛选${range.label}账号`}
-              type="button"
-              variant={activeRange === index ? "default" : "outline"}
-              onClick={() => onRangeChange(index)}
+              value={String(index)}
             >
-              {showFilterLoading && activeRange === index ? <Spinner /> : null}
               {range.label}
-            </Button>
+            </SelectItem>
           ))}
-        </div>
-        <Select
-          disabled={controlsDisabled}
-          value={sort}
-          onValueChange={(value) => onSortChange(value as SortValue)}
+        </SelectContent>
+      </Select>
+      <Select
+        disabled={controlsDisabled}
+        value={sort}
+        onValueChange={(value) => onSortChange(value as SortValue)}
+      >
+        <SelectTrigger
+          aria-label="排序"
+          className="h-9 rounded-md"
+          title="选择账号排序"
         >
-          <SelectTrigger
-            aria-label="排序"
-            className={cn("h-9 rounded-md", stacked ? "w-full" : "w-[154px]")}
-            title="选择账号排序"
-          >
-            <SelectValue placeholder={activeSortLabel} />
-          </SelectTrigger>
-          <SelectContent>
-            {sortOptions.map((option) => (
-              <SelectItem key={option.value} value={option.value}>
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Button
-          className={cn(
-            "h-9 rounded-md border-border bg-background px-3 text-xs",
-            stacked ? "w-full justify-center" : "shrink-0",
-          )}
-          disabled={controlsDisabled}
-          title="重置账号筛选"
-          type="button"
-          variant="outline"
-          onClick={clearFilters}
-        >
-          {showResetLoading ? <Spinner /> : <RotateCcw size={15} />}
-          {showResetLoading ? "重置中..." : "重置"}
-        </Button>
-      </div>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {sortOptions.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <Button
+        className="h-9 rounded-md border-border bg-background px-3 text-xs"
+        disabled={controlsDisabled}
+        title="重置账号筛选"
+        type="button"
+        variant="outline"
+        onClick={clearFilters}
+      >
+        {showResetLoading || showFilterLoading ? (
+          <Spinner />
+        ) : (
+          <RotateCcw size={15} />
+        )}
+        {showResetLoading || showFilterLoading ? "加载中..." : "重置"}
+      </Button>
     </div>
   );
 }

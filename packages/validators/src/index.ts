@@ -12,6 +12,7 @@ export const EMAIL_BIND_STATUS = {
 } as const;
 
 export const GAME_KEYS = ["codm", "sanguosha"] as const;
+const HOME_GAME_KEYS = [...GAME_KEYS, "all"] as const;
 
 const gameKeyQueryField = z
   .enum(GAME_KEYS)
@@ -93,13 +94,29 @@ export type AccountListQuery = z.infer<typeof accountListQuerySchema>;
 
 export const shopHomeAccountListQuerySchema = z.object({
   cursor: optionalString,
+  game_key: z.enum(HOME_GAME_KEYS).optional().default("all"),
   limit: z
     .string()
     .trim()
     .optional()
     .transform((value) => (value ? Number(value) : 12))
     .pipe(z.number().int().min(1).max(30)),
-});
+  min_price: optionalNumberFromQuery.pipe(z.number().min(0).optional()),
+  max_price: optionalNumberFromQuery.pipe(z.number().min(0).optional()),
+  sort: z
+    .enum(["latest", "price_asc", "price_desc"])
+    .optional()
+    .default("latest"),
+}).refine(
+  (query) =>
+    query.min_price === undefined ||
+    query.max_price === undefined ||
+    query.min_price <= query.max_price,
+  {
+    message: "最低价格不能大于最高价格",
+    path: ["min_price"],
+  },
+);
 
 export type ShopHomeAccountListQuery = z.infer<
   typeof shopHomeAccountListQuerySchema
@@ -163,23 +180,42 @@ const emailPostfixSchema = z
   .string()
   .trim()
   .min(2, "邮箱后缀为必填项")
-  .max(255)
-  .refine((value) => value.startsWith("@"), "邮箱后缀必须以 @ 开头");
+  .max(255);
+
+const emailPostfixBodySchema = emailPostfixSchema.transform((value) =>
+  value.startsWith("@") ? value : `@${value}`,
+);
 
 const emailBindStatusFieldSchema = z.union([z.literal(1), z.literal(2)]);
 
 export const adminEmailCreateSchema = z.object({
   gameKey: gameKeyBodyField,
   prefix: newEmailPrefixSchema,
-  postfix: emailPostfixSchema,
+  postfix: emailPostfixBodySchema,
   bindStatus: emailBindStatusFieldSchema.default(2),
 });
 
 export const adminEmailUpdateSchema = z
   .object({
     prefix: emailPrefixSchema.optional(),
-    postfix: emailPostfixSchema.optional(),
+    postfix: emailPostfixBodySchema.optional(),
     bindStatus: emailBindStatusFieldSchema.optional(),
+  })
+  .refine((data) => Object.keys(data).length > 0, {
+    message: "请至少提供一个要更新的字段",
+  });
+
+export const emailPostfixCreateSchema = z.object({
+  postfix: emailPostfixBodySchema,
+  enabled: z.boolean().default(true),
+  sortOrder: z.coerce.number().int().min(0).default(0),
+});
+
+export const emailPostfixUpdateSchema = z
+  .object({
+    postfix: emailPostfixBodySchema.optional(),
+    enabled: z.boolean().optional(),
+    sortOrder: z.coerce.number().int().min(0).optional(),
   })
   .refine((data) => Object.keys(data).length > 0, {
     message: "请至少提供一个要更新的字段",
@@ -388,6 +424,8 @@ export type GameAttributeDefinitionUpdateInput = z.infer<
 export type AdminEmailListQuery = z.infer<typeof adminEmailListQuerySchema>;
 export type AdminEmailCreateInput = z.infer<typeof adminEmailCreateSchema>;
 export type AdminEmailUpdateInput = z.infer<typeof adminEmailUpdateSchema>;
+export type EmailPostfixCreateInput = z.infer<typeof emailPostfixCreateSchema>;
+export type EmailPostfixUpdateInput = z.infer<typeof emailPostfixUpdateSchema>;
 export type CarouselUpdateInput = z.infer<typeof carouselUpdateSchema>;
 export type SequenceCounterCreateInput = z.infer<
   typeof sequenceCounterCreateSchema

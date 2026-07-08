@@ -19,6 +19,8 @@ import { fetchCarousel } from "@/lib/client-api";
 
 const CAROUSEL_NAME = "home_ads";
 const SWIPE_THRESHOLD = 48;
+const AUTO_PLAY_INTERVAL_MS = 3000;
+const AUTO_PLAY_PAUSE_AFTER_INTERACTION_MS = 5000;
 
 export function HomeCarousel() {
   const [items, setItems] = useState<CarouselItem[]>([]);
@@ -27,6 +29,7 @@ export function HomeCarousel() {
   const [active, setActive] = useState(0);
   const dragStartXRef = useRef<number | null>(null);
   const dragPointerIdRef = useRef<number | null>(null);
+  const autoPlayPausedUntilRef = useRef(0);
   const requestIdRef = useRef(0);
   const requestControllerRef = useRef<AbortController | null>(null);
 
@@ -89,30 +92,65 @@ export function HomeCarousel() {
       return;
     }
 
-    const timer = window.setInterval(() => {
-      setActive((current) => (current + 1) % items.length);
-    }, 3000);
+    let timer: number | undefined;
+    let disposed = false;
 
-    return () => window.clearInterval(timer);
+    const scheduleNext = (delay: number) => {
+      timer = window.setTimeout(tick, delay);
+    };
+
+    const tick = () => {
+      if (disposed) {
+        return;
+      }
+
+      const pauseRemaining = autoPlayPausedUntilRef.current - Date.now();
+
+      if (pauseRemaining > 0) {
+        scheduleNext(pauseRemaining);
+        return;
+      }
+
+      setActive((current) => (current + 1) % items.length);
+      scheduleNext(AUTO_PLAY_INTERVAL_MS);
+    };
+
+    scheduleNext(AUTO_PLAY_INTERVAL_MS);
+
+    return () => {
+      disposed = true;
+
+      if (timer !== undefined) {
+        window.clearTimeout(timer);
+      }
+    };
   }, [items.length]);
 
   useEffect(() => {
     setActive((current) => (items[current] ? current : 0));
   }, [items]);
 
+  const pauseAutoPlay = useCallback(() => {
+    autoPlayPausedUntilRef.current =
+      Date.now() + AUTO_PLAY_PAUSE_AFTER_INTERACTION_MS;
+  }, []);
+
   const showPrevious = useCallback(() => {
+    pauseAutoPlay();
     setActive((current) => (current - 1 + items.length) % items.length);
-  }, [items.length]);
+  }, [items.length, pauseAutoPlay]);
 
   const showNext = useCallback(() => {
+    pauseAutoPlay();
     setActive((current) => (current + 1) % items.length);
-  }, [items.length]);
+  }, [items.length, pauseAutoPlay]);
 
   function handlePointerDown(event: PointerEvent<HTMLDivElement>) {
     if (items.length < 2) {
       return;
     }
 
+    pauseAutoPlay();
     dragStartXRef.current = event.clientX;
     dragPointerIdRef.current = event.pointerId;
     if (!event.currentTarget.hasPointerCapture(event.pointerId)) {
@@ -234,8 +272,14 @@ export function HomeCarousel() {
               )}
               title={`切换到第 ${index + 1} 张轮播图`}
               type="button"
-              onClick={() => setActive(index)}
-              onPointerDown={(event) => event.stopPropagation()}
+              onClick={() => {
+                pauseAutoPlay();
+                setActive(index);
+              }}
+              onPointerDown={(event) => {
+                pauseAutoPlay();
+                event.stopPropagation();
+              }}
             />
           ))}
         </div>

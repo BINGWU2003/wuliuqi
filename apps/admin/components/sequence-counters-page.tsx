@@ -11,6 +11,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@wuliuqi/ui/components/alert-dialog";
+import { Badge } from "@wuliuqi/ui/components/badge";
 import { Button } from "@wuliuqi/ui/components/button";
 import {
   Card,
@@ -210,11 +211,21 @@ export function SequenceCountersPage() {
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <div className="break-all font-medium">
+                  {counter.displayName ?? counter.counterName}
+                </div>
+                <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                  <Badge className="rounded-sm" variant="secondary">
+                    {counter.gameLabel ?? "自定义"}
+                  </Badge>
+                  <Badge className="rounded-sm" variant="secondary">
+                    {counter.purpose ?? "自定义"}
+                  </Badge>
+                </div>
+                <div className="mt-1 break-all text-xs text-muted-foreground">
                   {counter.counterName}
                 </div>
                 <div className="mt-1 text-xs text-muted-foreground">
-                  <span className="mr-2">更新</span>
-                  {formatDate(counter.updatedAt)}
+                  更新 {formatDate(counter.updatedAt)}
                 </div>
               </div>
               <div className="shrink-0 rounded-md bg-muted px-2 py-1 font-mono text-sm font-semibold">
@@ -304,6 +315,8 @@ export function SequenceCountersPage() {
           <TableHeader>
             <TableRow>
               <TableHead>名称</TableHead>
+              <TableHead>游戏</TableHead>
+              <TableHead>用途</TableHead>
               <TableHead>当前值</TableHead>
               <TableHead>更新</TableHead>
               <TableHead className="text-right">操作</TableHead>
@@ -313,8 +326,23 @@ export function SequenceCountersPage() {
             {isInitialLoading ? <CounterTableSkeletonRows /> : null}
             {counters.map((counter) => (
               <TableRow key={counter.id}>
-                <TableCell className="font-medium">
-                  {counter.counterName}
+                <TableCell>
+                  <div className="font-medium">
+                    {counter.displayName ?? counter.counterName}
+                  </div>
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    {counter.counterName}
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <Badge className="rounded-sm" variant="secondary">
+                    {counter.gameLabel ?? "自定义"}
+                  </Badge>
+                </TableCell>
+                <TableCell>
+                  <Badge className="rounded-sm" variant="secondary">
+                    {counter.purpose ?? "自定义"}
+                  </Badge>
                 </TableCell>
                 <TableCell className="font-mono">
                   {counter.currentValue}
@@ -393,7 +421,7 @@ export function SequenceCountersPage() {
               <TableRow>
                 <TableCell
                   className="py-10 text-center text-muted-foreground"
-                  colSpan={4}
+                  colSpan={6}
                 >
                   暂无计数器
                 </TableCell>
@@ -494,6 +522,12 @@ function CounterTableSkeletonRows() {
     <TableRow key={index}>
       <TableCell>
         <Skeleton className="h-4 w-48" />
+      </TableCell>
+      <TableCell>
+        <Skeleton className="h-5 w-16" />
+      </TableCell>
+      <TableCell>
+        <Skeleton className="h-5 w-16" />
       </TableCell>
       <TableCell>
         <Skeleton className="h-4 w-16" />

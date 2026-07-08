@@ -60,6 +60,14 @@ const { prismaMock } = vi.hoisted(() => {
       findUnique: vi.fn(),
       update: vi.fn(),
     },
+    gameEmailPostfix: {
+      create: vi.fn(),
+      delete: vi.fn(),
+      findFirst: vi.fn(),
+      findMany: vi.fn(),
+      findUnique: vi.fn(),
+      update: vi.fn(),
+    },
     sequenceCounter: {
       create: vi.fn(),
       findMany: vi.fn(),
@@ -79,18 +87,23 @@ import {
   clearAdminGameAttributeDefinitionValues,
   createAdminAccount,
   createAdminEmail,
+  createAdminEmailPostfix,
   createAdminGameAttributeDefinition,
   deleteAdminEmail,
+  deleteAdminEmailPostfix,
   deleteAdminGameAttributeDefinition,
   getAdminAccountStatistics,
+  listAdminEmailPostfixes,
   listAdminAccounts,
   listAdminEmails,
   listAdminGameAttributeDefinitions,
+  listSequenceCounters,
   sellAdminAccount,
   updateAdminAccount,
   updateAdminAccountStatus,
   updateAdminEmail,
   updateAdminEmailBindStatus,
+  updateAdminEmailPostfix,
   updateAdminGameAttributeDefinition,
 } from "./admin";
 
@@ -180,6 +193,27 @@ function emailRecord(
   };
 }
 
+function emailPostfixRecord(
+  patch: Partial<{
+    id: bigint;
+    gameKey: string;
+    postfix: string;
+    enabled: boolean;
+    sortOrder: number;
+  }> = {},
+) {
+  return {
+    id: 5n,
+    gameKey: "codm",
+    postfix: "@163.com",
+    enabled: true,
+    sortOrder: 0,
+    createdAt: baseDate,
+    updatedAt: baseDate,
+    ...patch,
+  };
+}
+
 function sequenceCounterRecord(
   patch: Partial<{
     id: bigint;
@@ -201,6 +235,7 @@ beforeEach(() => {
   prismaMock.$transaction.mockImplementation(async (callback) =>
     callback(prismaMock),
   );
+  prismaMock.gameEmailPostfix.findFirst.mockResolvedValue(emailPostfixRecord());
 });
 
 describe("后台属性标签", () => {
@@ -747,6 +782,86 @@ describe("后台账号", () => {
     });
   });
 
+  it("创建三国杀账号时使用独立的序号计数器", async () => {
+    prismaMock.gameAttributeDefinition.findMany.mockResolvedValue([]);
+    prismaMock.sanguoshaEmail.findFirst.mockResolvedValue(
+      emailRecord({ id: 9n, prefix: "sgs", postfix: "@163.com" }),
+    );
+    prismaMock.sanguoshaAccount.findFirst.mockResolvedValue(null);
+    prismaMock.sequenceCounter.update.mockResolvedValue(
+      sequenceCounterRecord({
+        counterName: "SANGUOSHA_ACCOUNT",
+        currentValue: 11n,
+      }),
+    );
+    prismaMock.sanguoshaAccount.findUnique.mockResolvedValue(null);
+    prismaMock.sanguoshaAccount.create.mockResolvedValue(
+      accountRecord({
+        serialNumber: "#SGS-11",
+        email: "sgs@163.com",
+        status: 1,
+      }),
+    );
+
+    const account = await createAdminAccount({
+      gameKey: "sanguosha",
+      serialNumber: undefined,
+      images: ["https://cdn.example.com/sgs.jpg"],
+      attributes: {},
+      price: 199,
+      title: "三国杀账号",
+      description: "测试描述",
+      xianyuUrl: undefined,
+      email: "sgs@163.com",
+      status: 1,
+    });
+
+    expect(prismaMock.sequenceCounter.update).toHaveBeenCalledWith({
+      where: { counterName: "SANGUOSHA_ACCOUNT" },
+      data: { currentValue: { increment: 1 } },
+    });
+    expect(prismaMock.sanguoshaAccount.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        serialNumber: "#SGS-11",
+        email: "sgs@163.com",
+      }),
+    });
+    expect(prismaMock.codmAccount.create).not.toHaveBeenCalled();
+    expect(account).toMatchObject({
+      gameKey: "sanguosha",
+      serialNumber: "#SGS-11",
+    });
+  });
+
+  it("创建账号缺少序号计数器时返回带游戏名称的错误", async () => {
+    prismaMock.gameAttributeDefinition.findMany.mockResolvedValue([]);
+    prismaMock.sanguoshaEmail.findFirst.mockResolvedValue(
+      emailRecord({ id: 9n, prefix: "sgs", postfix: "@163.com" }),
+    );
+    prismaMock.sanguoshaAccount.findFirst.mockResolvedValue(null);
+    prismaMock.sequenceCounter.update.mockRejectedValue(new Error("missing"));
+
+    await expect(
+      createAdminAccount({
+        gameKey: "sanguosha",
+        serialNumber: undefined,
+        images: ["https://cdn.example.com/sgs.jpg"],
+        attributes: {},
+        price: 199,
+        title: "三国杀账号",
+        description: "测试描述",
+        xianyuUrl: undefined,
+        email: "sgs@163.com",
+        status: 1,
+      }),
+    ).rejects.toMatchObject({
+      code: "COUNTER_NOT_FOUND",
+      message:
+        "三国杀账号序号计数器 SANGUOSHA_ACCOUNT 不存在，请先初始化该计数器",
+    });
+    expect(prismaMock.sanguoshaAccount.create).not.toHaveBeenCalled();
+  });
+
   it("拒绝无效的账号属性值", async () => {
     prismaMock.gameAttributeDefinition.findMany.mockResolvedValue([
       attributeDefinitionRecord({
@@ -1182,5 +1297,201 @@ describe("后台邮箱", () => {
       code: "EMAIL_BIND_STATUS_CONFLICT",
     });
     expect(prismaMock.codmEmail.update).not.toHaveBeenCalled();
+  });
+});
+
+describe("后台邮箱后缀", () => {
+  it("列出全局邮箱后缀并统计所有游戏的使用数量", async () => {
+    prismaMock.gameEmailPostfix.findMany.mockResolvedValue([
+      emailPostfixRecord({ id: 1n, postfix: "@163.com" }),
+      emailPostfixRecord({
+        id: 2n,
+        postfix: "@gmail.com",
+        enabled: false,
+        sortOrder: 1,
+      }),
+    ]);
+    prismaMock.codmEmail.count
+      .mockResolvedValueOnce(10)
+      .mockResolvedValueOnce(0);
+    prismaMock.sanguoshaEmail.count
+      .mockResolvedValueOnce(3)
+      .mockResolvedValueOnce(0);
+
+    const postfixes = await listAdminEmailPostfixes();
+
+    expect(prismaMock.gameEmailPostfix.findMany).toHaveBeenCalledWith({
+      orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
+    });
+    expect(prismaMock.codmEmail.count).toHaveBeenNthCalledWith(1, {
+      where: { postfix: "@163.com" },
+    });
+    expect(prismaMock.sanguoshaEmail.count).toHaveBeenNthCalledWith(1, {
+      where: { postfix: "@163.com" },
+    });
+    expect(prismaMock.codmEmail.count).toHaveBeenNthCalledWith(2, {
+      where: { postfix: "@gmail.com" },
+    });
+    expect(prismaMock.sanguoshaEmail.count).toHaveBeenNthCalledWith(2, {
+      where: { postfix: "@gmail.com" },
+    });
+    expect(postfixes).toMatchObject([
+      {
+        postfix: "@163.com",
+        enabled: true,
+        usageCount: 13,
+      },
+      {
+        postfix: "@gmail.com",
+        enabled: false,
+        usageCount: 0,
+      },
+    ]);
+  });
+
+  it("创建邮箱后缀时规范化 @ 前缀并拒绝重复", async () => {
+    prismaMock.gameEmailPostfix.findUnique.mockResolvedValue(null);
+    prismaMock.gameEmailPostfix.create.mockResolvedValue(
+      emailPostfixRecord({ postfix: "@163.com", sortOrder: 3 }),
+    );
+    prismaMock.codmEmail.count.mockResolvedValue(0);
+
+    const postfix = await createAdminEmailPostfix({
+      postfix: "163.com",
+      enabled: true,
+      sortOrder: 3,
+    });
+
+    expect(prismaMock.gameEmailPostfix.findUnique).toHaveBeenCalledWith({
+      where: {
+        postfix: "@163.com",
+      },
+    });
+    expect(prismaMock.gameEmailPostfix.create).toHaveBeenCalledWith({
+      data: {
+        gameKey: "global",
+        postfix: "@163.com",
+        enabled: true,
+        sortOrder: 3,
+      },
+    });
+    expect(postfix).toMatchObject({
+      postfix: "@163.com",
+      usageCount: 0,
+    });
+  });
+
+  it("创建重复邮箱后缀时报错", async () => {
+    prismaMock.gameEmailPostfix.findUnique.mockResolvedValue(
+      emailPostfixRecord(),
+    );
+
+    await expect(
+      createAdminEmailPostfix({
+        postfix: "@163.com",
+        enabled: true,
+        sortOrder: 0,
+      }),
+    ).rejects.toMatchObject({ code: "DUPLICATE_EMAIL_POSTFIX" });
+    expect(prismaMock.gameEmailPostfix.create).not.toHaveBeenCalled();
+  });
+
+  it("更新邮箱后缀时可以停用已使用的后缀", async () => {
+    prismaMock.gameEmailPostfix.findUnique.mockResolvedValue(
+      emailPostfixRecord(),
+    );
+    prismaMock.gameEmailPostfix.update.mockResolvedValue(
+      emailPostfixRecord({ enabled: false }),
+    );
+    prismaMock.codmEmail.count.mockResolvedValue(6);
+    prismaMock.sanguoshaEmail.count.mockResolvedValue(2);
+
+    const postfix = await updateAdminEmailPostfix(5, { enabled: false });
+
+    expect(prismaMock.gameEmailPostfix.update).toHaveBeenCalledWith({
+      where: { id: 5 },
+      data: { enabled: false },
+    });
+    expect(postfix).toMatchObject({
+      enabled: false,
+      usageCount: 8,
+    });
+  });
+
+  it("邮箱后缀已被邮箱使用时拒绝删除", async () => {
+    prismaMock.gameEmailPostfix.findUnique.mockResolvedValue(
+      emailPostfixRecord(),
+    );
+    prismaMock.codmEmail.count.mockResolvedValue(1);
+    prismaMock.sanguoshaEmail.count.mockResolvedValue(0);
+
+    await expect(deleteAdminEmailPostfix(5)).rejects.toMatchObject({
+      code: "EMAIL_POSTFIX_IN_USE",
+      status: 409,
+    });
+    expect(prismaMock.gameEmailPostfix.delete).not.toHaveBeenCalled();
+  });
+
+  it("删除未被使用的邮箱后缀", async () => {
+    prismaMock.gameEmailPostfix.findUnique.mockResolvedValue(
+      emailPostfixRecord({ postfix: "@gmail.com" }),
+    );
+    prismaMock.codmEmail.count.mockResolvedValue(0);
+    prismaMock.sanguoshaEmail.count.mockResolvedValue(0);
+
+    await deleteAdminEmailPostfix(5);
+
+    expect(prismaMock.gameEmailPostfix.delete).toHaveBeenCalledWith({
+      where: { id: 5 },
+    });
+  });
+});
+
+describe("后台序号计数器", () => {
+  it("列出计数器时带出游戏和用途说明", async () => {
+    prismaMock.sequenceCounter.findMany.mockResolvedValue([
+      sequenceCounterRecord({
+        id: 1n,
+        counterName: "CODM_ACCOUNT",
+        currentValue: 42n,
+      }),
+      sequenceCounterRecord({
+        id: 2n,
+        counterName: "SANGUOSHA_ACCOUNT",
+        currentValue: 11n,
+      }),
+      sequenceCounterRecord({
+        id: 3n,
+        counterName: "CUSTOM_COUNTER",
+        currentValue: 3n,
+      }),
+    ]);
+
+    const counters = await listSequenceCounters();
+
+    expect(counters).toMatchObject([
+      {
+        counterName: "CODM_ACCOUNT",
+        currentValue: 42,
+        gameKey: "codm",
+        gameLabel: "CODM",
+        purpose: "账号编号",
+        displayName: "CODM 账号编号",
+      },
+      {
+        counterName: "SANGUOSHA_ACCOUNT",
+        currentValue: 11,
+        gameKey: "sanguosha",
+        gameLabel: "三国杀",
+        purpose: "账号编号",
+        displayName: "三国杀 账号编号",
+      },
+      {
+        counterName: "CUSTOM_COUNTER",
+        currentValue: 3,
+        purpose: "自定义",
+        displayName: "CUSTOM_COUNTER",
+      },
+    ]);
   });
 });

@@ -122,10 +122,24 @@ export interface AdminEmailListResult {
   keyword?: string;
 }
 
+export interface AdminEmailPostfix {
+  id: number;
+  postfix: string;
+  enabled: boolean;
+  sortOrder: number;
+  usageCount: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface SequenceCounter {
   id: number;
   counterName: string;
   currentValue: number;
+  gameKey?: GameKey;
+  gameLabel?: string;
+  purpose?: string;
+  displayName?: string;
   updatedAt?: string;
 }
 

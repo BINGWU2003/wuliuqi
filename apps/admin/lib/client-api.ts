@@ -4,6 +4,7 @@ import type {
   AdminAccountStatistics,
   AdminEmail,
   AdminEmailListResult,
+  AdminEmailPostfix,
   AdminUser,
   ApiResponse,
   AccountAttributes,
@@ -38,6 +39,12 @@ type EmailPayload = {
   prefix: string;
   postfix: string;
   bindStatus?: 1 | 2;
+};
+
+type EmailPostfixPayload = {
+  postfix?: string;
+  enabled?: boolean;
+  sortOrder?: number;
 };
 
 type AttributeDefinitionPayload = {
@@ -253,6 +260,33 @@ export async function deleteEmail(id: number, gameKey: GameKey = "codm") {
   const params = paramsFrom({ game_key: gameKey });
 
   return requestJson<{ deleted: boolean }>(`/api/emails/${id}?${params}`, {
+    method: "DELETE",
+  });
+}
+
+export async function fetchEmailPostfixes() {
+  return requestJson<AdminEmailPostfix[]>("/api/email-postfixes");
+}
+
+export async function createEmailPostfix(payload: EmailPostfixPayload) {
+  return requestJson<AdminEmailPostfix>("/api/email-postfixes", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateEmailPostfix(
+  id: number,
+  payload: EmailPostfixPayload,
+) {
+  return requestJson<AdminEmailPostfix>(`/api/email-postfixes/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteEmailPostfix(id: number) {
+  return requestJson<{ deleted: boolean }>(`/api/email-postfixes/${id}`, {
     method: "DELETE",
   });
 }

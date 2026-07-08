@@ -27,9 +27,29 @@ export function getAccountName(account: ShopAccount) {
 
 export function getAccountBadges(account: ShopAccount) {
   if (account.gameKey === "sanguosha") {
-    return getGenericAttributeBadges(account);
+    return getGenericAttributeBadgesWithImages(account);
   }
 
+  const badges = getCodmAttributeBadges(account);
+
+  if (account.images.length > 0) {
+    badges.push(`${account.images.length} 图`);
+  }
+
+  return badges.slice(0, 3);
+}
+
+export function getAccountCardBadges(account: ShopAccount) {
+  const gameLabel = account.gameKey === "sanguosha" ? "三国杀" : "CODM";
+  const attributeBadges =
+    account.gameKey === "sanguosha"
+      ? getGenericAttributeBadges(account)
+      : getCodmAttributeBadges(account);
+
+  return [gameLabel, ...attributeBadges].slice(0, 3);
+}
+
+function getCodmAttributeBadges(account: ShopAccount) {
   const badges: string[] = [];
   const mythic = account.attributes.mythic_skins;
   const legendary = account.attributes.legendary_skins;
@@ -42,19 +62,18 @@ export function getAccountBadges(account: ShopAccount) {
     badges.push(`${legendary} 传说`);
   }
 
-  if (account.images.length > 0) {
-    badges.push(`${account.images.length} 图`);
-  }
-
-  return badges.slice(0, 3);
+  return badges;
 }
 
 function getGenericAttributeBadges(account: ShopAccount) {
-  const badges = account.attributeValues
+  return account.attributeValues
     .filter((attribute) => attribute.displayValue)
     .slice(0, 2)
     .map((attribute) => `${attribute.label} ${attribute.displayValue}`);
+}
 
+function getGenericAttributeBadgesWithImages(account: ShopAccount) {
+  const badges = getGenericAttributeBadges(account);
   if (account.images.length > 0) {
     badges.push(`${account.images.length} 图`);
   }

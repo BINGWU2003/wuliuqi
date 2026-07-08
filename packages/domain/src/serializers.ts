@@ -4,6 +4,7 @@ import type {
   AccountAttributeValue,
   AccountAttributes,
   AdminEmail,
+  AdminEmailPostfix,
   AdminUser,
   Carousel,
   CarouselItem,
@@ -59,6 +60,17 @@ type EmailRecord = {
   postfix: string;
   bindStatus: number;
   boundAccountId?: bigint | number | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type EmailPostfixRecord = {
+  id: bigint;
+  gameKey: string;
+  postfix: string;
+  enabled: boolean;
+  sortOrder: number;
+  usageCount?: number;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -301,6 +313,20 @@ export function serializeEmail(
     ...(boundAccountId === undefined ? {} : { boundAccountId }),
     createdAt: toIsoString(email.createdAt),
     updatedAt: toIsoString(email.updatedAt),
+  };
+}
+
+export function serializeEmailPostfix(
+  postfix: EmailPostfixRecord,
+): AdminEmailPostfix {
+  return {
+    id: bigintToNumber(postfix.id),
+    postfix: postfix.postfix,
+    enabled: postfix.enabled,
+    sortOrder: postfix.sortOrder,
+    usageCount: postfix.usageCount ?? 0,
+    createdAt: toIsoString(postfix.createdAt),
+    updatedAt: toIsoString(postfix.updatedAt),
   };
 }
 

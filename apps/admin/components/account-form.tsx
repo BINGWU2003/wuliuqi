@@ -77,17 +77,21 @@ const gameOptions: Array<{ label: string; value: GameKey }> = [
 export function AccountForm({
   accountId,
   initialGameKey = "codm",
+  lockGame = false,
   onBusyChange,
   presentation = "page",
 }: {
   accountId?: number;
   initialGameKey?: GameKey;
+  lockGame?: boolean;
   onBusyChange?: (busy: boolean) => void;
   presentation?: AccountFormPresentation;
 }) {
   const router = useRouter();
   const isModal = presentation === "modal";
   const [gameKey, setGameKey] = useState<GameKey>(initialGameKey);
+  const gameLabel = gameKey === "sanguosha" ? "三国杀" : "CODM";
+  const formTitle = `${accountId ? "编辑" : "新建"}${lockGame ? ` ${gameLabel}` : ""}账号`;
   const [form, setForm] = useState<AccountFormState>(emptyForm);
   const [attributeDefinitions, setAttributeDefinitions] = useState<
     GameAttributeDefinition[]
@@ -267,7 +271,7 @@ export function AccountForm({
               isModal ? "text-xl font-bold" : "mt-2 text-2xl font-bold"
             }
           >
-            {accountId ? "编辑账号" : "新建账号"}
+            {formTitle}
           </h1>
         </div>
         <Button
@@ -318,7 +322,7 @@ export function AccountForm({
             <label className="block space-y-1.5">
               <span className="text-sm font-medium">游戏</span>
               <Select
-                disabled={Boolean(accountId)}
+                disabled={Boolean(accountId) || lockGame}
                 value={gameKey}
                 onValueChange={(value) => {
                   setGameKey(value as GameKey);
@@ -487,6 +491,7 @@ export function CodmAccountForm({
     <AccountForm
       accountId={accountId}
       initialGameKey="codm"
+      lockGame
       presentation={presentation}
       onBusyChange={onBusyChange}
     />
@@ -506,6 +511,7 @@ export function SanguoshaAccountForm({
     <AccountForm
       accountId={accountId}
       initialGameKey="sanguosha"
+      lockGame
       presentation={presentation}
       onBusyChange={onBusyChange}
     />

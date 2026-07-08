@@ -1,12 +1,13 @@
 import type { ShopAccount } from "@wuliuqi/types";
 import { Badge } from "@wuliuqi/ui/components/badge";
 import { Card, CardContent } from "@wuliuqi/ui/components/card";
+import { cn } from "@wuliuqi/ui/lib/utils";
 import { Camera, ShieldCheck } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import {
   formatPrice,
-  getAccountBadges,
+  getAccountCardBadges,
   getAccountName,
   getStatusLabel,
 } from "@/lib/account-display";
@@ -17,8 +18,12 @@ export function ProductCard({
   account: ShopAccount;
 }) {
   const name = getAccountName(account);
-  const badges = getAccountBadges(account);
+  const badges = getAccountCardBadges(account);
   const badgeSlots = [...badges, ...Array<string>(3 - badges.length).fill("")];
+  const gameBadgeClassName =
+    account.gameKey === "sanguosha"
+      ? "border-red-200 bg-red-50 text-red-700 dark:border-red-900/70 dark:bg-red-950/50 dark:text-red-300"
+      : "border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-900/70 dark:bg-orange-950/50 dark:text-orange-300";
   const detailPath =
     account.gameKey === "sanguosha"
       ? "/sanguosha-account-info"
@@ -75,8 +80,11 @@ export function ProductCard({
               badge ? (
                 <Badge
                   key={badge}
-                  className="rounded-sm px-1.5 font-normal"
-                  variant="secondary"
+                  className={cn(
+                    "rounded-sm px-1.5 font-normal",
+                    index === 0 && gameBadgeClassName,
+                  )}
+                  variant={index === 0 ? "outline" : "secondary"}
                 >
                   {badge}
                 </Badge>

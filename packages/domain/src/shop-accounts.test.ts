@@ -220,6 +220,106 @@ describe("商城账号", () => {
     ]);
   });
 
+  it("首页账号流支持按游戏分类筛选", async () => {
+    prismaMock.sanguoshaAccount.findMany.mockResolvedValue([
+      accountRecord({
+        id: 61n,
+        serialNumber: "#SGS-61",
+        createdAt: new Date("2026-07-05T00:00:00.000Z"),
+      }),
+    ]);
+    prismaMock.gameAttributeDefinition.findMany.mockResolvedValue([]);
+
+    const result = await listShopHomeAccounts({
+      game_key: "sanguosha",
+      limit: 12,
+      months: 3,
+    });
+
+    expect(prismaMock.codmAccount.findMany).not.toHaveBeenCalled();
+    expect(prismaMock.sanguoshaAccount.findMany).toHaveBeenCalledWith({
+      where: {
+        status: 1,
+        createdAt: {
+          gte: new Date("2026-04-08T00:00:00.000Z"),
+        },
+      },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take: 13,
+    });
+    expect(prismaMock.gameAttributeDefinition.findMany).toHaveBeenCalledWith({
+      where: {
+        gameKey: "sanguosha",
+        deletedAt: null,
+      },
+      orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
+    });
+    expect(result.list.map((account) => account.serialNumber)).toEqual([
+      "#SGS-61",
+    ]);
+  });
+
+  it("首页账号流支持价格区间和价格排序", async () => {
+    prismaMock.codmAccount.findMany.mockResolvedValue([
+      accountRecord({
+        id: 11n,
+        serialNumber: "#CODM-11",
+        price: 1200,
+        createdAt: new Date("2026-07-06T00:00:00.000Z"),
+      }),
+    ]);
+    prismaMock.sanguoshaAccount.findMany.mockResolvedValue([
+      accountRecord({
+        id: 62n,
+        serialNumber: "#SGS-62",
+        price: 900,
+        createdAt: new Date("2026-07-07T00:00:00.000Z"),
+      }),
+    ]);
+    prismaMock.gameAttributeDefinition.findMany.mockResolvedValue([]);
+
+    const result = await listShopHomeAccounts({
+      limit: 2,
+      max_price: 2000,
+      min_price: 500,
+      months: 3,
+      sort: "price_asc",
+    });
+
+    expect(prismaMock.codmAccount.findMany).toHaveBeenCalledWith({
+      where: {
+        status: 1,
+        createdAt: {
+          gte: new Date("2026-04-08T00:00:00.000Z"),
+        },
+        price: {
+          gte: 500,
+          lte: 2000,
+        },
+      },
+      orderBy: [{ price: "asc" }, { createdAt: "desc" }, { id: "desc" }],
+      take: 3,
+    });
+    expect(prismaMock.sanguoshaAccount.findMany).toHaveBeenCalledWith({
+      where: {
+        status: 1,
+        createdAt: {
+          gte: new Date("2026-04-08T00:00:00.000Z"),
+        },
+        price: {
+          gte: 500,
+          lte: 2000,
+        },
+      },
+      orderBy: [{ price: "asc" }, { createdAt: "desc" }, { id: "desc" }],
+      take: 3,
+    });
+    expect(result.list.map((account) => account.serialNumber)).toEqual([
+      "#SGS-62",
+      "#CODM-11",
+    ]);
+  });
+
   it("按游戏查询三国杀账号列表并加载三国杀属性", async () => {
     prismaMock.sanguoshaAccount.count.mockResolvedValue(1);
     prismaMock.sanguoshaAccount.findMany.mockResolvedValue([

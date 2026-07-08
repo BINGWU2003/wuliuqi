@@ -11,17 +11,19 @@ import { preventOutsideDismiss } from "@wuliuqi/ui/lib/modal-interactions";
 import { X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { AccountForm } from "@/components/account-form";
+import { CodmAccountForm, SanguoshaAccountForm } from "@/components/account-form";
 
 export function AccountEditModal({
   accountId,
   initialGameKey = "codm",
 }: {
-  accountId: number | null;
+  accountId?: number | null;
   initialGameKey?: "codm" | "sanguosha";
 }) {
   const router = useRouter();
   const [formBusy, setFormBusy] = useState(false);
+  const isInvalidAccountId = accountId === null;
+  const title = accountId === undefined ? "新建账号" : "编辑账号";
 
   function closeModal() {
     if (formBusy) {
@@ -46,17 +48,19 @@ export function AccountEditModal({
         onInteractOutside={preventOutsideDismiss}
         onPointerDownOutside={preventOutsideDismiss}
       >
-        <DialogTitle className="sr-only">编辑账号</DialogTitle>
+        <DialogTitle className="sr-only">{title}</DialogTitle>
         <DialogDescription className="sr-only">
-          编辑账号图片、价格、状态、邮箱和描述。
+          {accountId === undefined
+            ? "新建账号图片、价格、状态、邮箱和描述。"
+            : "编辑账号图片、价格、状态、邮箱和描述。"}
         </DialogDescription>
         <div className="flex h-12 shrink-0 items-center justify-end border-b border-border bg-background/95 px-3 backdrop-blur">
           <Button
-            aria-label="关闭编辑"
+            aria-label={`关闭${title}`}
             className="size-9 rounded-md"
             disabled={formBusy}
             size="icon"
-            title={formBusy ? "保存中，暂不能关闭" : "关闭编辑"}
+            title={formBusy ? "保存中，暂不能关闭" : `关闭${title}`}
             type="button"
             variant="ghost"
             onClick={closeModal}
@@ -65,17 +69,22 @@ export function AccountEditModal({
           </Button>
         </div>
         <div className="h-[calc(100%-3rem)] overflow-y-auto p-3 sm:p-5">
-          {accountId ? (
-            <AccountForm
+          {isInvalidAccountId ? (
+            <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+              无效的账号ID
+            </div>
+          ) : initialGameKey === "sanguosha" ? (
+            <SanguoshaAccountForm
               accountId={accountId}
-              initialGameKey={initialGameKey}
               presentation="modal"
               onBusyChange={setFormBusy}
             />
           ) : (
-            <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
-              无效的账号ID
-            </div>
+            <CodmAccountForm
+              accountId={accountId}
+              presentation="modal"
+              onBusyChange={setFormBusy}
+            />
           )}
         </div>
       </DialogContent>
