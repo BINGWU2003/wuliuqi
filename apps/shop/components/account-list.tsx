@@ -497,7 +497,7 @@ function FilterControls({
           type="button"
           onClick={onSearch}
         >
-          {showSearchLoading ? <Spinner /> : null}
+          {showSearchLoading ? <Spinner /> : <Search size={15} />}
           {showSearchLoading ? "搜索中..." : "搜索"}
         </Button>
         <Button

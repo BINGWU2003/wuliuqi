@@ -516,7 +516,7 @@ export function AccountsPage() {
               type="button"
               onClick={handleSearch}
             >
-              {loading ? <Spinner /> : null}
+              {loading ? <Spinner /> : <Search size={15} />}
               {loading ? "搜索中..." : "搜索"}
             </Button>
             <Button
