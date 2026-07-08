@@ -21,6 +21,7 @@
     "@wuliuqi/ui": "workspace:*",
     "@wuliuqi/utils": "workspace:*",
     "@wuliuqi/validators": "workspace:*",
+    "cos-js-sdk-v5": "catalog:",
     "lucide-react": "catalog:",
     "next": "catalog:",
     "react": "catalog:",

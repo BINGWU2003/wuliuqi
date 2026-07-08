@@ -1,5 +1,6 @@
-import type { UploadResult } from "@wuliuqi/types";
+import type { UploadCredential, UploadResult } from "@wuliuqi/types";
 import COS from "cos-nodejs-sdk-v5";
+import qcloudCosSts from "qcloud-cos-sts";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const DEFAULT_ALLOWED_TYPES = new Set([
@@ -14,6 +15,15 @@ type UploadInput = {
   contentType: string;
   fileName: string;
   folder: string;
+  allowedTypes?: Set<string>;
+  maxSize?: number;
+};
+
+type UploadCredentialInput = {
+  contentType: string;
+  fileName: string;
+  folder: string;
+  size: number;
   allowedTypes?: Set<string>;
   maxSize?: number;
 };
@@ -88,7 +98,9 @@ function normalizeFolder(folder: string) {
   return `${cleanFolder}/`;
 }
 
-function createObjectKey(input: UploadInput) {
+function createObjectKey(
+  input: Pick<UploadInput, "contentType" | "fileName" | "folder">,
+) {
   const extension = getExtension(input.fileName, input.contentType);
   const timestamp = Date.now();
   const random = crypto.randomUUID().slice(0, 8);
@@ -151,4 +163,52 @@ export async function uploadToCos(input: UploadInput): Promise<UploadResult> {
       },
     );
   });
+}
+
+export async function createUploadCredential(
+  input: UploadCredentialInput,
+): Promise<UploadCredential> {
+  const allowedTypes = input.allowedTypes ?? DEFAULT_ALLOWED_TYPES;
+  const maxSize = input.maxSize ?? MAX_FILE_SIZE;
+
+  if (!allowedTypes.has(input.contentType)) {
+    throw new StorageError("BAD_FILE_TYPE", "只支持 JPG、PNG、GIF、WebP 格式的图片");
+  }
+
+  if (!Number.isSafeInteger(input.size) || input.size <= 0) {
+    throw new StorageError("BAD_FILE_SIZE", "图片大小无效");
+  }
+
+  if (input.size > maxSize) {
+    throw new StorageError("FILE_TOO_LARGE", "图片大小不能超过 10MB");
+  }
+
+  const config = getConfig();
+  const key = createObjectKey(input);
+  const credential = await qcloudCosSts.getCredential({
+    secretId: config.secretId,
+    secretKey: config.secretKey,
+    region: config.region,
+    durationSeconds: 900,
+    policy: qcloudCosSts.getPolicy([
+      {
+        action: "name/cos:PutObject",
+        bucket: config.bucket,
+        region: config.region,
+        prefix: key,
+      },
+    ]),
+  });
+
+  return {
+    key,
+    url: publicUrl(config, key),
+    bucket: config.bucket,
+    region: config.region,
+    size: input.size,
+    contentType: input.contentType,
+    startTime: credential.startTime,
+    expiredTime: credential.expiredTime,
+    credentials: credential.credentials,
+  };
 }

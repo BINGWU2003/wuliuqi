@@ -4,12 +4,16 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./browser/image-compress": "./src/browser/image-compress.ts",
     "./browser/image-download": "./src/browser/image-download.ts",
     "./codm-attributes": "./src/codm-attributes.ts"
   },
   "scripts": {
     "lint": "eslint . --max-warnings 0",
     "check-types": "tsc --noEmit"
+  },
+  "dependencies": {
+    "browser-image-compression": "catalog:"
   },
   "devDependencies": {
     "@wuliuqi/eslint-config": "workspace:*",

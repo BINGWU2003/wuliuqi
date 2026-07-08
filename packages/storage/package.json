@@ -12,7 +12,8 @@
   },
   "dependencies": {
     "@wuliuqi/types": "workspace:*",
-    "cos-nodejs-sdk-v5": "catalog:"
+    "cos-nodejs-sdk-v5": "catalog:",
+    "qcloud-cos-sts": "catalog:"
   },
   "devDependencies": {
     "@types/node": "catalog:",

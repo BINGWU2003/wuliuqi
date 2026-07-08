@@ -9,8 +9,10 @@ import { downloadImageWithWatermark } from "@wuliuqi/utils/browser/image-downloa
 import { ImagePlus, Trash2 } from "lucide-react";
 import Image from "next/image";
 import { useRef, useState } from "react";
-import { uploadImage } from "@/lib/client-api";
+import { uploadImages } from "@/lib/client-api";
 import { errorMessage } from "@/lib/feedback";
+
+const UPLOAD_PARALLEL_LIMIT = 3;
 
 export function ImageUploader({
   folder,
@@ -40,13 +42,14 @@ export function ImageUploader({
 
     try {
       const nextImages = [...images];
+      const uploadFiles = Array.from(files).slice(0, maxCount - images.length);
+      const results = await uploadImages(
+        uploadFiles,
+        folder,
+        UPLOAD_PARALLEL_LIMIT,
+      );
 
-      for (const file of Array.from(files)) {
-        if (nextImages.length >= maxCount) {
-          break;
-        }
-
-        const result = await uploadImage(file, folder);
+      for (const result of results) {
         nextImages.push(result.url);
       }
 

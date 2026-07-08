@@ -12,8 +12,11 @@ import type {
   GameAttributeOption,
   GameAttributeType,
   SequenceCounter,
+  UploadCredential,
   UploadResult,
 } from "@wuliuqi/types";
+import { compressImageFile } from "@wuliuqi/utils/browser/image-compress";
+import COS from "cos-js-sdk-v5";
 
 type AccountPayload = {
   serialNumber?: string;
@@ -269,14 +272,71 @@ export async function resetSequenceCounterValue(
 }
 
 export async function uploadImage(file: File, folder: string) {
-  const formData = new FormData();
-  formData.set("file", file);
-  formData.set("folder", folder);
+  const uploadFile = await compressImageFile(file);
+  const credential = await createUploadCredential(uploadFile, folder);
+  const cos = new COS({
+    SecretId: credential.credentials.tmpSecretId,
+    SecretKey: credential.credentials.tmpSecretKey,
+    SecurityToken: credential.credentials.sessionToken,
+    StartTime: credential.startTime,
+    ExpiredTime: credential.expiredTime,
+  });
 
-  return readApi<UploadResult>(
-    await fetch("/api/uploads", {
-      method: "POST",
-      body: formData,
-    }),
+  await cos.putObject({
+    Body: uploadFile,
+    Bucket: credential.bucket,
+    ContentType: uploadFile.type,
+    Key: credential.key,
+    Region: credential.region,
+  });
+
+  return {
+    key: credential.key,
+    url: credential.url,
+    size: uploadFile.size,
+    contentType: uploadFile.type,
+  } satisfies UploadResult;
+}
+
+export async function uploadImages(
+  files: File[],
+  folder: string,
+  parallelLimit = 3,
+) {
+  const results: UploadResult[] = [];
+  let nextIndex = 0;
+
+  async function worker() {
+    while (nextIndex < files.length) {
+      const currentIndex = nextIndex;
+      nextIndex += 1;
+      const file = files[currentIndex];
+
+      if (!file) {
+        continue;
+      }
+
+      results[currentIndex] = await uploadImage(file, folder);
+    }
+  }
+
+  await Promise.all(
+    Array.from({ length: Math.min(parallelLimit, files.length) }, () =>
+      worker(),
+    ),
   );
+
+  return results;
+}
+
+function createUploadCredential(file: File, folder: string) {
+  return requestJson<UploadCredential>("/api/uploads/credentials", {
+    method: "POST",
+    body: JSON.stringify({
+      contentType: file.type,
+      fileName: file.name,
+      folder,
+      size: file.size,
+    }),
+  });
 }

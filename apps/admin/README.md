@@ -37,6 +37,7 @@ GEMINI_EMBEDDING_DIMENSIONS="768"
 ```
 
 `COS_PUBLIC_BASE_URL` 只在使用自定义 CDN 或公开访问域名时填写。
+图片上传使用浏览器直传 COS。腾讯云 Bucket 需要配置 CORS：允许 admin 生产域名和本地开发域名，允许 `PUT`、`OPTIONS` 方法，允许上传请求头。当前密钥需要具备签发 STS 临时密钥和目标 Bucket `PutObject` 权限。
 RAG/Gemini 默认值可以不改；需要换模型或连接池大小时再调整。
 
 Vercel 部署时将 `DATABASE_POOL_SIZE` 设为 `1`，避免多个 serverless 实例叠加打满 Supabase pooler。

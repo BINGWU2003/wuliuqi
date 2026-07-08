@@ -17,7 +17,7 @@ import { downloadImageWithWatermark } from "@wuliuqi/utils/browser/image-downloa
 import { ArrowDown, ArrowUp, ImagePlus, Save, Trash2 } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
-import { fetchCarousel, updateCarousel, uploadImage } from "@/lib/client-api";
+import { fetchCarousel, updateCarousel, uploadImages } from "@/lib/client-api";
 import { errorMessage } from "@/lib/feedback";
 
 const MAX_IMAGES = 6;
@@ -71,13 +71,10 @@ export function CarouselPage({ name }: { name: string }) {
 
     try {
       const nextItems = [...items];
+      const uploadFiles = Array.from(files).slice(0, MAX_IMAGES - items.length);
+      const results = await uploadImages(uploadFiles, "banners/");
 
-      for (const file of Array.from(files)) {
-        if (nextItems.length >= MAX_IMAGES) {
-          break;
-        }
-
-        const result = await uploadImage(file, "banners/");
+      for (const result of results) {
         nextItems.push({
           sortOrder: nextItems.length,
           url: result.url,

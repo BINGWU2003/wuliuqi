@@ -138,6 +138,22 @@ export interface UploadResult {
   contentType: string;
 }
 
+export interface UploadCredential {
+  key: string;
+  url: string;
+  bucket: string;
+  region: string;
+  size: number;
+  contentType: string;
+  startTime: number;
+  expiredTime: number;
+  credentials: {
+    tmpSecretId: string;
+    tmpSecretKey: string;
+    sessionToken: string;
+  };
+}
+
 export type KnowledgeStatus = "draft" | "published" | "archived";
 export type KnowledgeVisibility = "public" | "private";
 export type KnowledgeIndexStatus =
