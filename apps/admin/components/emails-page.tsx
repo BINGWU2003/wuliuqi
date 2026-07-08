@@ -12,12 +12,7 @@ import {
   AlertDialogTitle,
 } from "@wuliuqi/ui/components/alert-dialog";
 import { Button } from "@wuliuqi/ui/components/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@wuliuqi/ui/components/card";
+import { Card } from "@wuliuqi/ui/components/card";
 import { Input } from "@wuliuqi/ui/components/input";
 import {
   Select,
@@ -56,7 +51,6 @@ import {
   TABLE_ACTION_CELL_CLASS,
   TABLE_ACTION_HEAD_CLASS,
 } from "@/components/cell-tooltip";
-import { LoadingButton } from "@/components/loading-button";
 import { EmailBindStatusBadge } from "@/components/status-badge";
 import { deleteEmail, fetchEmails } from "@/lib/client-api";
 import { ADMIN_EMAILS_CHANGED_EVENT } from "@/lib/events";
@@ -82,6 +76,7 @@ function isMobileViewport() {
 
 export function EmailsPage() {
   const [emails, setEmails] = useState<AdminEmail[]>([]);
+  const [gameKeyValue, setGameKeyValue] = useState<GameKey>("codm");
   const [gameKey, setGameKey] = useState<GameKey>("codm");
   const [searchValue, setSearchValue] = useState("");
   const [keyword, setKeyword] = useState("");
@@ -288,14 +283,20 @@ export function EmailsPage() {
     }
 
     const nextKeyword = searchValue.trim();
+    const nextGameKey = gameKeyValue;
     const nextBindStatus = bindStatusValue;
 
-    if (nextKeyword === keyword && nextBindStatus === bindStatus) {
+    if (
+      nextKeyword === keyword &&
+      nextGameKey === gameKey &&
+      nextBindStatus === bindStatus
+    ) {
       void loadPage(1, "replace");
       return;
     }
 
     setKeyword(nextKeyword);
+    setGameKey(nextGameKey);
     setBindStatus(nextBindStatus);
   }
 
@@ -305,14 +306,16 @@ export function EmailsPage() {
     }
 
     setSearchValue("");
+    setGameKeyValue("codm");
     setBindStatusValue("all");
 
-    if (keyword === "" && bindStatus === "all") {
+    if (keyword === "" && gameKey === "codm" && bindStatus === "all") {
       void loadPage(1, "replace");
       return;
     }
 
     setKeyword("");
+    setGameKey("codm");
     setBindStatus("all");
   }
 
@@ -366,7 +369,7 @@ export function EmailsPage() {
             </Link>
           </Button>
           <Button asChild className="w-full sm:w-auto">
-            <Link href={`/emails/new?game_key=${gameKey}`}>
+            <Link href={`/emails/new?game_key=${gameKeyValue}`}>
               <Plus size={16} />
               新建邮箱
             </Link>
@@ -374,30 +377,30 @@ export function EmailsPage() {
         </div>
       </div>
 
-      <Card className="rounded-md shadow-none">
-        <CardHeader className="border-b border-border">
-          <CardTitle className="text-base">筛选</CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-3 pt-4 sm:grid-cols-[minmax(220px,1fr)_150px_160px_auto_auto]">
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-2.5 size-4 text-muted-foreground" />
-            <Input
-              className="pl-9"
-              placeholder="搜索前缀或后缀"
-              value={searchValue}
-              onChange={(event) => setSearchValue(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  handleSearch();
-                }
-              }}
-            />
-          </div>
-          <Select
-            value={gameKey}
-            onValueChange={(value) => setGameKey(value as GameKey)}
+      <div className="rounded-md border border-border bg-card p-3 shadow-xs">
+        <div className="grid gap-2 sm:grid-cols-[minmax(220px,1fr)_150px_160px_auto]">
+          <form
+            className="min-w-0"
+            onSubmit={(event) => {
+              event.preventDefault();
+              handleSearch();
+            }}
           >
-            <SelectTrigger>
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-2.5 size-4 text-muted-foreground" />
+              <Input
+                className="h-9 rounded-md bg-background pl-9"
+                placeholder="搜索前缀或后缀"
+                value={searchValue}
+                onChange={(event) => setSearchValue(event.target.value)}
+              />
+            </div>
+          </form>
+          <Select
+            value={gameKeyValue}
+            onValueChange={(value) => setGameKeyValue(value as GameKey)}
+          >
+            <SelectTrigger className="h-9 rounded-md">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -409,7 +412,7 @@ export function EmailsPage() {
             </SelectContent>
           </Select>
           <Select value={bindStatusValue} onValueChange={setBindStatusValue}>
-            <SelectTrigger>
+            <SelectTrigger className="h-9 rounded-md">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -418,27 +421,31 @@ export function EmailsPage() {
               <SelectItem value="2">未绑定</SelectItem>
             </SelectContent>
           </Select>
-          <LoadingButton
-            loading={loading}
-            loadingLabel="搜索中..."
-            type="button"
-            variant="outline"
-            onClick={handleSearch}
-          >
-            <Search size={16} />
-            搜索
-          </LoadingButton>
-          <Button
-            disabled={loading}
-            type="button"
-            variant="outline"
-            onClick={handleResetFilters}
-          >
-            <RotateCcw size={16} />
-            重置
-          </Button>
-        </CardContent>
-      </Card>
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              className="h-9 rounded-md bg-neutral-950 text-white hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-950 dark:hover:bg-neutral-200"
+              disabled={loading}
+              title="搜索邮箱"
+              type="button"
+              onClick={handleSearch}
+            >
+              {loading ? <Spinner /> : null}
+              {loading ? "搜索中..." : "搜索"}
+            </Button>
+            <Button
+              className="h-9 rounded-md border-border bg-background px-3 text-xs"
+              disabled={loading}
+              title="重置邮箱筛选"
+              type="button"
+              variant="outline"
+              onClick={handleResetFilters}
+            >
+              <RotateCcw size={15} />
+              重置
+            </Button>
+          </div>
+        </div>
+      </div>
 
       <div className="grid gap-3 sm:hidden">
         {isInitialLoading ? <MobileEmailSkeletons /> : null}

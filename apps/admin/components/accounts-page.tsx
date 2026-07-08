@@ -13,12 +13,7 @@ import {
 } from "@wuliuqi/ui/components/alert-dialog";
 import { Badge } from "@wuliuqi/ui/components/badge";
 import { Button } from "@wuliuqi/ui/components/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@wuliuqi/ui/components/card";
+import { Card } from "@wuliuqi/ui/components/card";
 import {
   Dialog,
   DialogContent,
@@ -66,7 +61,6 @@ import {
   TABLE_ACTION_CELL_CLASS,
   TABLE_ACTION_HEAD_CLASS,
 } from "@/components/cell-tooltip";
-import { LoadingButton } from "@/components/loading-button";
 import { AccountStatusBadge } from "@/components/status-badge";
 import {
   deleteAccount,
@@ -100,6 +94,7 @@ function isMobileViewport() {
 
 export function AccountsPage() {
   const [accounts, setAccounts] = useState<AdminAccount[]>([]);
+  const [gameKeyValue, setGameKeyValue] = useState<GameKey>("codm");
   const [gameKey, setGameKey] = useState<GameKey>("codm");
   const [searchValue, setSearchValue] = useState("");
   const [keyword, setKeyword] = useState("");
@@ -315,15 +310,22 @@ export function AccountsPage() {
     }
 
     const nextKeyword = searchValue.trim();
+    const nextGameKey = gameKeyValue;
     const nextStatus = statusValue;
     const nextSort = sortValue;
 
-    if (nextKeyword === keyword && nextStatus === status && nextSort === sort) {
+    if (
+      nextKeyword === keyword &&
+      nextGameKey === gameKey &&
+      nextStatus === status &&
+      nextSort === sort
+    ) {
       void loadPage(1, "replace");
       return;
     }
 
     setKeyword(nextKeyword);
+    setGameKey(nextGameKey);
     setStatus(nextStatus);
     setSort(nextSort);
   }
@@ -334,15 +336,22 @@ export function AccountsPage() {
     }
 
     setSearchValue("");
+    setGameKeyValue("codm");
     setStatusValue("all");
     setSortValue("latest");
 
-    if (keyword === "" && status === "all" && sort === "latest") {
+    if (
+      keyword === "" &&
+      gameKey === "codm" &&
+      status === "all" &&
+      sort === "latest"
+    ) {
       void loadPage(1, "replace");
       return;
     }
 
     setKeyword("");
+    setGameKey("codm");
     setStatus("all");
     setSort("latest");
   }
@@ -444,30 +453,30 @@ export function AccountsPage() {
         </Button>
       </div>
 
-      <Card className="rounded-md shadow-none">
-        <CardHeader className="border-b border-border">
-          <CardTitle className="text-base">筛选</CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-3 pt-4 sm:grid-cols-[minmax(220px,1fr)_150px_150px_150px_auto_auto]">
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-2.5 size-4 text-muted-foreground" />
-            <Input
-              className="pl-9"
-              placeholder="搜索标题、序号、描述、邮箱"
-              value={searchValue}
-              onChange={(event) => setSearchValue(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  handleSearch();
-                }
-              }}
-            />
-          </div>
-          <Select
-            value={gameKey}
-            onValueChange={(value) => setGameKey(value as GameKey)}
+      <div className="rounded-md border border-border bg-card p-3 shadow-xs">
+        <div className="grid gap-2 sm:grid-cols-[minmax(220px,1fr)_150px_150px_150px_auto]">
+          <form
+            className="min-w-0"
+            onSubmit={(event) => {
+              event.preventDefault();
+              handleSearch();
+            }}
           >
-            <SelectTrigger>
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-2.5 size-4 text-muted-foreground" />
+              <Input
+                className="h-9 rounded-md bg-background pl-9"
+                placeholder="搜索标题、序号、描述、邮箱"
+                value={searchValue}
+                onChange={(event) => setSearchValue(event.target.value)}
+              />
+            </div>
+          </form>
+          <Select
+            value={gameKeyValue}
+            onValueChange={(value) => setGameKeyValue(value as GameKey)}
+          >
+            <SelectTrigger className="h-9 rounded-md">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -479,7 +488,7 @@ export function AccountsPage() {
             </SelectContent>
           </Select>
           <Select value={statusValue} onValueChange={setStatusValue}>
-            <SelectTrigger>
+            <SelectTrigger className="h-9 rounded-md">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -490,7 +499,7 @@ export function AccountsPage() {
             </SelectContent>
           </Select>
           <Select value={sortValue} onValueChange={setSortValue}>
-            <SelectTrigger>
+            <SelectTrigger className="h-9 rounded-md">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -499,28 +508,31 @@ export function AccountsPage() {
               <SelectItem value="price_asc">价格从低到高</SelectItem>
             </SelectContent>
           </Select>
-          <LoadingButton
-            loading={loading}
-            loadingLabel="搜索中..."
-            type="button"
-            variant="outline"
-            onClick={handleSearch}
-          >
-            <Search size={16} />
-            搜索
-          </LoadingButton>
-          <Button
-            disabled={loading}
-            type="button"
-            variant="outline"
-            onClick={handleResetFilters}
-          >
-            <RotateCcw size={16} />
-            重置
-          </Button>
-        </CardContent>
-      </Card>
-
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              className="h-9 rounded-md bg-neutral-950 text-white hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-950 dark:hover:bg-neutral-200"
+              disabled={loading}
+              title="搜索账号"
+              type="button"
+              onClick={handleSearch}
+            >
+              {loading ? <Spinner /> : null}
+              {loading ? "搜索中..." : "搜索"}
+            </Button>
+            <Button
+              className="h-9 rounded-md border-border bg-background px-3 text-xs"
+              disabled={loading}
+              title="重置账号筛选"
+              type="button"
+              variant="outline"
+              onClick={handleResetFilters}
+            >
+              <RotateCcw size={15} />
+              重置
+            </Button>
+          </div>
+        </div>
+      </div>
       <div className="grid gap-3 sm:hidden">
         {isInitialLoading ? <MobileAccountSkeletons /> : null}
         {accounts.map((account) => {

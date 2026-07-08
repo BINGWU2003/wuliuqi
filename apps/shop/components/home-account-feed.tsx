@@ -12,7 +12,7 @@ import {
 import { Skeleton } from "@wuliuqi/ui/components/skeleton";
 import { toast } from "@wuliuqi/ui/components/sonner";
 import { Spinner } from "@wuliuqi/ui/components/spinner";
-import { RotateCcw } from "lucide-react";
+import { RotateCcw, Search } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ProductCard } from "@/components/product-card";
 import { fetchHomeAccounts } from "@/lib/client-api";
@@ -47,8 +47,12 @@ type LoadingMode = "initial" | "append" | "filter";
 
 export function HomeAccountFeed() {
   const [accounts, setAccounts] = useState<ShopAccount[]>([]);
+  const [gameKeyValue, setGameKeyValue] = useState<HomeGameFilter>("all");
   const [gameKey, setGameKey] = useState<HomeGameFilter>("all");
+  const [priceRangeValue, setPriceRangeValue] =
+    useState<HomePriceRangeValue>("all");
   const [priceRange, setPriceRange] = useState<HomePriceRangeValue>("all");
+  const [sortValue, setSortValue] = useState<HomeSortValue>("latest");
   const [sort, setSort] = useState<HomeSortValue>("latest");
   const [nextCursor, setNextCursor] = useState<string | undefined>();
   const [loadingMode, setLoadingMode] = useState<LoadingMode | null>("initial");
@@ -154,9 +158,37 @@ export function HomeAccountFeed() {
       return;
     }
 
+    setGameKeyValue("all");
+    setPriceRangeValue("all");
+    setSortValue("latest");
+
+    if (gameKey === "all" && priceRange === "all" && sort === "latest") {
+      void loadAccounts("filter");
+      return;
+    }
+
     setGameKey("all");
     setPriceRange("all");
     setSort("latest");
+  }
+
+  function searchAccounts() {
+    if (controlsDisabled) {
+      return;
+    }
+
+    if (
+      gameKeyValue === gameKey &&
+      priceRangeValue === priceRange &&
+      sortValue === sort
+    ) {
+      void loadAccounts("filter");
+      return;
+    }
+
+    setGameKey(gameKeyValue);
+    setPriceRange(priceRangeValue);
+    setSort(sortValue);
   }
 
   return (
@@ -176,8 +208,8 @@ export function HomeAccountFeed() {
       <div className="grid gap-2 rounded-md border border-border bg-card p-3 shadow-xs sm:grid-cols-[1fr_1fr_1fr_auto]">
         <Select
           disabled={controlsDisabled}
-          value={gameKey}
-          onValueChange={(value) => setGameKey(value as HomeGameFilter)}
+          value={gameKeyValue}
+          onValueChange={(value) => setGameKeyValue(value as HomeGameFilter)}
         >
           <SelectTrigger className="h-9 rounded-md" aria-label="游戏分类">
             <SelectValue />
@@ -192,9 +224,9 @@ export function HomeAccountFeed() {
         </Select>
         <Select
           disabled={controlsDisabled}
-          value={priceRange}
+          value={priceRangeValue}
           onValueChange={(value) =>
-            setPriceRange(value as HomePriceRangeValue)
+            setPriceRangeValue(value as HomePriceRangeValue)
           }
         >
           <SelectTrigger className="h-9 rounded-md" aria-label="价格区间">
@@ -210,8 +242,8 @@ export function HomeAccountFeed() {
         </Select>
         <Select
           disabled={controlsDisabled}
-          value={sort}
-          onValueChange={(value) => setSort(value as HomeSortValue)}
+          value={sortValue}
+          onValueChange={(value) => setSortValue(value as HomeSortValue)}
         >
           <SelectTrigger className="h-9 rounded-md" aria-label="排序">
             <SelectValue />
@@ -224,17 +256,29 @@ export function HomeAccountFeed() {
             ))}
           </SelectContent>
         </Select>
-        <Button
-          className="h-9 rounded-md"
-          disabled={controlsDisabled}
-          title="重置首页筛选"
-          type="button"
-          variant="outline"
-          onClick={resetFilters}
-        >
-          {loadingFilter ? <Spinner /> : <RotateCcw size={15} />}
-          {loadingFilter ? "加载中..." : "重置"}
-        </Button>
+        <div className="grid grid-cols-2 gap-2">
+          <Button
+            className="h-9 rounded-md bg-neutral-950 text-white hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-950 dark:hover:bg-neutral-200"
+            disabled={controlsDisabled}
+            title="搜索首页账号"
+            type="button"
+            onClick={searchAccounts}
+          >
+            {loadingFilter ? <Spinner /> : <Search size={15} />}
+            {loadingFilter ? "搜索中..." : "搜索"}
+          </Button>
+          <Button
+            className="h-9 rounded-md border-border bg-background px-3 text-xs"
+            disabled={controlsDisabled}
+            title="重置首页筛选"
+            type="button"
+            variant="outline"
+            onClick={resetFilters}
+          >
+            <RotateCcw size={15} />
+            重置
+          </Button>
+        </div>
       </div>
 
       {loadingInitial ? (

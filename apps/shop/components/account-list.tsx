@@ -66,7 +66,9 @@ export function AccountList({
   gameKey = "codm",
   heading = "精选账号",
 }: AccountListProps) {
+  const [rangeValue, setRangeValue] = useState(0);
   const [activeRange, setActiveRange] = useState(0);
+  const [sortValue, setSortValue] = useState<SortValue>("latest");
   const [sort, setSort] = useState<SortValue>("latest");
   const [searchValue, setSearchValue] = useState("");
   const [keyword, setKeyword] = useState("");
@@ -220,34 +222,12 @@ export function AccountList({
     return loadingRef.current && loadingModeRef.current !== "append";
   }
 
-  function handleSearch() {
-    if (isBlockingControls()) {
-      return;
-    }
-
-    const nextKeyword = searchValue.trim();
-
-    if (nextKeyword === keyword) {
-      void loadPage(1, "search", true);
-      return;
-    }
-
-    nextReplaceModeRef.current = "search";
-    setKeyword(nextKeyword);
-  }
-
   function handleRangeChange(nextRange: number) {
     if (isBlockingControls()) {
       return;
     }
 
-    if (nextRange === activeRange) {
-      void loadPage(1, "filter", true);
-      return;
-    }
-
-    nextReplaceModeRef.current = "filter";
-    setActiveRange(nextRange);
+    setRangeValue(nextRange);
   }
 
   function handleSortChange(nextSort: SortValue) {
@@ -255,13 +235,29 @@ export function AccountList({
       return;
     }
 
-    if (nextSort === sort) {
-      void loadPage(1, "filter", true);
+    setSortValue(nextSort);
+  }
+
+  function applyFilters() {
+    if (isBlockingControls()) {
       return;
     }
 
-    nextReplaceModeRef.current = "filter";
-    setSort(nextSort);
+    const nextKeyword = searchValue.trim();
+
+    if (
+      nextKeyword === keyword &&
+      rangeValue === activeRange &&
+      sortValue === sort
+    ) {
+      void loadPage(1, "search", true);
+      return;
+    }
+
+    nextReplaceModeRef.current = "search";
+    setKeyword(nextKeyword);
+    setActiveRange(rangeValue);
+    setSort(sortValue);
   }
 
   function clearFilters() {
@@ -270,6 +266,8 @@ export function AccountList({
     }
 
     setSearchValue("");
+    setRangeValue(0);
+    setSortValue("latest");
 
     if (activeRange === 0 && sort === "latest" && keyword === "") {
       void loadPage(1, "reset", true);
@@ -322,16 +320,16 @@ export function AccountList({
 
         <div className="rounded-md border border-border bg-card p-3 shadow-xs">
           <FilterControls
-            activeRange={activeRange}
             clearFilters={clearFilters}
             controlsDisabled={controlsDisabled}
             loadingMode={loadingMode}
+            rangeValue={rangeValue}
             searchValue={searchValue}
             setSearchValue={setSearchValue}
-            sort={sort}
+            sortValue={sortValue}
             showInlineLoading={showInlineLoading}
             onRangeChange={handleRangeChange}
-            onSearch={handleSearch}
+            onSearch={applyFilters}
             onSortChange={handleSortChange}
           />
         </div>
@@ -394,29 +392,29 @@ export function AccountList({
 }
 
 function FilterControls({
-  activeRange,
   clearFilters,
   controlsDisabled,
   loadingMode,
   onRangeChange,
   onSearch,
   onSortChange,
+  rangeValue,
   searchValue,
   setSearchValue,
   showInlineLoading,
-  sort,
+  sortValue,
 }: {
-  activeRange: number;
   clearFilters: () => void;
   controlsDisabled: boolean;
   loadingMode: LoadingMode | null;
   onRangeChange: (value: number) => void;
   onSearch: () => void;
   onSortChange: (value: SortValue) => void;
+  rangeValue: number;
   searchValue: string;
   setSearchValue: (value: string) => void;
   showInlineLoading: boolean;
-  sort: SortValue;
+  sortValue: SortValue;
 }) {
   const isFilterLoading = loadingMode === "filter";
   const isResetLoading = loadingMode === "reset";
@@ -450,7 +448,7 @@ function FilterControls({
 
       <Select
         disabled={controlsDisabled}
-        value={String(activeRange)}
+        value={String(rangeValue)}
         onValueChange={(value) => onRangeChange(Number(value))}
       >
         <SelectTrigger
@@ -473,7 +471,7 @@ function FilterControls({
       </Select>
       <Select
         disabled={controlsDisabled}
-        value={sort}
+        value={sortValue}
         onValueChange={(value) => onSortChange(value as SortValue)}
       >
         <SelectTrigger
@@ -493,7 +491,7 @@ function FilterControls({
       </Select>
       <div className="grid grid-cols-2 gap-2">
         <Button
-          className="h-9 rounded-md"
+          className="h-9 rounded-md bg-neutral-950 text-white hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-950 dark:hover:bg-neutral-200"
           disabled={controlsDisabled}
           title="搜索账号"
           type="button"

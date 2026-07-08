@@ -440,11 +440,11 @@ export function AccountForm({
                   onChange={(event) => setEmailKeyword(event.target.value)}
                 />
                 <Button
+                  className="bg-neutral-950 text-white hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-950 dark:hover:bg-neutral-200"
                   disabled={searchingEmails}
                   aria-label="搜索邮箱"
                   title="搜索邮箱"
                   type="button"
-                  variant="outline"
                   onClick={searchEmails}
                 >
                   {searchingEmails ? <Spinner /> : <Search size={16} />}
