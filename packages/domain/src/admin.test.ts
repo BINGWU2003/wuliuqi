@@ -59,6 +59,7 @@ import {
   deleteAdminEmail,
   deleteAdminGameAttributeDefinition,
   listAdminGameAttributeDefinitions,
+  sellAdminAccount,
   updateAdminAccount,
   updateAdminAccountStatus,
   updateAdminEmail,
@@ -167,7 +168,7 @@ function sequenceCounterRecord(
 }
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  vi.resetAllMocks();
   prismaMock.$transaction.mockImplementation(async (callback) =>
     callback(prismaMock),
   );
@@ -239,7 +240,9 @@ describe("后台属性标签", () => {
         sortOrder: 0,
       }),
     ).rejects.toMatchObject({ code: "BAD_REQUEST" });
-    expect(prismaMock.gameAttributeDefinition.findUnique).not.toHaveBeenCalled();
+    expect(
+      prismaMock.gameAttributeDefinition.findUnique,
+    ).not.toHaveBeenCalled();
     expect(prismaMock.gameAttributeDefinition.create).not.toHaveBeenCalled();
   });
 
@@ -355,9 +358,10 @@ describe("后台账号", () => {
         sortOrder: 1,
       }),
     ]);
-    prismaMock.codmAccount.findFirst
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce({ id: 7n });
+    prismaMock.codmEmail.findFirst.mockResolvedValue(
+      emailRecord({ bindStatus: 2 }),
+    );
+    prismaMock.codmAccount.findFirst.mockResolvedValue(null);
     prismaMock.sequenceCounter.update.mockResolvedValue(
       sequenceCounterRecord({ currentValue: 42n }),
     );
@@ -395,12 +399,8 @@ describe("后台账号", () => {
         status: 1,
       }),
     });
-    expect(prismaMock.codmEmail.updateMany).toHaveBeenCalledWith({
-      where: {
-        prefix: "buyer",
-        postfix: "@example.com",
-        NOT: { bindStatus: 1 },
-      },
+    expect(prismaMock.codmEmail.update).toHaveBeenCalledWith({
+      where: { id: 3n },
       data: { bindStatus: 1 },
     });
     expect(account).toMatchObject({
@@ -409,7 +409,7 @@ describe("后台账号", () => {
     });
   });
 
-  it("拒绝创建未绑定邮箱的上架账号", async () => {
+  it("创建账号时必须绑定邮箱，即使账号初始状态为下架", async () => {
     prismaMock.gameAttributeDefinition.findMany.mockResolvedValue([]);
 
     await expect(
@@ -422,10 +422,70 @@ describe("后台账号", () => {
         description: "测试描述",
         xianyuUrl: undefined,
         email: undefined,
-        status: 1,
+        status: 2,
       }),
     ).rejects.toMatchObject({ code: "EMAIL_REQUIRED" });
     expect(prismaMock.codmAccount.create).not.toHaveBeenCalled();
+  });
+
+  it("创建账号时，如果邮箱不存在，应返回业务错误", async () => {
+    prismaMock.gameAttributeDefinition.findMany.mockResolvedValue([]);
+    prismaMock.codmEmail.findFirst.mockResolvedValue(null);
+
+    await expect(
+      createAdminAccount({
+        serialNumber: undefined,
+        images: ["https://cdn.example.com/account.jpg"],
+        attributes: {},
+        price: 199,
+        title: "满级账号",
+        description: "测试描述",
+        xianyuUrl: undefined,
+        email: "missing@example.com",
+        status: 1,
+      }),
+    ).rejects.toMatchObject({ code: "EMAIL_NOT_FOUND" });
+    expect(prismaMock.codmAccount.create).not.toHaveBeenCalled();
+  });
+
+  it("创建账号成功后，会将邮箱标记为已绑定", async () => {
+    prismaMock.gameAttributeDefinition.findMany.mockResolvedValue([]);
+    prismaMock.codmEmail.findFirst.mockResolvedValue(
+      emailRecord({ bindStatus: 2 }),
+    );
+    prismaMock.codmAccount.findFirst.mockResolvedValue(null);
+    prismaMock.sequenceCounter.update.mockResolvedValue(
+      sequenceCounterRecord({ currentValue: 42n }),
+    );
+    prismaMock.codmAccount.findUnique.mockResolvedValue(null);
+    prismaMock.codmAccount.create.mockResolvedValue(
+      accountRecord({
+        id: 42n,
+        serialNumber: "#CODM-42",
+        email: "buyer@example.com",
+        status: 1,
+      }),
+    );
+    prismaMock.codmEmail.update.mockResolvedValue(
+      emailRecord({ bindStatus: 1 }),
+    );
+
+    await createAdminAccount({
+      serialNumber: undefined,
+      images: ["https://cdn.example.com/account.jpg"],
+      attributes: {},
+      price: 199,
+      title: "满级账号",
+      description: "测试描述",
+      xianyuUrl: undefined,
+      email: "buyer@example.com",
+      status: 1,
+    });
+
+    expect(prismaMock.codmEmail.update).toHaveBeenCalledWith({
+      where: { id: 3n },
+      data: { bindStatus: 1 },
+    });
   });
 
   it("拒绝无效的账号属性值", async () => {
@@ -467,6 +527,9 @@ describe("后台账号", () => {
         status: 2,
       }),
     );
+    prismaMock.codmEmail.findFirst.mockResolvedValue(
+      emailRecord({ bindStatus: 1 }),
+    );
     prismaMock.codmAccount.findFirst.mockResolvedValue({
       serialNumber: "#CODM-8",
     });
@@ -480,9 +543,14 @@ describe("后台账号", () => {
   it("编辑账号时保留未变化的已停用历史属性值", async () => {
     prismaMock.codmAccount.findUnique.mockResolvedValue(
       accountRecord({
+        email: "buyer@example.com",
         attributes: { rank: "legendary" },
       }),
     );
+    prismaMock.codmEmail.findFirst.mockResolvedValue(
+      emailRecord({ bindStatus: 1 }),
+    );
+    prismaMock.codmAccount.findFirst.mockResolvedValue(null);
     prismaMock.gameAttributeDefinition.findMany.mockResolvedValue([
       attributeDefinitionRecord({
         attrKey: "mythic_skins",
@@ -529,9 +597,14 @@ describe("后台账号", () => {
   it("编辑账号清空属性时移除已停用历史属性值", async () => {
     prismaMock.codmAccount.findUnique.mockResolvedValue(
       accountRecord({
+        email: "buyer@example.com",
         attributes: { rank: "legendary" },
       }),
     );
+    prismaMock.codmEmail.findFirst.mockResolvedValue(
+      emailRecord({ bindStatus: 1 }),
+    );
+    prismaMock.codmAccount.findFirst.mockResolvedValue(null);
     prismaMock.gameAttributeDefinition.findMany.mockResolvedValue([
       attributeDefinitionRecord({
         attrKey: "rank",
@@ -557,6 +630,182 @@ describe("后台账号", () => {
         attributes: {},
       }),
     });
+  });
+
+  it("编辑账号时，如果账号当前没有绑定邮箱，应返回业务错误", async () => {
+    prismaMock.codmAccount.findUnique.mockResolvedValue(
+      accountRecord({ email: null, status: 2 }),
+    );
+    prismaMock.gameAttributeDefinition.findMany.mockResolvedValue([]);
+
+    await expect(
+      updateAdminAccount(7, {
+        email: undefined,
+        serialNumber: undefined,
+        title: "新的标题",
+        xianyuUrl: undefined,
+      }),
+    ).rejects.toMatchObject({ code: "EMAIL_REQUIRED" });
+    expect(prismaMock.codmAccount.update).not.toHaveBeenCalled();
+  });
+
+  it("编辑账号更换邮箱成功后，会释放原邮箱并绑定新邮箱", async () => {
+    prismaMock.codmAccount.findUnique.mockResolvedValue(
+      accountRecord({
+        email: "buyer@example.com",
+        status: 2,
+      }),
+    );
+    prismaMock.gameAttributeDefinition.findMany.mockResolvedValue([]);
+    prismaMock.codmEmail.findFirst.mockResolvedValue(
+      emailRecord({
+        id: 4n,
+        prefix: "new",
+        postfix: "@example.com",
+        bindStatus: 2,
+      }),
+    );
+    prismaMock.codmAccount.findFirst.mockResolvedValue(null);
+    prismaMock.codmAccount.update.mockResolvedValue(
+      accountRecord({
+        email: "new@example.com",
+        status: 2,
+      }),
+    );
+
+    await updateAdminAccount(7, {
+      email: "new@example.com",
+      serialNumber: undefined,
+      xianyuUrl: undefined,
+    });
+
+    expect(prismaMock.codmEmail.updateMany).toHaveBeenCalledWith({
+      where: {
+        prefix: "buyer",
+        postfix: "@example.com",
+        NOT: { bindStatus: 2 },
+      },
+      data: { bindStatus: 2 },
+    });
+    expect(prismaMock.codmEmail.update).toHaveBeenCalledWith({
+      where: { id: 4n },
+      data: { bindStatus: 1 },
+    });
+  });
+
+  it("下架账号时，只改变账号可见性，不会解绑邮箱", async () => {
+    prismaMock.codmAccount.findUnique.mockResolvedValue(
+      accountRecord({
+        email: "buyer@example.com",
+        status: 1,
+      }),
+    );
+    prismaMock.codmEmail.findFirst.mockResolvedValue(
+      emailRecord({ bindStatus: 1 }),
+    );
+    prismaMock.codmAccount.findFirst.mockResolvedValue(null);
+    prismaMock.codmAccount.update.mockResolvedValue(
+      accountRecord({
+        email: "buyer@example.com",
+        status: 2,
+      }),
+    );
+    prismaMock.gameAttributeDefinition.findMany.mockResolvedValue([]);
+
+    await updateAdminAccountStatus(7, 2);
+
+    expect(prismaMock.codmAccount.update).toHaveBeenCalledWith({
+      where: { id: 7 },
+      data: { status: 2 },
+    });
+    expect(prismaMock.codmEmail.updateMany).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: { bindStatus: 2 },
+      }),
+    );
+  });
+
+  it("出售账号会将账号标记为已出售，并释放邮箱为未绑定状态", async () => {
+    prismaMock.codmAccount.findUnique.mockResolvedValue(
+      accountRecord({
+        email: "buyer@example.com",
+        status: 1,
+      }),
+    );
+    prismaMock.codmEmail.findFirst.mockResolvedValue(
+      emailRecord({ bindStatus: 1 }),
+    );
+    prismaMock.codmAccount.update.mockResolvedValue(
+      accountRecord({
+        email: null,
+        status: 3,
+      }),
+    );
+    prismaMock.codmEmail.update.mockResolvedValue(
+      emailRecord({ bindStatus: 2 }),
+    );
+    prismaMock.gameAttributeDefinition.findMany.mockResolvedValue([]);
+
+    const account = await sellAdminAccount(7);
+
+    expect(prismaMock.codmAccount.update).toHaveBeenCalledWith({
+      where: { id: 7 },
+      data: {
+        email: null,
+        status: 3,
+      },
+    });
+    expect(prismaMock.codmEmail.update).toHaveBeenCalledWith({
+      where: { id: 3n },
+      data: { bindStatus: 2 },
+    });
+    expect(account).toMatchObject({
+      email: "",
+      status: 3,
+    });
+  });
+
+  it("出售操作不可逆，已出售账号不能再次出售", async () => {
+    prismaMock.codmAccount.findUnique.mockResolvedValue(
+      accountRecord({
+        email: null,
+        status: 3,
+      }),
+    );
+
+    await expect(sellAdminAccount(7)).rejects.toMatchObject({
+      code: "ACCOUNT_SOLD",
+    });
+    expect(prismaMock.codmAccount.update).not.toHaveBeenCalled();
+  });
+
+  it("出售账号时，如果账号没有绑定邮箱，应返回业务错误", async () => {
+    prismaMock.codmAccount.findUnique.mockResolvedValue(
+      accountRecord({
+        email: null,
+        status: 1,
+      }),
+    );
+
+    await expect(sellAdminAccount(7)).rejects.toMatchObject({
+      code: "EMAIL_REQUIRED",
+    });
+    expect(prismaMock.codmAccount.update).not.toHaveBeenCalled();
+  });
+
+  it("出售账号时，如果邮箱不存在，应返回业务错误", async () => {
+    prismaMock.codmAccount.findUnique.mockResolvedValue(
+      accountRecord({
+        email: "buyer@example.com",
+        status: 1,
+      }),
+    );
+    prismaMock.codmEmail.findFirst.mockResolvedValue(null);
+
+    await expect(sellAdminAccount(7)).rejects.toMatchObject({
+      code: "EMAIL_NOT_FOUND",
+    });
+    expect(prismaMock.codmAccount.update).not.toHaveBeenCalled();
   });
 });
 

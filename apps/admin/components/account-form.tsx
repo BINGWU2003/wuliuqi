@@ -389,6 +389,7 @@ export function AccountForm({
               <label className="block space-y-1.5">
                 <span className="text-sm font-medium">绑定邮箱</span>
                 <Input
+                  required
                   value={form.email}
                   onChange={(event) =>
                     updateForm({ email: event.target.value })

@@ -130,6 +130,12 @@ export async function updateAccountStatus(id: number, status: 1 | 2) {
   });
 }
 
+export async function sellAccount(id: number) {
+  return requestJson<AdminAccount>(`/api/accounts/${id}/sell`, {
+    method: "POST",
+  });
+}
+
 export async function deleteAccount(id: number) {
   return requestJson<{ deleted: boolean }>(`/api/accounts/${id}`, {
     method: "DELETE",

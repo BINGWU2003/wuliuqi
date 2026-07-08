@@ -46,5 +46,9 @@ export function getAccountBadges(account: ShopAccount) {
 }
 
 export function getStatusLabel(status: number) {
-  return status === 1 ? "可购买" : "已下架";
+  if (status === 1) {
+    return "可购买";
+  }
+
+  return status === 3 ? "已出售" : "已下架";
 }

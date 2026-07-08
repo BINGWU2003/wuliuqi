@@ -43,6 +43,7 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  CircleDollarSign,
   Edit,
   Plus,
   RefreshCw,
@@ -62,6 +63,7 @@ import { AccountStatusBadge } from "@/components/status-badge";
 import {
   deleteAccount,
   fetchAccounts,
+  sellAccount,
   updateAccountStatus,
 } from "@/lib/client-api";
 import { ADMIN_ACCOUNTS_CHANGED_EVENT } from "@/lib/events";
@@ -74,7 +76,7 @@ const MOBILE_VIEWPORT_QUERY = "(max-width: 639px)";
 type LoadMode = "append" | "replace";
 type AccountPendingAction = {
   accountId: number;
-  name: "delete" | "status";
+  name: "delete" | "sell" | "status";
 } | null;
 
 function isMobileViewport() {
@@ -99,6 +101,7 @@ export function AccountsPage() {
   const [pendingAction, setPendingAction] =
     useState<AccountPendingAction>(null);
   const [deleteTarget, setDeleteTarget] = useState<AdminAccount | null>(null);
+  const [sellTarget, setSellTarget] = useState<AdminAccount | null>(null);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const loadingRef = useRef(false);
   const pageRef = useRef(1);
@@ -308,7 +311,7 @@ export function AccountsPage() {
   }
 
   async function toggleStatus(account: AdminAccount) {
-    if (pendingAction !== null) {
+    if (pendingAction !== null || account.status === 3) {
       return;
     }
 
@@ -321,6 +324,28 @@ export function AccountsPage() {
       toast.success(account.status === 1 ? "账号已下架" : "账号已上架");
     } catch (toggleError) {
       const message = errorMessage(toggleError, "更新失败");
+      setError(message);
+      toast.error(message);
+    } finally {
+      setPendingAction(null);
+    }
+  }
+
+  async function confirmSellAccount() {
+    if (!sellTarget || pendingAction !== null) {
+      return;
+    }
+
+    setPendingAction({ accountId: sellTarget.id, name: "sell" });
+    setError("");
+
+    try {
+      await sellAccount(sellTarget.id);
+      await reloadCurrentView();
+      setSellTarget(null);
+      toast.success("账号已出售，邮箱已解绑");
+    } catch (sellError) {
+      const message = errorMessage(sellError, "出售失败");
       setError(message);
       toast.error(message);
     } finally {
@@ -353,6 +378,8 @@ export function AccountsPage() {
   const isInitialLoading = loading && accounts.length === 0;
   const statusActionId =
     pendingAction?.name === "status" ? pendingAction.accountId : null;
+  const sellActionId =
+    pendingAction?.name === "sell" ? pendingAction.accountId : null;
   const deletingId =
     pendingAction?.name === "delete" ? pendingAction.accountId : null;
   const isMutating = pendingAction !== null;
@@ -401,6 +428,7 @@ export function AccountsPage() {
               <SelectItem value="all">全部状态</SelectItem>
               <SelectItem value="1">上架</SelectItem>
               <SelectItem value="2">下架</SelectItem>
+              <SelectItem value="3">已出售</SelectItem>
             </SelectContent>
           </Select>
           <Select value={sort} onValueChange={setSort}>
@@ -428,79 +456,122 @@ export function AccountsPage() {
 
       <div className="grid gap-3 sm:hidden">
         {isInitialLoading ? <MobileAccountSkeletons /> : null}
-        {accounts.map((account) => (
-          <div
-            className="rounded-md border border-border bg-card p-3"
-            key={account.id}
-          >
-            <div className="flex gap-3">
-              <div className="relative size-16 shrink-0 overflow-hidden rounded-md border border-border bg-muted">
-                {account.images[0] ? (
-                  <Image
-                    fill
-                    alt={account.title}
-                    className="object-cover"
-                    sizes="64px"
-                    src={account.images[0]}
-                    unoptimized
-                  />
+        {accounts.map((account) => {
+          const isSold = account.status === 3;
+
+          return (
+            <div
+              className="rounded-md border border-border bg-card p-3"
+              key={account.id}
+            >
+              <div className="flex gap-3">
+                <div className="relative size-16 shrink-0 overflow-hidden rounded-md border border-border bg-muted">
+                  {account.images[0] ? (
+                    <Image
+                      fill
+                      alt={account.title}
+                      className="object-cover"
+                      sizes="64px"
+                      src={account.images[0]}
+                      unoptimized
+                    />
+                  ) : null}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate font-medium">{account.title}</div>
+                  <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                    <Badge className="rounded-sm" variant="secondary">
+                      {account.serialNumber}
+                    </Badge>
+                    {account.images.length} 图
+                  </div>
+                  <AccountAttributeBadges account={account} />
+                  <div className="mt-2 font-mono text-sm font-semibold text-price">
+                    {formatPrice(account.price)}
+                  </div>
+                  <div className="mt-2 truncate text-xs text-muted-foreground">
+                    {account.email || "-"}
+                  </div>
+                </div>
+              </div>
+              <div className="mt-3 flex items-center justify-between gap-3 border-t border-border pt-3">
+                <div className="min-w-0 text-xs text-muted-foreground">
+                  <span className="mr-2">更新</span>
+                  {formatDate(account.updatedAt)}
+                </div>
+                <AccountStatusBadge status={account.status} />
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {isSold ? (
+                  <Button
+                    className="min-w-0 flex-1"
+                    disabled
+                    size="sm"
+                    variant="outline"
+                  >
+                    <Edit size={15} />
+                    编辑
+                  </Button>
+                ) : (
+                  <Button
+                    asChild
+                    className="min-w-0 flex-1"
+                    size="sm"
+                    variant="outline"
+                  >
+                    <Link href={`/accounts/${account.id}/edit`} scroll={false}>
+                      <Edit size={15} />
+                      编辑
+                    </Link>
+                  </Button>
+                )}
+                <Button
+                  className="min-w-0 flex-1"
+                  disabled={isMutating || isSold}
+                  size="sm"
+                  type="button"
+                  variant="outline"
+                  onClick={() => toggleStatus(account)}
+                >
+                  {statusActionId === account.id ? <Spinner /> : null}
+                  {isSold ? "已出售" : account.status === 1 ? "下架" : "上架"}
+                </Button>
+                {!isSold ? (
+                  <Button
+                    className="min-w-0 flex-1"
+                    disabled={isMutating}
+                    size="sm"
+                    type="button"
+                    variant="outline"
+                    onClick={() => setSellTarget(account)}
+                  >
+                    {sellActionId === account.id ? (
+                      <Spinner />
+                    ) : (
+                      <CircleDollarSign size={15} />
+                    )}
+                    出售
+                  </Button>
                 ) : null}
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="truncate font-medium">{account.title}</div>
-                <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                  <Badge className="rounded-sm" variant="secondary">
-                    {account.serialNumber}
-                  </Badge>
-                  {account.images.length} 图
-                </div>
-                <AccountAttributeBadges account={account} />
-                <div className="mt-2 font-mono text-sm font-semibold text-price">
-                  {formatPrice(account.price)}
-                </div>
-                <div className="mt-2 truncate text-xs text-muted-foreground">
-                  {account.email || "-"}
-                </div>
+                <Button
+                  aria-label={`删除账号 ${account.serialNumber}`}
+                  disabled={isMutating}
+                  size="sm"
+                  title={`删除账号 ${account.serialNumber}`}
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setDeleteTarget(account)}
+                >
+                  {deletingId === account.id ? (
+                    <Spinner />
+                  ) : (
+                    <Trash2 size={15} />
+                  )}
+                </Button>
               </div>
             </div>
-            <div className="mt-3 flex items-center justify-between gap-3 border-t border-border pt-3">
-              <div className="min-w-0 text-xs text-muted-foreground">
-                <span className="mr-2">更新</span>
-                {formatDate(account.updatedAt)}
-              </div>
-              <AccountStatusBadge status={account.status} />
-            </div>
-            <div className="mt-3 grid grid-cols-[1fr_1fr_auto] gap-2">
-              <Button asChild size="sm" variant="outline">
-                <Link href={`/accounts/${account.id}/edit`} scroll={false}>
-                  <Edit size={15} />
-                  编辑
-                </Link>
-              </Button>
-              <Button
-                disabled={isMutating}
-                size="sm"
-                type="button"
-                variant="outline"
-                onClick={() => toggleStatus(account)}
-              >
-                {statusActionId === account.id ? <Spinner /> : null}
-                {account.status === 1 ? "下架" : "上架"}
-              </Button>
-              <Button
-                aria-label={`删除账号 ${account.serialNumber}`}
-                disabled={isMutating}
-                size="sm"
-                title={`删除账号 ${account.serialNumber}`}
-                type="button"
-                variant="ghost"
-                onClick={() => setDeleteTarget(account)}
-              >
-                {deletingId === account.id ? <Spinner /> : <Trash2 size={15} />}
-              </Button>
-            </div>
-          </div>
-        ))}
+          );
+        })}
         {!loading && accounts.length === 0 ? (
           <div className="rounded-md border border-border bg-card px-4 py-10 text-center text-sm text-muted-foreground">
             暂无账号
@@ -550,97 +621,133 @@ export function AccountsPage() {
                 {loading ? (
                   <AccountTableSkeletonRows />
                 ) : (
-                  accounts.map((account) => (
-                    <TableRow key={account.id}>
-                      <TableCell>
-                        <div className="flex min-w-72 items-center gap-3">
-                          <div className="relative size-14 overflow-hidden rounded-md border border-border bg-muted">
-                            {account.images[0] ? (
-                              <Image
-                                fill
-                                alt={account.title}
-                                className="object-cover"
-                                sizes="56px"
-                                src={account.images[0]}
-                                unoptimized
-                              />
-                            ) : null}
-                          </div>
-                          <div className="min-w-0">
-                            <CellTooltip
-                              className="font-medium"
-                              content={account.title}
-                            >
-                              {account.title}
-                            </CellTooltip>
-                            <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                              <Badge className="rounded-sm" variant="secondary">
-                                {account.serialNumber}
-                              </Badge>
-                              {account.images.length} 图
+                  accounts.map((account) => {
+                    const isSold = account.status === 3;
+
+                    return (
+                      <TableRow key={account.id}>
+                        <TableCell>
+                          <div className="flex min-w-72 items-center gap-3">
+                            <div className="relative size-14 overflow-hidden rounded-md border border-border bg-muted">
+                              {account.images[0] ? (
+                                <Image
+                                  fill
+                                  alt={account.title}
+                                  className="object-cover"
+                                  sizes="56px"
+                                  src={account.images[0]}
+                                  unoptimized
+                                />
+                              ) : null}
                             </div>
-                            <AccountAttributeBadges account={account} />
+                            <div className="min-w-0">
+                              <CellTooltip
+                                className="font-medium"
+                                content={account.title}
+                              >
+                                {account.title}
+                              </CellTooltip>
+                              <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                                <Badge
+                                  className="rounded-sm"
+                                  variant="secondary"
+                                >
+                                  {account.serialNumber}
+                                </Badge>
+                                {account.images.length} 图
+                              </div>
+                              <AccountAttributeBadges account={account} />
+                            </div>
                           </div>
-                        </div>
-                      </TableCell>
-                      <TableCell className="font-mono font-semibold text-price">
-                        <CellTooltip content={formatPrice(account.price)}>
-                          {formatPrice(account.price)}
-                        </CellTooltip>
-                      </TableCell>
-                      <TableCell className="max-w-64 text-muted-foreground">
-                        <CellTooltip content={account.email || "-"}>
-                          {account.email || "-"}
-                        </CellTooltip>
-                      </TableCell>
-                      <TableCell>
-                        <AccountStatusBadge status={account.status} />
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        <CellTooltip content={formatDate(account.updatedAt)}>
-                          {formatDate(account.updatedAt)}
-                        </CellTooltip>
-                      </TableCell>
-                      <TableCell className={TABLE_ACTION_CELL_CLASS}>
-                        <div className="flex justify-end gap-1">
-                          <Button asChild size="sm" variant="ghost">
-                            <Link
-                              href={`/accounts/${account.id}/edit`}
-                              scroll={false}
-                            >
-                              <Edit size={15} />
-                              编辑
-                            </Link>
-                          </Button>
-                          <Button
-                            disabled={isMutating}
-                            size="sm"
-                            type="button"
-                            variant="outline"
-                            onClick={() => toggleStatus(account)}
-                          >
-                            {statusActionId === account.id ? <Spinner /> : null}
-                            {account.status === 1 ? "下架" : "上架"}
-                          </Button>
-                          <Button
-                            aria-label={`删除账号 ${account.serialNumber}`}
-                            disabled={isMutating}
-                            size="sm"
-                            title={`删除账号 ${account.serialNumber}`}
-                            type="button"
-                            variant="ghost"
-                            onClick={() => setDeleteTarget(account)}
-                          >
-                            {deletingId === account.id ? (
-                              <Spinner />
+                        </TableCell>
+                        <TableCell className="font-mono font-semibold text-price">
+                          <CellTooltip content={formatPrice(account.price)}>
+                            {formatPrice(account.price)}
+                          </CellTooltip>
+                        </TableCell>
+                        <TableCell className="max-w-64 text-muted-foreground">
+                          <CellTooltip content={account.email || "-"}>
+                            {account.email || "-"}
+                          </CellTooltip>
+                        </TableCell>
+                        <TableCell>
+                          <AccountStatusBadge status={account.status} />
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          <CellTooltip content={formatDate(account.updatedAt)}>
+                            {formatDate(account.updatedAt)}
+                          </CellTooltip>
+                        </TableCell>
+                        <TableCell className={TABLE_ACTION_CELL_CLASS}>
+                          <div className="flex justify-end gap-1">
+                            {isSold ? (
+                              <Button disabled size="sm" variant="ghost">
+                                <Edit size={15} />
+                                编辑
+                              </Button>
                             ) : (
-                              <Trash2 size={15} />
+                              <Button asChild size="sm" variant="ghost">
+                                <Link
+                                  href={`/accounts/${account.id}/edit`}
+                                  scroll={false}
+                                >
+                                  <Edit size={15} />
+                                  编辑
+                                </Link>
+                              </Button>
                             )}
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
+                            <Button
+                              disabled={isMutating || isSold}
+                              size="sm"
+                              type="button"
+                              variant="outline"
+                              onClick={() => toggleStatus(account)}
+                            >
+                              {statusActionId === account.id ? (
+                                <Spinner />
+                              ) : null}
+                              {isSold
+                                ? "已出售"
+                                : account.status === 1
+                                  ? "下架"
+                                  : "上架"}
+                            </Button>
+                            {!isSold ? (
+                              <Button
+                                disabled={isMutating}
+                                size="sm"
+                                type="button"
+                                variant="outline"
+                                onClick={() => setSellTarget(account)}
+                              >
+                                {sellActionId === account.id ? (
+                                  <Spinner />
+                                ) : (
+                                  <CircleDollarSign size={15} />
+                                )}
+                                出售
+                              </Button>
+                            ) : null}
+                            <Button
+                              aria-label={`删除账号 ${account.serialNumber}`}
+                              disabled={isMutating}
+                              size="sm"
+                              title={`删除账号 ${account.serialNumber}`}
+                              type="button"
+                              variant="ghost"
+                              onClick={() => setDeleteTarget(account)}
+                            >
+                              {deletingId === account.id ? (
+                                <Spinner />
+                              ) : (
+                                <Trash2 size={15} />
+                              )}
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
                 )}
                 {!loading && accounts.length === 0 ? (
                   <TableRow>
@@ -667,6 +774,40 @@ export function AccountsPage() {
           />
         ) : null}
       </Card>
+      <AlertDialog
+        open={Boolean(sellTarget)}
+        onOpenChange={(open) => {
+          if (!open && sellActionId === null) {
+            setSellTarget(null);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>出售账号</AlertDialogTitle>
+            <AlertDialogDescription>
+              确认出售账号 {sellTarget?.serialNumber}
+              ？出售后会解绑邮箱并将邮箱恢复为未绑定状态，此操作不可逆。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={sellActionId !== null}>
+              取消
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/30"
+              disabled={sellActionId !== null}
+              onClick={(event) => {
+                event.preventDefault();
+                void confirmSellAccount();
+              }}
+            >
+              {sellActionId !== null ? <Spinner /> : null}
+              {sellActionId !== null ? "出售中..." : "确认出售"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <AlertDialog
         open={Boolean(deleteTarget)}
         onOpenChange={(open) => {

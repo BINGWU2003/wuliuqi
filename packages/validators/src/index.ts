@@ -3,6 +3,7 @@ import { z } from "zod";
 export const ACCOUNT_STATUS = {
   listed: 1,
   unlisted: 2,
+  sold: 3,
 } as const;
 
 export const EMAIL_BIND_STATUS = {
@@ -59,7 +60,7 @@ export const accountListQuerySchema = z
       .optional()
       .transform((value) => (value ? value : undefined)),
     status: optionalNumberFromQuery.pipe(
-      z.number().int().min(1).max(2).optional(),
+      z.number().int().min(1).max(3).optional(),
     ),
     min_price: optionalNumberFromQuery.pipe(z.number().min(0).optional()),
     max_price: optionalNumberFromQuery.pipe(z.number().min(0).optional()),
@@ -209,29 +210,29 @@ function validateAttributeDefinitionOptions(
   },
   context: z.RefinementCtx,
 ) {
-    const options = definition.options ?? [];
+  const options = definition.options ?? [];
 
-    if (definition.type === "select" && options.length === 0) {
+  if (definition.type === "select" && options.length === 0) {
+    context.addIssue({
+      code: "custom",
+      message: "下拉属性至少需要一个选项",
+      path: ["options"],
+    });
+  }
+
+  const optionValues = new Set<string>();
+
+  for (const [index, option] of options.entries()) {
+    if (optionValues.has(option.value)) {
       context.addIssue({
         code: "custom",
-        message: "下拉属性至少需要一个选项",
-        path: ["options"],
+        message: "选项值不能重复",
+        path: ["options", index, "value"],
       });
     }
 
-    const optionValues = new Set<string>();
-
-    for (const [index, option] of options.entries()) {
-      if (optionValues.has(option.value)) {
-        context.addIssue({
-          code: "custom",
-          message: "选项值不能重复",
-          path: ["options", index, "value"],
-        });
-      }
-
-      optionValues.add(option.value);
-    }
+    optionValues.add(option.value);
+  }
 }
 
 export const gameAttributeDefinitionCreateSchema =

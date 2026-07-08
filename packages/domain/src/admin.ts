@@ -43,9 +43,15 @@ type LinkedEmailAccount = {
   id: bigint;
   serialNumber: string;
 };
+type EmailRecord = {
+  id: bigint;
+  prefix: string;
+  postfix: string;
+  bindStatus: number;
+};
 
 const CODM_GAME_KEY = "codm";
-const ACCOUNT_LISTED_STATUS = 1;
+const ACCOUNT_SOLD_STATUS = 3;
 const EMAIL_BOUND_STATUS = 1;
 const EMAIL_UNBOUND_STATUS = 2;
 
@@ -265,15 +271,15 @@ async function getExpectedEmailBindStatus(
     return EMAIL_UNBOUND_STATUS;
   }
 
-  const listedAccount = await tx.codmAccount.findFirst({
+  const activeAccount = await tx.codmAccount.findFirst({
     where: {
       email,
-      status: ACCOUNT_LISTED_STATUS,
+      status: { not: ACCOUNT_SOLD_STATUS },
     },
     select: { id: true },
   });
 
-  return listedAccount ? EMAIL_BOUND_STATUS : EMAIL_UNBOUND_STATUS;
+  return activeAccount ? EMAIL_BOUND_STATUS : EMAIL_UNBOUND_STATUS;
 }
 
 async function findLinkedAccountByEmail(
@@ -285,7 +291,10 @@ async function findLinkedAccountByEmail(
   }
 
   return client.codmAccount.findFirst({
-    where: { email },
+    where: {
+      email,
+      status: { not: ACCOUNT_SOLD_STATUS },
+    },
     orderBy: [{ status: "asc" }, { updatedAt: "desc" }],
     select: {
       id: true,
@@ -337,13 +346,13 @@ async function assertListedAccountCanUseEmail(
   currentAccountId?: number,
 ) {
   if (!email) {
-    throw new DomainError("EMAIL_REQUIRED", "上架账号必须绑定邮箱");
+    throw new DomainError("EMAIL_REQUIRED", "账号必须绑定邮箱");
   }
 
   const boundAccount = await tx.codmAccount.findFirst({
     where: {
       email,
-      status: ACCOUNT_LISTED_STATUS,
+      status: { not: ACCOUNT_SOLD_STATUS },
       ...(currentAccountId === undefined
         ? {}
         : { NOT: { id: currentAccountId } }),
@@ -356,9 +365,86 @@ async function assertListedAccountCanUseEmail(
   if (boundAccount) {
     throw new DomainError(
       "EMAIL_BOUND",
-      `该邮箱已被上架账号 ${boundAccount.serialNumber} 绑定，无法使用`,
+      `该邮箱已被账号 ${boundAccount.serialNumber} 绑定，无法使用`,
     );
   }
+}
+
+async function getEmailRecordByAddress(
+  tx: TransactionClient,
+  email: string,
+): Promise<EmailRecord> {
+  const parts = parseEmailAddress(email);
+
+  if (!parts) {
+    throw new DomainError("BAD_REQUEST", "邮箱格式无效");
+  }
+
+  const emailRecord = await tx.codmEmail.findFirst({
+    where: {
+      prefix: parts.prefix,
+      postfix: parts.postfix,
+    },
+    select: {
+      id: true,
+      prefix: true,
+      postfix: true,
+      bindStatus: true,
+    },
+  });
+
+  if (!emailRecord) {
+    throw new DomainError("EMAIL_NOT_FOUND", "绑定邮箱不存在");
+  }
+
+  return emailRecord;
+}
+
+async function assertAccountEmailForWrite(
+  tx: TransactionClient,
+  email?: string | null,
+  currentAccountId?: number,
+): Promise<EmailRecord> {
+  if (!email) {
+    throw new DomainError("EMAIL_REQUIRED", "账号必须绑定邮箱");
+  }
+
+  const emailRecord = await getEmailRecordByAddress(tx, email);
+
+  await assertListedAccountCanUseEmail(tx, email, currentAccountId);
+
+  return emailRecord;
+}
+
+async function markEmailBindStatus(
+  tx: TransactionClient,
+  emailRecord: Pick<EmailRecord, "id">,
+  bindStatus: 1 | 2,
+) {
+  await tx.codmEmail.update({
+    where: { id: emailRecord.id },
+    data: { bindStatus },
+  });
+}
+
+async function releaseEmailBindStatus(
+  tx: TransactionClient,
+  email?: string | null,
+) {
+  const parts = parseEmailAddress(email);
+
+  if (!parts) {
+    return;
+  }
+
+  await tx.codmEmail.updateMany({
+    where: {
+      prefix: parts.prefix,
+      postfix: parts.postfix,
+      NOT: { bindStatus: EMAIL_UNBOUND_STATUS },
+    },
+    data: { bindStatus: EMAIL_UNBOUND_STATUS },
+  });
 }
 
 async function getNextCounterValue(tx: TransactionClient, counterName: string) {
@@ -483,9 +569,7 @@ export async function createAdminAccount(
       attributeDefinitions,
     );
 
-    if (input.status === ACCOUNT_LISTED_STATUS) {
-      await assertListedAccountCanUseEmail(tx, input.email);
-    }
+    const emailRecord = await assertAccountEmailForWrite(tx, input.email);
 
     const serialNumber =
       input.serialNumber ??
@@ -513,7 +597,7 @@ export async function createAdminAccount(
       },
     });
 
-    await syncEmailBindStatusFromAccounts(tx, input.email);
+    await markEmailBindStatus(tx, emailRecord, EMAIL_BOUND_STATUS);
 
     return serializeAccount(account, attributeDefinitions);
   });
@@ -530,6 +614,10 @@ export async function updateAdminAccount(
 
     if (!existingAccount) {
       throw new DomainError("NOT_FOUND", "CODM账号未找到", 404);
+    }
+
+    if (existingAccount.status === ACCOUNT_SOLD_STATUS) {
+      throw new DomainError("ACCOUNT_SOLD", "已出售账号不可编辑", 409);
     }
 
     const existingAttributes = normalizeAccountAttributes(
@@ -553,13 +641,11 @@ export async function updateAdminAccount(
       }
     }
 
-    const nextStatus = input.status ?? existingAccount.status;
     const nextEmail =
       input.email !== undefined ? input.email : existingAccount.email;
+    const emailChanged = nextEmail !== existingAccount.email;
 
-    if (nextStatus === ACCOUNT_LISTED_STATUS) {
-      await assertListedAccountCanUseEmail(tx, nextEmail, id);
-    }
+    const nextEmailRecord = await assertAccountEmailForWrite(tx, nextEmail, id);
 
     const attributes =
       input.attributes === undefined
@@ -575,10 +661,9 @@ export async function updateAdminAccount(
       data: accountWriteData(input, attributes),
     });
 
-    await syncEmailBindStatusFromAccounts(tx, existingAccount.email);
-
-    if (nextEmail !== existingAccount.email) {
-      await syncEmailBindStatusFromAccounts(tx, nextEmail);
+    if (emailChanged) {
+      await releaseEmailBindStatus(tx, existingAccount.email);
+      await markEmailBindStatus(tx, nextEmailRecord, EMAIL_BOUND_STATUS);
     }
 
     return serializeAccount(account, attributeDefinitions);
@@ -609,16 +694,60 @@ export async function updateAdminAccountStatus(
       throw new DomainError("NOT_FOUND", "CODM账号未找到", 404);
     }
 
-    if (status === ACCOUNT_LISTED_STATUS) {
-      await assertListedAccountCanUseEmail(tx, existingAccount.email, id);
+    if (existingAccount.status === ACCOUNT_SOLD_STATUS) {
+      throw new DomainError(
+        "ACCOUNT_SOLD",
+        "已出售账号不可变更上下架状态",
+        409,
+      );
     }
+
+    await assertAccountEmailForWrite(tx, existingAccount.email, id);
 
     const account = await tx.codmAccount.update({
       where: { id },
       data: { status },
     });
 
-    await syncEmailBindStatusFromAccounts(tx, existingAccount.email);
+    const attributeDefinitions = await listAttributeDefinitionsForGame(
+      tx,
+      CODM_GAME_KEY,
+    );
+
+    return serializeAccount(account, attributeDefinitions);
+  });
+}
+
+export async function sellAdminAccount(id: number): Promise<AdminAccount> {
+  return prisma.$transaction(async (tx) => {
+    const existingAccount = await tx.codmAccount.findUnique({ where: { id } });
+
+    if (!existingAccount) {
+      throw new DomainError("NOT_FOUND", "CODM账号未找到", 404);
+    }
+
+    if (existingAccount.status === ACCOUNT_SOLD_STATUS) {
+      throw new DomainError("ACCOUNT_SOLD", "账号已出售，不能重复出售", 409);
+    }
+
+    if (!existingAccount.email) {
+      throw new DomainError("EMAIL_REQUIRED", "出售前账号必须绑定邮箱");
+    }
+
+    const emailRecord = await getEmailRecordByAddress(
+      tx,
+      existingAccount.email,
+    );
+
+    const account = await tx.codmAccount.update({
+      where: { id },
+      data: {
+        email: null,
+        status: ACCOUNT_SOLD_STATUS,
+      },
+    });
+
+    await markEmailBindStatus(tx, emailRecord, EMAIL_UNBOUND_STATUS);
 
     const attributeDefinitions = await listAttributeDefinitionsForGame(
       tx,
