@@ -44,7 +44,7 @@ import {
   ChevronsRight,
   Edit,
   Plus,
-  RefreshCw,
+  RotateCcw,
   Search,
   Trash2,
 } from "lucide-react";
@@ -79,6 +79,7 @@ export function EmailsPage() {
   const [emails, setEmails] = useState<AdminEmail[]>([]);
   const [searchValue, setSearchValue] = useState("");
   const [keyword, setKeyword] = useState("");
+  const [bindStatusValue, setBindStatusValue] = useState("all");
   const [bindStatus, setBindStatus] = useState("all");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
@@ -283,13 +284,32 @@ export function EmailsPage() {
     }
 
     const nextKeyword = searchValue.trim();
+    const nextBindStatus = bindStatusValue;
 
-    if (nextKeyword === keyword) {
+    if (nextKeyword === keyword && nextBindStatus === bindStatus) {
       void loadPage(1, "replace");
       return;
     }
 
     setKeyword(nextKeyword);
+    setBindStatus(nextBindStatus);
+  }
+
+  function handleResetFilters() {
+    if (loadingRef.current) {
+      return;
+    }
+
+    setSearchValue("");
+    setBindStatusValue("all");
+
+    if (keyword === "" && bindStatus === "all") {
+      void loadPage(1, "replace");
+      return;
+    }
+
+    setKeyword("");
+    setBindStatus("all");
   }
 
   async function confirmRemoveEmail() {
@@ -346,7 +366,7 @@ export function EmailsPage() {
         <CardHeader className="border-b border-border">
           <CardTitle className="text-base">筛选</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-3 pt-4 sm:grid-cols-[minmax(220px,1fr)_160px_auto]">
+        <CardContent className="grid gap-3 pt-4 sm:grid-cols-[minmax(220px,1fr)_160px_auto_auto]">
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-2.5 size-4 text-muted-foreground" />
             <Input
@@ -361,7 +381,7 @@ export function EmailsPage() {
               }}
             />
           </div>
-          <Select value={bindStatus} onValueChange={setBindStatus}>
+          <Select value={bindStatusValue} onValueChange={setBindStatusValue}>
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
@@ -373,14 +393,23 @@ export function EmailsPage() {
           </Select>
           <LoadingButton
             loading={loading}
-            loadingLabel="刷新中..."
+            loadingLabel="搜索中..."
             type="button"
             variant="outline"
             onClick={handleSearch}
           >
-            <RefreshCw size={16} />
-            刷新
+            <Search size={16} />
+            搜索
           </LoadingButton>
+          <Button
+            disabled={loading}
+            type="button"
+            variant="outline"
+            onClick={handleResetFilters}
+          >
+            <RotateCcw size={16} />
+            重置
+          </Button>
         </CardContent>
       </Card>
 
