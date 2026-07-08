@@ -41,12 +41,8 @@ export function getAccountBadges(account: ShopAccount) {
 
 export function getAccountCardBadges(account: ShopAccount) {
   const gameLabel = account.gameKey === "sanguosha" ? "三国杀" : "CODM";
-  const attributeBadges =
-    account.gameKey === "sanguosha"
-      ? getGenericAttributeBadges(account)
-      : getCodmAttributeBadges(account);
 
-  return [gameLabel, ...attributeBadges].slice(0, 3);
+  return [gameLabel, ...getGenericAttributeBadges(account)].slice(0, 3);
 }
 
 function getCodmAttributeBadges(account: ShopAccount) {
