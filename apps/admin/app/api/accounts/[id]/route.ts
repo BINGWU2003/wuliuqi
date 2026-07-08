@@ -11,7 +11,7 @@ import { requireAdminSession } from "@/lib/session";
 type Params = Promise<{ id: string }>;
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   segmentData: { params: Params },
 ) {
   try {
@@ -23,10 +23,13 @@ export async function GET(
       return fail("BAD_REQUEST", "无效的账号ID", 400);
     }
 
-    const account = await getAdminAccountById(id);
+    const account = await getAdminAccountById(
+      id,
+      request.nextUrl.searchParams.get("game_key") ?? undefined,
+    );
 
     if (!account) {
-      return fail("NOT_FOUND", "CODM账号未找到", 404);
+      return fail("NOT_FOUND", "账号未找到", 404);
     }
 
     return ok(account);
@@ -49,7 +52,11 @@ export async function PATCH(
     }
 
     const input = adminAccountUpdateSchema.parse(await request.json());
-    const account = await updateAdminAccount(id, input);
+    const account = await updateAdminAccount(
+      id,
+      input,
+      request.nextUrl.searchParams.get("game_key") ?? undefined,
+    );
 
     return ok(account);
   } catch (error) {
@@ -58,7 +65,7 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   segmentData: { params: Params },
 ) {
   try {
@@ -70,7 +77,10 @@ export async function DELETE(
       return fail("BAD_REQUEST", "无效的账号ID", 400);
     }
 
-    await deleteAdminAccount(id);
+    await deleteAdminAccount(
+      id,
+      request.nextUrl.searchParams.get("game_key") ?? undefined,
+    );
 
     return ok({ deleted: true });
   } catch (error) {

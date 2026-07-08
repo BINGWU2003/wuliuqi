@@ -1,5 +1,5 @@
 import { Card, CardContent } from "@wuliuqi/ui/components/card";
-import { Gamepad2 } from "lucide-react";
+import { Gamepad2, Swords } from "lucide-react";
 import Link from "next/link";
 
 export default function AccountSectionPage() {
@@ -14,6 +14,16 @@ export default function AccountSectionPage() {
                 <Gamepad2 size={28} />
               </span>
               <span className="text-sm font-semibold">CODM</span>
+            </CardContent>
+          </Card>
+        </Link>
+        <Link href="/sanguosha-account-page">
+          <Card className="transition-transform active:scale-[0.98]">
+            <CardContent className="flex flex-col items-center gap-2 p-4">
+              <span className="grid size-[52px] place-items-center rounded-lg bg-red-600 text-white shadow-sm">
+                <Swords size={28} />
+              </span>
+              <span className="text-sm font-semibold">三国杀</span>
             </CardContent>
           </Card>
         </Link>

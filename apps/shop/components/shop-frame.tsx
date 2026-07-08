@@ -13,10 +13,16 @@ const titleMap: Record<string, string> = {
   "/account-section": "账号专区",
   "/codm-account-page": "CODM 账号列表",
   "/codm-account-info": "CODM 账号详情",
+  "/sanguosha-account-page": "三国杀账号列表",
+  "/sanguosha-account-info": "三国杀账号详情",
   "/guide": "指南",
 };
 
-const accountTabPaths = ["/account-section", "/codm-account-page"];
+const accountTabPaths = [
+  "/account-section",
+  "/codm-account-page",
+  "/sanguosha-account-page",
+];
 const tabPaths = ["/", ...accountTabPaths, "/guide"];
 
 export function ShopFrame({ children }: { children: ReactNode }) {

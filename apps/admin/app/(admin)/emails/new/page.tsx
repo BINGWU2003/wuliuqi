@@ -1,5 +1,17 @@
 import { EmailForm } from "@/components/email-form";
 
-export default function Page() {
-  return <EmailForm />;
+type SearchParams = Promise<{ game_key?: string | string[] }>;
+
+export default async function Page({
+  searchParams,
+}: {
+  searchParams: SearchParams;
+}) {
+  const params = await searchParams;
+  const rawGameKey = Array.isArray(params.game_key)
+    ? params.game_key[0]
+    : params.game_key;
+  const gameKey = rawGameKey === "sanguosha" ? "sanguosha" : "codm";
+
+  return <EmailForm initialGameKey={gameKey} />;
 }

@@ -13,7 +13,13 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { AccountForm } from "@/components/account-form";
 
-export function AccountEditModal({ accountId }: { accountId: number | null }) {
+export function AccountEditModal({
+  accountId,
+  initialGameKey = "codm",
+}: {
+  accountId: number | null;
+  initialGameKey?: "codm" | "sanguosha";
+}) {
   const router = useRouter();
   const [formBusy, setFormBusy] = useState(false);
 
@@ -62,6 +68,7 @@ export function AccountEditModal({ accountId }: { accountId: number | null }) {
           {accountId ? (
             <AccountForm
               accountId={accountId}
+              initialGameKey={initialGameKey}
               presentation="modal"
               onBusyChange={setFormBusy}
             />

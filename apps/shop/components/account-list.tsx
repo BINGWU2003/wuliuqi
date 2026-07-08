@@ -72,12 +72,14 @@ type FailedLoad = {
 type AccountListProps = {
   compactHeader?: boolean;
   eyebrow?: string;
+  gameKey?: string;
   heading?: string;
 };
 
 export function AccountList({
   compactHeader = false,
   eyebrow = "CODM Marketplace",
+  gameKey = "codm",
   heading = "精选账号",
 }: AccountListProps) {
   const [activeRange, setActiveRange] = useState(0);
@@ -112,6 +114,7 @@ export function AccountList({
         limit: String(PAGE_SIZE),
         sort,
         status: "1",
+        game_key: gameKey,
       });
 
       if (keyword.trim()) {
@@ -179,7 +182,7 @@ export function AccountList({
         }
       }
     },
-    [activeRange, keyword, sort],
+    [activeRange, gameKey, keyword, sort],
   );
 
   useEffect(() => {

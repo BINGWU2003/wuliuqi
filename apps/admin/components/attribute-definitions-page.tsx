@@ -4,6 +4,7 @@ import type {
   GameAttributeDefinition,
   GameAttributeOption,
   GameAttributeType,
+  GameKey,
 } from "@wuliuqi/types";
 import {
   AlertDialog,
@@ -50,7 +51,7 @@ import {
   TableRow,
 } from "@wuliuqi/ui/components/table";
 import { Edit, Eraser, Plus, RefreshCw, Save, Trash2, X } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   CellTooltip,
   TABLE_ACTION_CELL_CLASS,
@@ -104,8 +105,13 @@ const emptyForm: AttributeFormState = {
   sortOrder: 0,
   options: [],
 };
+const gameOptions: Array<{ label: string; value: GameKey }> = [
+  { label: "CODM", value: "codm" },
+  { label: "三国杀", value: "sanguosha" },
+];
 
 export function AttributeDefinitionsPage() {
+  const [gameKey, setGameKey] = useState<GameKey>("codm");
   const [definitions, setDefinitions] = useState<GameAttributeDefinition[]>([]);
   const [form, setForm] = useState<AttributeFormState>(emptyForm);
   const [loading, setLoading] = useState(true);
@@ -132,21 +138,21 @@ export function AttributeDefinitionsPage() {
   );
   const identityLocked = (editingDefinition?.usageCount ?? 0) > 0;
 
-  useEffect(() => {
-    void loadDefinitions();
-  }, []);
-
-  async function loadDefinitions() {
+  const loadDefinitions = useCallback(async () => {
     setLoading(true);
 
     try {
-      setDefinitions(await fetchAttributeDefinitions("codm"));
+      setDefinitions(await fetchAttributeDefinitions(gameKey));
     } catch (loadError) {
       toast.error(errorMessage(loadError, "加载属性配置失败"));
     } finally {
       setLoading(false);
     }
-  }
+  }, [gameKey]);
+
+  useEffect(() => {
+    void loadDefinitions();
+  }, [loadDefinitions]);
 
   function updateForm(patch: Partial<AttributeFormState>) {
     setForm((current) => ({ ...current, ...patch }));
@@ -237,7 +243,7 @@ export function AttributeDefinitionsPage() {
             .filter((option) => option.label && option.value)
         : [];
     const payload = {
-      gameKey: "codm",
+      gameKey,
       attrKey: form.attrKey.trim(),
       label: form.label.trim(),
       type: form.type,
@@ -314,10 +320,30 @@ export function AttributeDefinitionsPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-normal">属性配置</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            共 {definitions.length} 个 CODM 属性
+            共 {definitions.length} 个
+            {gameOptions.find((game) => game.value === gameKey)?.label}属性
           </p>
         </div>
         <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
+          <Select
+            value={gameKey}
+            onValueChange={(value) => {
+              setGameKey(value as GameKey);
+              resetForm();
+              setFormOpen(false);
+            }}
+          >
+            <SelectTrigger className="col-span-2 w-full sm:col-span-1 sm:w-36">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {gameOptions.map((game) => (
+                <SelectItem key={game.value} value={game.value}>
+                  {game.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Button
             className="w-full sm:w-auto"
             disabled={loading}
@@ -367,7 +393,7 @@ export function AttributeDefinitionsPage() {
       <div className="hidden lg:block">
         <Card className="overflow-hidden rounded-md shadow-none">
           <CardHeader className="border-b border-border">
-            <CardTitle className="text-base">CODM 属性</CardTitle>
+            <CardTitle className="text-base">游戏属性</CardTitle>
           </CardHeader>
           <div className="overflow-auto">
             <Table className="min-w-[1080px]">
@@ -556,7 +582,7 @@ export function AttributeDefinitionsPage() {
             {form.id ? "编辑属性" : "新建属性"}
           </DialogTitle>
           <DialogDescription className="sr-only">
-            配置 CODM 属性名称、类型、选项、状态和排序。
+            配置当前游戏的属性名称、类型、选项、状态和排序。
           </DialogDescription>
           <div className="flex h-12 shrink-0 items-center justify-end border-b border-border bg-background/95 px-3 backdrop-blur">
             <Button
@@ -579,7 +605,7 @@ export function AttributeDefinitionsPage() {
                   {form.id ? "编辑属性" : "新建属性"}
                 </h1>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  配置 CODM 属性名称、类型、选项、状态和排序。
+                  配置当前游戏的属性名称、类型、选项、状态和排序。
                 </p>
               </div>
               <Card className="rounded-md shadow-none">

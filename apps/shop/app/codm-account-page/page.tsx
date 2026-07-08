@@ -6,6 +6,7 @@ export default function CodmAccountPage() {
       <AccountList
         compactHeader
         eyebrow="Browse all listings"
+        gameKey="codm"
         heading="CODM 账号列表"
       />
     </main>

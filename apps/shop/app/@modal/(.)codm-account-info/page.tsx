@@ -13,5 +13,10 @@ export default async function CodmAccountInfoModalPage({
   const rawId = Array.isArray(params.id) ? params.id[0] : params.id;
   const id = rawId ? Number(rawId) : null;
 
-  return <AccountDetailModal id={Number.isSafeInteger(id) ? id : null} />;
+  return (
+    <AccountDetailModal
+      gameKey="codm"
+      id={Number.isSafeInteger(id) ? id : null}
+    />
+  );
 }

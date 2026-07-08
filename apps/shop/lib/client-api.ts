@@ -2,6 +2,7 @@ import type {
   ApiResponse,
   Carousel,
   ShopAccount,
+  ShopHomeAccountListResult,
   ShopAccountListResult,
 } from "@wuliuqi/types";
 
@@ -32,11 +33,25 @@ export async function fetchAccounts(
   );
 }
 
+export async function fetchHomeAccounts(
+  params: URLSearchParams,
+  init?: RequestInit,
+): Promise<ShopHomeAccountListResult> {
+  return readApi<ShopHomeAccountListResult>(
+    await fetch(`/api/home/accounts?${params}`, init),
+  );
+}
+
 export async function fetchAccount(
   id: number,
+  gameKey = "codm",
   init?: RequestInit,
 ): Promise<ShopAccount> {
-  return readApi<ShopAccount>(await fetch(`/api/accounts/${id}`, init));
+  const params = new URLSearchParams({ game_key: gameKey });
+
+  return readApi<ShopAccount>(
+    await fetch(`/api/accounts/${id}?${params}`, init),
+  );
 }
 
 export async function fetchCarousel(

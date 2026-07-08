@@ -38,6 +38,38 @@ model CodmEmail {
   @@map("codm_emails")
 }
 
+model SanguoshaAccount {
+  id           BigInt   @id @default(autoincrement())
+  serialNumber String   @unique @map("serial_number") @db.VarChar(50)
+  images       Json?
+  attributes   Json     @default("{}")
+  price        Decimal  @default(0.00) @db.Decimal(10, 2)
+  title        String   @db.VarChar(255)
+  describe     String?  @db.Text
+  xianyuUrl    String?  @map("xianyu_url") @db.VarChar(512)
+  email        String?  @db.VarChar(255)
+  status       Int      @default(1) @db.SmallInt
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@index([status, updatedAt(sort: Desc)], map: "sanguosha_accounts_status_updated_at_idx")
+  @@index([createdAt(sort: Desc)], map: "sanguosha_accounts_created_at_idx")
+  @@index([email], map: "sanguosha_accounts_email_idx")
+  @@map("sanguosha_accounts")
+}
+
+model SanguoshaEmail {
+  id         BigInt   @id @default(autoincrement())
+  prefix     String   @db.VarChar(64)
+  postfix    String   @db.VarChar(255)
+  bindStatus Int      @default(2) @map("bind_status") @db.SmallInt
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@index([prefix, postfix], map: "sanguosha_emails_address_idx")
+  @@map("sanguosha_emails")
+}
+
 model Carousel {
   id        BigInt   @id @default(autoincrement())
   name      String   @unique @db.VarChar(255)

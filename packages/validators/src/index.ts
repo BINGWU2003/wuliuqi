@@ -11,6 +11,14 @@ export const EMAIL_BIND_STATUS = {
   unbound: 2,
 } as const;
 
+export const GAME_KEYS = ["codm", "sanguosha"] as const;
+
+const gameKeyQueryField = z
+  .enum(GAME_KEYS)
+  .optional();
+
+const gameKeyBodyField = z.enum(GAME_KEYS).optional();
+
 const optionalNumberFromQuery = z
   .string()
   .trim()
@@ -54,6 +62,7 @@ const paginationQuery = {
 export const accountListQuerySchema = z
   .object({
     ...paginationQuery,
+    game_key: gameKeyQueryField,
     keyword: z
       .string()
       .trim()
@@ -82,9 +91,24 @@ export const accountListQuerySchema = z
 
 export type AccountListQuery = z.infer<typeof accountListQuerySchema>;
 
+export const shopHomeAccountListQuerySchema = z.object({
+  cursor: optionalString,
+  limit: z
+    .string()
+    .trim()
+    .optional()
+    .transform((value) => (value ? Number(value) : 12))
+    .pipe(z.number().int().min(1).max(30)),
+});
+
+export type ShopHomeAccountListQuery = z.infer<
+  typeof shopHomeAccountListQuerySchema
+>;
+
 export const adminAccountListQuerySchema = accountListQuerySchema;
 
 export const adminAccountCreateSchema = z.object({
+  gameKey: gameKeyBodyField,
   serialNumber: optionalString,
   images: z.array(z.string().trim().min(1)).min(1, "请至少上传一张图片"),
   attributes: accountAttributesSchema.default({}),
@@ -121,6 +145,7 @@ export const accountStatusSchema = z.object({
 
 export const adminEmailListQuerySchema = z.object({
   ...paginationQuery,
+  game_key: gameKeyQueryField,
   keyword: optionalString,
   bind_status: optionalNumberFromQuery.pipe(
     z.number().int().min(1).max(2).optional(),
@@ -144,6 +169,7 @@ const emailPostfixSchema = z
 const emailBindStatusFieldSchema = z.union([z.literal(1), z.literal(2)]);
 
 export const adminEmailCreateSchema = z.object({
+  gameKey: gameKeyBodyField,
   prefix: newEmailPrefixSchema,
   postfix: emailPostfixSchema,
   bindStatus: emailBindStatusFieldSchema.default(2),

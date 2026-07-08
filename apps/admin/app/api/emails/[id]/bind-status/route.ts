@@ -20,7 +20,11 @@ export async function PATCH(
     }
 
     const { bindStatus } = emailBindStatusSchema.parse(await request.json());
-    const email = await updateAdminEmailBindStatus(id, bindStatus);
+    const email = await updateAdminEmailBindStatus(
+      id,
+      bindStatus,
+      request.nextUrl.searchParams.get("game_key") ?? undefined,
+    );
 
     return ok(email);
   } catch (error) {

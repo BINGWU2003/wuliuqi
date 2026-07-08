@@ -31,6 +31,28 @@ const { prismaMock } = vi.hoisted(() => {
       update: vi.fn(),
       updateMany: vi.fn(),
     },
+    sanguoshaAccount: {
+      aggregate: vi.fn(),
+      count: vi.fn(),
+      create: vi.fn(),
+      delete: vi.fn(),
+      findFirst: vi.fn(),
+      findMany: vi.fn(),
+      findUnique: vi.fn(),
+      groupBy: vi.fn(),
+      update: vi.fn(),
+      updateMany: vi.fn(),
+    },
+    sanguoshaEmail: {
+      count: vi.fn(),
+      create: vi.fn(),
+      delete: vi.fn(),
+      findFirst: vi.fn(),
+      findMany: vi.fn(),
+      findUnique: vi.fn(),
+      update: vi.fn(),
+      updateMany: vi.fn(),
+    },
     gameAttributeDefinition: {
       create: vi.fn(),
       findFirst: vi.fn(),
@@ -61,6 +83,8 @@ import {
   deleteAdminEmail,
   deleteAdminGameAttributeDefinition,
   getAdminAccountStatistics,
+  listAdminAccounts,
+  listAdminEmails,
   listAdminGameAttributeDefinitions,
   sellAdminAccount,
   updateAdminAccount,
@@ -348,6 +372,61 @@ describe("后台属性标签", () => {
 });
 
 describe("后台账号", () => {
+  it("按游戏查询后台账号列表并加载对应属性", async () => {
+    prismaMock.sanguoshaAccount.count.mockResolvedValue(1);
+    prismaMock.sanguoshaAccount.findMany.mockResolvedValue([
+      accountRecord({
+        id: 61n,
+        serialNumber: "#SGS-61",
+        title: "三国杀账号",
+        attributes: { generals: 120 },
+      }),
+    ]);
+    prismaMock.gameAttributeDefinition.findMany.mockResolvedValue([
+      attributeDefinitionRecord({
+        gameKey: "sanguosha",
+        attrKey: "generals",
+        label: "武将数",
+      }),
+    ]);
+
+    const result = await listAdminAccounts({
+      game_key: "sanguosha",
+      keyword: undefined,
+      page: 1,
+      limit: 10,
+      sort: "latest",
+    });
+
+    expect(prismaMock.sanguoshaAccount.count).toHaveBeenCalledWith({
+      where: {},
+    });
+    expect(prismaMock.sanguoshaAccount.findMany).toHaveBeenCalledWith({
+      where: {},
+      orderBy: { updatedAt: "desc" },
+      skip: 0,
+      take: 10,
+    });
+    expect(prismaMock.codmAccount.findMany).not.toHaveBeenCalled();
+    expect(prismaMock.gameAttributeDefinition.findMany).toHaveBeenCalledWith({
+      where: {
+        gameKey: "sanguosha",
+        deletedAt: null,
+      },
+      orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
+    });
+    expect(result.list[0]).toMatchObject({
+      serialNumber: "#SGS-61",
+      attributeValues: [
+        expect.objectContaining({
+          key: "generals",
+          label: "武将数",
+          value: 120,
+        }),
+      ],
+    });
+  });
+
   it("统计账号状态、金额和运营列表", async () => {
     prismaMock.codmAccount.aggregate.mockResolvedValue({
       _count: { _all: 6 },
@@ -441,6 +520,50 @@ describe("后台账号", () => {
     expect(statistics.staleListed[0]).toMatchObject({
       id: 12,
       serialNumber: "#CODM-12",
+    });
+  });
+
+  it("按游戏统计三国杀账号，不读取 CODM 账号表", async () => {
+    prismaMock.sanguoshaAccount.aggregate.mockResolvedValue({
+      _count: { _all: 2 },
+      _sum: { price: 1200 },
+    });
+    prismaMock.sanguoshaAccount.groupBy.mockResolvedValue([
+      { status: 1, _count: { _all: 1 }, _sum: { price: 700 } },
+      { status: 3, _count: { _all: 1 }, _sum: { price: 500 } },
+    ]);
+    prismaMock.sanguoshaAccount.findMany
+      .mockResolvedValueOnce([
+        accountRecord({ id: 62n, serialNumber: "#SGS-62", status: 3 }),
+      ])
+      .mockResolvedValueOnce([
+        accountRecord({ id: 61n, serialNumber: "#SGS-61", status: 1 }),
+      ])
+      .mockResolvedValueOnce([
+        accountRecord({ id: 61n, serialNumber: "#SGS-61", status: 1 }),
+      ]);
+    prismaMock.gameAttributeDefinition.findMany.mockResolvedValue([
+      attributeDefinitionRecord({ gameKey: "sanguosha" }),
+    ]);
+
+    const statistics = await getAdminAccountStatistics("sanguosha");
+
+    expect(prismaMock.sanguoshaAccount.aggregate).toHaveBeenCalledOnce();
+    expect(prismaMock.sanguoshaAccount.groupBy).toHaveBeenCalledOnce();
+    expect(prismaMock.codmAccount.aggregate).not.toHaveBeenCalled();
+    expect(prismaMock.gameAttributeDefinition.findMany).toHaveBeenCalledWith({
+      where: {
+        gameKey: "sanguosha",
+        deletedAt: null,
+      },
+      orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
+    });
+    expect(statistics.summary).toMatchObject({
+      totalCount: 2,
+      listedCount: 1,
+      soldCount: 1,
+      availableValue: 700,
+      soldValue: 500,
     });
   });
 
@@ -946,6 +1069,48 @@ describe("后台账号", () => {
 });
 
 describe("后台邮箱", () => {
+  it("按游戏查询邮箱列表并匹配对应游戏的绑定账号", async () => {
+    prismaMock.sanguoshaEmail.count.mockResolvedValue(1);
+    prismaMock.sanguoshaEmail.findMany.mockResolvedValue([
+      emailRecord({ id: 8n, prefix: "sgs", postfix: "@example.com" }),
+    ]);
+    prismaMock.sanguoshaAccount.findMany.mockResolvedValue([
+      { email: "sgs@example.com", id: 61n },
+    ]);
+
+    const result = await listAdminEmails({
+      game_key: "sanguosha",
+      keyword: undefined,
+      page: 1,
+      limit: 10,
+    });
+
+    expect(prismaMock.sanguoshaEmail.count).toHaveBeenCalledWith({
+      where: {},
+    });
+    expect(prismaMock.sanguoshaEmail.findMany).toHaveBeenCalledWith({
+      where: {},
+      orderBy: [{ postfix: "asc" }, { updatedAt: "desc" }],
+      skip: 0,
+      take: 10,
+    });
+    expect(prismaMock.sanguoshaAccount.findMany).toHaveBeenCalledWith({
+      where: {
+        email: { in: ["sgs@example.com"] },
+      },
+      orderBy: [{ status: "asc" }, { updatedAt: "desc" }],
+      select: {
+        email: true,
+        id: true,
+      },
+    });
+    expect(prismaMock.codmEmail.findMany).not.toHaveBeenCalled();
+    expect(result.list[0]).toMatchObject({
+      email: "sgs@example.com",
+      boundAccountId: 61,
+    });
+  });
+
   it("创建邮箱时根据上架账号推导绑定状态", async () => {
     prismaMock.codmEmail.findFirst.mockResolvedValue(null);
     prismaMock.codmAccount.findFirst.mockResolvedValue({ id: 7n });

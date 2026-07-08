@@ -19,12 +19,16 @@ export function ProductCard({
   const name = getAccountName(account);
   const badges = getAccountBadges(account);
   const badgeSlots = [...badges, ...Array<string>(3 - badges.length).fill("")];
+  const detailPath =
+    account.gameKey === "sanguosha"
+      ? "/sanguosha-account-info"
+      : "/codm-account-info";
 
   return (
     <Link
       id={`account-card-${account.id}`}
       className="group block"
-      href={`/codm-account-info?id=${account.id}`}
+      href={`${detailPath}?id=${account.id}`}
       scroll={false}
       title={`查看账号详情：${account.serialNumber}`}
     >

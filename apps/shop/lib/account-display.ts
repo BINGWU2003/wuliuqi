@@ -26,6 +26,10 @@ export function getAccountName(account: ShopAccount) {
 }
 
 export function getAccountBadges(account: ShopAccount) {
+  if (account.gameKey === "sanguosha") {
+    return getGenericAttributeBadges(account);
+  }
+
   const badges: string[] = [];
   const mythic = account.attributes.mythic_skins;
   const legendary = account.attributes.legendary_skins;
@@ -37,6 +41,19 @@ export function getAccountBadges(account: ShopAccount) {
   if (typeof legendary === "number" && Number.isFinite(legendary)) {
     badges.push(`${legendary} 传说`);
   }
+
+  if (account.images.length > 0) {
+    badges.push(`${account.images.length} 图`);
+  }
+
+  return badges.slice(0, 3);
+}
+
+function getGenericAttributeBadges(account: ShopAccount) {
+  const badges = account.attributeValues
+    .filter((attribute) => attribute.displayValue)
+    .slice(0, 2)
+    .map((attribute) => `${attribute.label} ${attribute.displayValue}`);
 
   if (account.images.length > 0) {
     badges.push(`${account.images.length} 图`);

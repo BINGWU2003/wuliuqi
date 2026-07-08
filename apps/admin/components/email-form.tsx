@@ -1,5 +1,6 @@
 "use client";
 
+import type { GameKey } from "@wuliuqi/types";
 import { Button } from "@wuliuqi/ui/components/button";
 import {
   Card,
@@ -37,18 +38,25 @@ const postfixOptions = [
 ];
 
 type EmailFormPresentation = "page" | "modal";
+const gameOptions: Array<{ label: string; value: GameKey }> = [
+  { label: "CODM", value: "codm" },
+  { label: "三国杀", value: "sanguosha" },
+];
 
 export function EmailForm({
   emailId,
+  initialGameKey = "codm",
   onBusyChange,
   presentation = "page",
 }: {
   emailId?: number;
+  initialGameKey?: GameKey;
   onBusyChange?: (busy: boolean) => void;
   presentation?: EmailFormPresentation;
 }) {
   const router = useRouter();
   const isModal = presentation === "modal";
+  const [gameKey, setGameKey] = useState<GameKey>(initialGameKey);
   const [prefix, setPrefix] = useState("");
   const [postfix, setPostfix] = useState("@163.com");
   const [bindStatus, setBindStatus] = useState<1 | 2>(2);
@@ -70,7 +78,7 @@ export function EmailForm({
     }
 
     setLoading(true);
-    fetchEmail(emailId)
+    fetchEmail(emailId, gameKey)
       .then((email) => {
         setPrefix(email.prefix);
         setPostfix(email.postfix);
@@ -83,7 +91,7 @@ export function EmailForm({
         toast.error(errorMessage(loadError, "加载失败"));
       })
       .finally(() => setLoading(false));
-  }, [emailId]);
+  }, [emailId, gameKey]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -96,9 +104,9 @@ export function EmailForm({
 
     try {
       if (emailId) {
-        await updateEmail(emailId, { bindStatus, postfix, prefix });
+        await updateEmail(emailId, { bindStatus, gameKey, postfix, prefix });
       } else {
-        await createEmail({ bindStatus, postfix, prefix });
+        await createEmail({ bindStatus, gameKey, postfix, prefix });
       }
 
       toast.success(emailId ? "邮箱已保存" : "邮箱已创建");
@@ -155,7 +163,7 @@ export function EmailForm({
           已关联账号{" "}
           <Link
             className="font-medium text-primary underline-offset-4 hover:underline"
-            href={`/accounts/${boundAccountId}/edit`}
+            href={`/accounts/${boundAccountId}/edit?game_key=${gameKey}`}
             scroll={false}
           >
             #{boundAccountId}
@@ -168,6 +176,25 @@ export function EmailForm({
           <CardTitle className="text-base">邮箱信息</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-3 pt-4 sm:grid-cols-2">
+          <label className="block space-y-1.5">
+            <span className="text-sm font-medium">游戏</span>
+            <Select
+              disabled={Boolean(emailId)}
+              value={gameKey}
+              onValueChange={(value) => setGameKey(value as GameKey)}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {gameOptions.map((game) => (
+                  <SelectItem key={game.value} value={game.value}>
+                    {game.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </label>
           <label className="block space-y-1.5">
             <span className="text-sm font-medium">前缀</span>
             <Input

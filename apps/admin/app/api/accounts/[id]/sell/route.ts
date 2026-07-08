@@ -6,7 +6,7 @@ import { requireAdminSession } from "@/lib/session";
 type Params = Promise<{ id: string }>;
 
 export async function POST(
-  _request: NextRequest,
+  request: NextRequest,
   segmentData: { params: Params },
 ) {
   try {
@@ -18,7 +18,10 @@ export async function POST(
       return fail("BAD_REQUEST", "无效的账号ID", 400);
     }
 
-    const account = await sellAdminAccount(id);
+    const account = await sellAdminAccount(
+      id,
+      request.nextUrl.searchParams.get("game_key") ?? undefined,
+    );
 
     return ok(account);
   } catch (error) {

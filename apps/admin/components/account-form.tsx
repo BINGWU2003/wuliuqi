@@ -5,6 +5,7 @@ import type {
   AccountAttributes,
   AdminEmail,
   GameAttributeDefinition,
+  GameKey,
 } from "@wuliuqi/types";
 import { Badge } from "@wuliuqi/ui/components/badge";
 import { Button } from "@wuliuqi/ui/components/button";
@@ -68,18 +69,25 @@ const emptyForm: AccountFormState = {
 
 type AccountFormPresentation = "page" | "modal";
 const EMPTY_SELECT_VALUE = "__empty";
+const gameOptions: Array<{ label: string; value: GameKey }> = [
+  { label: "CODM", value: "codm" },
+  { label: "三国杀", value: "sanguosha" },
+];
 
 export function AccountForm({
   accountId,
+  initialGameKey = "codm",
   onBusyChange,
   presentation = "page",
 }: {
   accountId?: number;
+  initialGameKey?: GameKey;
   onBusyChange?: (busy: boolean) => void;
   presentation?: AccountFormPresentation;
 }) {
   const router = useRouter();
   const isModal = presentation === "modal";
+  const [gameKey, setGameKey] = useState<GameKey>(initialGameKey);
   const [form, setForm] = useState<AccountFormState>(emptyForm);
   const [attributeDefinitions, setAttributeDefinitions] = useState<
     GameAttributeDefinition[]
@@ -119,13 +127,13 @@ export function AccountForm({
   useEffect(() => {
     setAttributesLoading(true);
 
-    fetchAttributeDefinitions("codm")
+    fetchAttributeDefinitions(gameKey)
       .then((definitions) => setAttributeDefinitions(definitions))
       .catch((loadError) => {
         toast.error(errorMessage(loadError, "加载属性配置失败"));
       })
       .finally(() => setAttributesLoading(false));
-  }, []);
+  }, [gameKey]);
 
   useEffect(() => {
     if (!accountId) {
@@ -133,7 +141,7 @@ export function AccountForm({
     }
 
     setLoading(true);
-    fetchAccount(accountId)
+    fetchAccount(accountId, gameKey)
       .then((account) =>
         setForm({
           serialNumber: account.serialNumber,
@@ -153,7 +161,7 @@ export function AccountForm({
         toast.error(errorMessage(loadError, "加载失败"));
       })
       .finally(() => setLoading(false));
-  }, [accountId]);
+  }, [accountId, gameKey]);
 
   function updateForm(patch: Partial<AccountFormState>) {
     setForm((current) => ({ ...current, ...patch }));
@@ -185,6 +193,7 @@ export function AccountForm({
 
     try {
       const result = await fetchEmails({
+        game_key: gameKey,
         keyword: emailKeyword,
         limit: 20,
         page: 1,
@@ -216,9 +225,9 @@ export function AccountForm({
       };
 
       if (accountId) {
-        await updateAccount(accountId, payload);
+        await updateAccount(accountId, { ...payload, gameKey });
       } else {
-        await createAccount(payload);
+        await createAccount({ ...payload, gameKey });
       }
 
       toast.success(accountId ? "账号已保存" : "账号已创建");
@@ -279,7 +288,7 @@ export function AccountForm({
             </CardHeader>
             <CardContent className="pt-4">
               <ImageUploader
-                folder="codm-accounts/"
+                folder={`${gameKey}-accounts/`}
                 images={form.images}
                 maxCount={10}
                 onUploadingChange={setImageUploading}
@@ -306,6 +315,29 @@ export function AccountForm({
             <CardTitle className="text-base">基础信息</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 pt-4">
+            <label className="block space-y-1.5">
+              <span className="text-sm font-medium">游戏</span>
+              <Select
+                disabled={Boolean(accountId)}
+                value={gameKey}
+                onValueChange={(value) => {
+                  setGameKey(value as GameKey);
+                  setForm(emptyForm);
+                  setEmailOptions([]);
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {gameOptions.map((game) => (
+                    <SelectItem key={game.value} value={game.value}>
+                      {game.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </label>
             <label className="block space-y-1.5">
               <span className="text-sm font-medium">序列号</span>
               <Input
@@ -439,6 +471,44 @@ export function AccountForm({
         </Card>
       </div>
     </form>
+  );
+}
+
+export function CodmAccountForm({
+  accountId,
+  onBusyChange,
+  presentation,
+}: {
+  accountId?: number;
+  onBusyChange?: (busy: boolean) => void;
+  presentation?: AccountFormPresentation;
+}) {
+  return (
+    <AccountForm
+      accountId={accountId}
+      initialGameKey="codm"
+      presentation={presentation}
+      onBusyChange={onBusyChange}
+    />
+  );
+}
+
+export function SanguoshaAccountForm({
+  accountId,
+  onBusyChange,
+  presentation,
+}: {
+  accountId?: number;
+  onBusyChange?: (busy: boolean) => void;
+  presentation?: AccountFormPresentation;
+}) {
+  return (
+    <AccountForm
+      accountId={accountId}
+      initialGameKey="sanguosha"
+      presentation={presentation}
+      onBusyChange={onBusyChange}
+    />
   );
 }
 

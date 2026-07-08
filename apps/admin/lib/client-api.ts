@@ -12,6 +12,7 @@ import type {
   GameAttributeDefinition,
   GameAttributeOption,
   GameAttributeType,
+  GameKey,
   SequenceCounter,
   UploadCredential,
   UploadResult,
@@ -20,6 +21,7 @@ import { compressImageFile } from "@wuliuqi/utils/browser/image-compress";
 import COS from "cos-js-sdk-v5";
 
 type AccountPayload = {
+  gameKey?: GameKey;
   serialNumber?: string;
   images: string[];
   attributes?: AccountAttributes;
@@ -32,6 +34,7 @@ type AccountPayload = {
 };
 
 type EmailPayload = {
+  gameKey?: GameKey;
   prefix: string;
   postfix: string;
   bindStatus?: 1 | 2;
@@ -99,6 +102,7 @@ export async function logout() {
 }
 
 export async function fetchAccounts(values: {
+  game_key?: GameKey;
   page?: number;
   limit?: number;
   keyword?: string;
@@ -109,12 +113,16 @@ export async function fetchAccounts(values: {
   return requestJson<AdminAccountListResult>(`/api/accounts?${params}`);
 }
 
-export async function fetchAccountStatistics() {
-  return requestJson<AdminAccountStatistics>("/api/statistics/accounts");
+export async function fetchAccountStatistics(gameKey: GameKey = "codm") {
+  const params = paramsFrom({ game_key: gameKey });
+  return requestJson<AdminAccountStatistics>(
+    `/api/statistics/accounts?${params}`,
+  );
 }
 
-export async function fetchAccount(id: number) {
-  return requestJson<AdminAccount>(`/api/accounts/${id}`);
+export async function fetchAccount(id: number, gameKey: GameKey = "codm") {
+  const params = paramsFrom({ game_key: gameKey });
+  return requestJson<AdminAccount>(`/api/accounts/${id}?${params}`);
 }
 
 export async function createAccount(payload: AccountPayload) {
@@ -125,27 +133,39 @@ export async function createAccount(payload: AccountPayload) {
 }
 
 export async function updateAccount(id: number, payload: AccountPayload) {
-  return requestJson<AdminAccount>(`/api/accounts/${id}`, {
+  const params = paramsFrom({ game_key: payload.gameKey });
+
+  return requestJson<AdminAccount>(`/api/accounts/${id}?${params}`, {
     method: "PATCH",
     body: JSON.stringify(payload),
   });
 }
 
-export async function updateAccountStatus(id: number, status: 1 | 2) {
-  return requestJson<AdminAccount>(`/api/accounts/${id}/status`, {
+export async function updateAccountStatus(
+  id: number,
+  status: 1 | 2,
+  gameKey: GameKey = "codm",
+) {
+  const params = paramsFrom({ game_key: gameKey });
+
+  return requestJson<AdminAccount>(`/api/accounts/${id}/status?${params}`, {
     method: "PATCH",
     body: JSON.stringify({ status }),
   });
 }
 
-export async function sellAccount(id: number) {
-  return requestJson<AdminAccount>(`/api/accounts/${id}/sell`, {
+export async function sellAccount(id: number, gameKey: GameKey = "codm") {
+  const params = paramsFrom({ game_key: gameKey });
+
+  return requestJson<AdminAccount>(`/api/accounts/${id}/sell?${params}`, {
     method: "POST",
   });
 }
 
-export async function deleteAccount(id: number) {
-  return requestJson<{ deleted: boolean }>(`/api/accounts/${id}`, {
+export async function deleteAccount(id: number, gameKey: GameKey = "codm") {
+  const params = paramsFrom({ game_key: gameKey });
+
+  return requestJson<{ deleted: boolean }>(`/api/accounts/${id}?${params}`, {
     method: "DELETE",
   });
 }
@@ -198,6 +218,7 @@ export async function clearAttributeDefinitionValues(id: number) {
 }
 
 export async function fetchEmails(values: {
+  game_key?: GameKey;
   page?: number;
   limit?: number;
   keyword?: string;
@@ -207,8 +228,9 @@ export async function fetchEmails(values: {
   return requestJson<AdminEmailListResult>(`/api/emails?${params}`);
 }
 
-export async function fetchEmail(id: number) {
-  return requestJson<AdminEmail>(`/api/emails/${id}`);
+export async function fetchEmail(id: number, gameKey: GameKey = "codm") {
+  const params = paramsFrom({ game_key: gameKey });
+  return requestJson<AdminEmail>(`/api/emails/${id}?${params}`);
 }
 
 export async function createEmail(payload: EmailPayload) {
@@ -219,14 +241,18 @@ export async function createEmail(payload: EmailPayload) {
 }
 
 export async function updateEmail(id: number, payload: EmailPayload) {
-  return requestJson<AdminEmail>(`/api/emails/${id}`, {
+  const params = paramsFrom({ game_key: payload.gameKey });
+
+  return requestJson<AdminEmail>(`/api/emails/${id}?${params}`, {
     method: "PATCH",
     body: JSON.stringify(payload),
   });
 }
 
-export async function deleteEmail(id: number) {
-  return requestJson<{ deleted: boolean }>(`/api/emails/${id}`, {
+export async function deleteEmail(id: number, gameKey: GameKey = "codm") {
+  const params = paramsFrom({ game_key: gameKey });
+
+  return requestJson<{ deleted: boolean }>(`/api/emails/${id}?${params}`, {
     method: "DELETE",
   });
 }

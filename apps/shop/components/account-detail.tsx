@@ -40,9 +40,11 @@ import { fetchAccount } from "@/lib/client-api";
 type AccountDetailPresentation = "page" | "modal";
 
 export function AccountDetail({
+  gameKey = "codm",
   id,
   presentation = "page",
 }: {
+  gameKey?: string;
   id: number | null;
   presentation?: AccountDetailPresentation;
 }) {
@@ -68,7 +70,7 @@ export function AccountDetail({
     setLoading(true);
     setError("");
 
-    fetchAccount(id, { signal: controller.signal })
+    fetchAccount(id, gameKey, { signal: controller.signal })
       .then((nextAccount) => {
         if (!active) {
           return;
@@ -97,7 +99,7 @@ export function AccountDetail({
       active = false;
       controller.abort();
     };
-  }, [id, retryToken]);
+  }, [gameKey, id, retryToken]);
 
   if (loading) {
     return <DetailSkeleton presentation={presentation} />;

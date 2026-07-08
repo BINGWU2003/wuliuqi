@@ -4,7 +4,7 @@ import { fail, ok } from "@/lib/api-response";
 
 type Params = Promise<{ id: string }>;
 
-export async function GET(_request: NextRequest, segmentData: { params: Params }) {
+export async function GET(request: NextRequest, segmentData: { params: Params }) {
   try {
     const { id: rawId } = await segmentData.params;
     const id = Number(rawId);
@@ -13,10 +13,13 @@ export async function GET(_request: NextRequest, segmentData: { params: Params }
       return fail("BAD_REQUEST", "无效的账号ID", 400);
     }
 
-    const account = await getShopAccountById(id);
+    const account = await getShopAccountById(
+      id,
+      request.nextUrl.searchParams.get("game_key") ?? undefined,
+    );
 
     if (!account) {
-      return fail("NOT_FOUND", "CODM账号未找到", 404);
+      return fail("NOT_FOUND", "账号未找到", 404);
     }
 
     return ok(account);

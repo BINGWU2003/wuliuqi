@@ -1,6 +1,6 @@
 "use client";
 
-import type { AdminAccount } from "@wuliuqi/types";
+import type { AdminAccount, GameKey } from "@wuliuqi/types";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -72,6 +72,10 @@ import { formatDate, formatPrice } from "@/lib/format";
 
 const ACCOUNT_PAGE_SIZE = 50;
 const MOBILE_VIEWPORT_QUERY = "(max-width: 639px)";
+const gameOptions: Array<{ label: string; value: GameKey }> = [
+  { label: "CODM", value: "codm" },
+  { label: "三国杀", value: "sanguosha" },
+];
 
 type LoadMode = "append" | "replace";
 type AccountPendingAction = {
@@ -88,6 +92,7 @@ function isMobileViewport() {
 
 export function AccountsPage() {
   const [accounts, setAccounts] = useState<AdminAccount[]>([]);
+  const [gameKey, setGameKey] = useState<GameKey>("codm");
   const [searchValue, setSearchValue] = useState("");
   const [keyword, setKeyword] = useState("");
   const [statusValue, setStatusValue] = useState("all");
@@ -114,13 +119,14 @@ export function AccountsPage() {
   const fetchAccountPage = useCallback(
     (nextPage: number) =>
       fetchAccounts({
+        game_key: gameKey,
         keyword: keyword || undefined,
         limit: ACCOUNT_PAGE_SIZE,
         page: nextPage,
         sort,
         status: status === "all" ? undefined : Number(status),
       }),
-    [keyword, sort, status],
+    [gameKey, keyword, sort, status],
   );
 
   const applyPagination = useCallback(
@@ -344,7 +350,11 @@ export function AccountsPage() {
     setError("");
 
     try {
-      await updateAccountStatus(account.id, account.status === 1 ? 2 : 1);
+      await updateAccountStatus(
+        account.id,
+        account.status === 1 ? 2 : 1,
+        account.gameKey,
+      );
       await reloadCurrentView();
       toast.success(account.status === 1 ? "账号已下架" : "账号已上架");
     } catch (toggleError) {
@@ -365,7 +375,7 @@ export function AccountsPage() {
     setError("");
 
     try {
-      await sellAccount(sellTarget.id);
+      await sellAccount(sellTarget.id, sellTarget.gameKey);
       await reloadCurrentView();
       setSellTarget(null);
       toast.success("账号已出售，邮箱已解绑");
@@ -387,7 +397,7 @@ export function AccountsPage() {
     setError("");
 
     try {
-      await deleteAccount(deleteTarget.id);
+      await deleteAccount(deleteTarget.id, deleteTarget.gameKey);
       await reloadCurrentView();
       setDeleteTarget(null);
       toast.success("账号已删除");
@@ -419,7 +429,7 @@ export function AccountsPage() {
           </p>
         </div>
         <Button asChild className="w-full sm:w-auto">
-          <Link href="/accounts/new">
+          <Link href={`/accounts/${gameKey}/new`}>
             <Plus size={16} />
             新建账号
           </Link>
@@ -430,7 +440,7 @@ export function AccountsPage() {
         <CardHeader className="border-b border-border">
           <CardTitle className="text-base">筛选</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-3 pt-4 sm:grid-cols-[minmax(220px,1fr)_160px_160px_auto_auto]">
+        <CardContent className="grid gap-3 pt-4 sm:grid-cols-[minmax(220px,1fr)_150px_150px_150px_auto_auto]">
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-2.5 size-4 text-muted-foreground" />
             <Input
@@ -445,6 +455,21 @@ export function AccountsPage() {
               }}
             />
           </div>
+          <Select
+            value={gameKey}
+            onValueChange={(value) => setGameKey(value as GameKey)}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {gameOptions.map((game) => (
+                <SelectItem key={game.value} value={game.value}>
+                  {game.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Select value={statusValue} onValueChange={setStatusValue}>
             <SelectTrigger>
               <SelectValue />
@@ -553,7 +578,10 @@ export function AccountsPage() {
                     size="sm"
                     variant="outline"
                   >
-                    <Link href={`/accounts/${account.id}/edit`} scroll={false}>
+                    <Link
+                      href={`/accounts/${account.id}/edit?game_key=${account.gameKey}`}
+                      scroll={false}
+                    >
                       <Edit size={15} />
                       编辑
                     </Link>
@@ -722,7 +750,7 @@ export function AccountsPage() {
                             ) : (
                               <Button asChild size="sm" variant="ghost">
                                 <Link
-                                  href={`/accounts/${account.id}/edit`}
+                                  href={`/accounts/${account.id}/edit?game_key=${account.gameKey}`}
                                   scroll={false}
                                 >
                                   <Edit size={15} />

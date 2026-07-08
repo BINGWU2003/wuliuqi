@@ -1,4 +1,4 @@
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import type {
   AccountAttributes,
   AdminAccount,
@@ -9,6 +9,7 @@ import type {
   Carousel,
   GameAttributeDefinition,
   GameAttributeOption,
+  GameKey,
   SequenceCounter,
 } from "@wuliuqi/types";
 import type {
@@ -32,9 +33,15 @@ import {
   serializeGameAttributeDefinition,
   serializeSequenceCounter,
 } from "./serializers";
+import type { AccountRecord as SerializedAccountRecord } from "./serializers";
+import {
+  accountDelegate,
+  emailDelegate,
+  gameConfig,
+  normalizeGameKey,
+} from "./games";
 
 type TransactionClient = Prisma.TransactionClient;
-type AccountLookupClient = Pick<TransactionClient, "codmAccount">;
 type AttributeDefinitionClient = Pick<
   TransactionClient,
   "gameAttributeDefinition"
@@ -49,9 +56,11 @@ type EmailRecord = {
   prefix: string;
   postfix: string;
   bindStatus: number;
+  createdAt: Date;
+  updatedAt: Date;
 };
 
-const CODM_GAME_KEY = "codm";
+const CODM_GAME_KEY: GameKey = "codm";
 const ACCOUNT_LISTED_STATUS = 1;
 const ACCOUNT_UNLISTED_STATUS = 2;
 const ACCOUNT_SOLD_STATUS = 3;
@@ -131,12 +140,13 @@ function assertSelectOptions(options: GameAttributeOption[]) {
 
 async function listAttributeDefinitionsForGame(
   client: AttributeDefinitionClient,
-  gameKey = CODM_GAME_KEY,
+  gameKey: string | null = CODM_GAME_KEY,
   enabledOnly = false,
 ): Promise<GameAttributeDefinition[]> {
+  const normalizedGameKey = normalizeGameKey(gameKey);
   const definitions = await client.gameAttributeDefinition.findMany({
     where: {
-      gameKey,
+      gameKey: normalizedGameKey,
       deletedAt: null,
       ...(enabledOnly ? { enabled: true } : {}),
     },
@@ -158,10 +168,11 @@ function hasAccountAttributeValue(
 async function listAttributeDefinitionsForAccountUpdate(
   client: AttributeDefinitionClient,
   existingAttributes: AccountAttributes,
+  gameKey: GameKey,
 ) {
   const definitions = await listAttributeDefinitionsForGame(
     client,
-    CODM_GAME_KEY,
+    gameKey,
   );
 
   return definitions.filter(
@@ -174,10 +185,16 @@ async function listAttributeDefinitionsForAccountUpdate(
 async function countGameAttributeUsage(
   client: Pick<RawQueryClient, "$queryRaw">,
   attrKey: string,
+  gameKey: string | null = CODM_GAME_KEY,
 ) {
+  const accountTable = Prisma.raw(
+    normalizeGameKey(gameKey) === "sanguosha"
+      ? '"sanguosha_accounts"'
+      : '"codm_accounts"',
+  );
   const [row] = await client.$queryRaw<Array<{ usageCount: bigint }>>`
     SELECT count(*)::bigint AS "usageCount"
-    FROM "codm_accounts"
+    FROM ${accountTable}
     WHERE "attributes" ? ${attrKey}
       AND "attributes" ->> ${attrKey} <> ''
   `;
@@ -186,6 +203,12 @@ async function countGameAttributeUsage(
 }
 
 async function listGameAttributeUsageCounts(gameKey: string) {
+  const normalizedGameKey = normalizeGameKey(gameKey);
+  const accountTable = Prisma.raw(
+    normalizedGameKey === "sanguosha"
+      ? '"sanguosha_accounts"'
+      : '"codm_accounts"',
+  );
   const rows = await prisma.$queryRaw<
     Array<{ id: bigint; usageCount: bigint }>
   >`
@@ -193,10 +216,10 @@ async function listGameAttributeUsageCounts(gameKey: string) {
       definitions."id",
       count(accounts."id")::bigint AS "usageCount"
     FROM "game_attribute_definitions" definitions
-    LEFT JOIN "codm_accounts" accounts
+    LEFT JOIN ${accountTable} accounts
       ON accounts."attributes" ? definitions."attr_key"
       AND accounts."attributes" ->> definitions."attr_key" <> ''
-    WHERE definitions."game_key" = ${gameKey}
+    WHERE definitions."game_key" = ${normalizedGameKey}
       AND definitions."deleted_at" IS NULL
     GROUP BY definitions."id"
   `;
@@ -278,12 +301,14 @@ function assertEmailPrefixMutation(
 async function getExpectedEmailBindStatus(
   tx: TransactionClient,
   email?: string | null,
+  gameKey: GameKey = CODM_GAME_KEY,
 ): Promise<1 | 2> {
   if (!email) {
     return EMAIL_UNBOUND_STATUS;
   }
 
-  const activeAccount = await tx.codmAccount.findFirst({
+  const accounts = accountDelegate(tx, gameKey);
+  const activeAccount = await accounts.findFirst({
     where: {
       email,
       status: { not: ACCOUNT_SOLD_STATUS },
@@ -295,14 +320,15 @@ async function getExpectedEmailBindStatus(
 }
 
 async function findLinkedAccountByEmail(
-  client: AccountLookupClient,
+  client: unknown,
   email?: string | null,
+  gameKey: GameKey = CODM_GAME_KEY,
 ): Promise<LinkedEmailAccount | null> {
   if (!email) {
     return null;
   }
 
-  return client.codmAccount.findFirst({
+  return accountDelegate(client, gameKey).findFirst({
     where: {
       email,
       status: { not: ACCOUNT_SOLD_STATUS },
@@ -312,15 +338,16 @@ async function findLinkedAccountByEmail(
       id: true,
       serialNumber: true,
     },
-  });
+  }) as Promise<LinkedEmailAccount | null>;
 }
 
 async function assertEmailAddressNotLinked(
   tx: TransactionClient,
   email: string,
   action: string,
+  gameKey: GameKey = CODM_GAME_KEY,
 ) {
-  const linkedAccount = await findLinkedAccountByEmail(tx, email);
+  const linkedAccount = await findLinkedAccountByEmail(tx, email, gameKey);
 
   if (linkedAccount) {
     throw new DomainError(
@@ -333,6 +360,7 @@ async function assertEmailAddressNotLinked(
 async function syncEmailBindStatusFromAccounts(
   tx: TransactionClient,
   email?: string | null,
+  gameKey: GameKey = CODM_GAME_KEY,
 ) {
   const parts = parseEmailAddress(email);
 
@@ -340,9 +368,9 @@ async function syncEmailBindStatusFromAccounts(
     return;
   }
 
-  const bindStatus = await getExpectedEmailBindStatus(tx, email);
+  const bindStatus = await getExpectedEmailBindStatus(tx, email, gameKey);
 
-  await tx.codmEmail.updateMany({
+  await emailDelegate(tx, gameKey).updateMany({
     where: {
       prefix: parts.prefix,
       postfix: parts.postfix,
@@ -356,12 +384,13 @@ async function assertListedAccountCanUseEmail(
   tx: TransactionClient,
   email?: string | null,
   currentAccountId?: number,
+  gameKey: GameKey = CODM_GAME_KEY,
 ) {
   if (!email) {
     throw new DomainError("EMAIL_REQUIRED", "账号必须绑定邮箱");
   }
 
-  const boundAccount = await tx.codmAccount.findFirst({
+  const boundAccount = await accountDelegate(tx, gameKey).findFirst({
     where: {
       email,
       status: { not: ACCOUNT_SOLD_STATUS },
@@ -374,10 +403,12 @@ async function assertListedAccountCanUseEmail(
     },
   });
 
-  if (boundAccount) {
+  const linkedAccount = boundAccount as { serialNumber: string } | null;
+
+  if (linkedAccount) {
     throw new DomainError(
       "EMAIL_BOUND",
-      `该邮箱已被账号 ${boundAccount.serialNumber} 绑定，无法使用`,
+      `该邮箱已被账号 ${linkedAccount.serialNumber} 绑定，无法使用`,
     );
   }
 }
@@ -385,6 +416,7 @@ async function assertListedAccountCanUseEmail(
 async function getEmailRecordByAddress(
   tx: TransactionClient,
   email: string,
+  gameKey: GameKey = CODM_GAME_KEY,
 ): Promise<EmailRecord> {
   const parts = parseEmailAddress(email);
 
@@ -392,7 +424,7 @@ async function getEmailRecordByAddress(
     throw new DomainError("BAD_REQUEST", "邮箱格式无效");
   }
 
-  const emailRecord = await tx.codmEmail.findFirst({
+  const emailRecord = await emailDelegate(tx, gameKey).findFirst({
     where: {
       prefix: parts.prefix,
       postfix: parts.postfix,
@@ -409,21 +441,22 @@ async function getEmailRecordByAddress(
     throw new DomainError("EMAIL_NOT_FOUND", "绑定邮箱不存在");
   }
 
-  return emailRecord;
+  return emailRecord as EmailRecord;
 }
 
 async function assertAccountEmailForWrite(
   tx: TransactionClient,
   email?: string | null,
   currentAccountId?: number,
+  gameKey: GameKey = CODM_GAME_KEY,
 ): Promise<EmailRecord> {
   if (!email) {
     throw new DomainError("EMAIL_REQUIRED", "账号必须绑定邮箱");
   }
 
-  const emailRecord = await getEmailRecordByAddress(tx, email);
+  const emailRecord = await getEmailRecordByAddress(tx, email, gameKey);
 
-  await assertListedAccountCanUseEmail(tx, email, currentAccountId);
+  await assertListedAccountCanUseEmail(tx, email, currentAccountId, gameKey);
 
   return emailRecord;
 }
@@ -432,8 +465,9 @@ async function markEmailBindStatus(
   tx: TransactionClient,
   emailRecord: Pick<EmailRecord, "id">,
   bindStatus: 1 | 2,
+  gameKey: GameKey = CODM_GAME_KEY,
 ) {
-  await tx.codmEmail.update({
+  await emailDelegate(tx, gameKey).update({
     where: { id: emailRecord.id },
     data: { bindStatus },
   });
@@ -442,6 +476,7 @@ async function markEmailBindStatus(
 async function releaseEmailBindStatus(
   tx: TransactionClient,
   email?: string | null,
+  gameKey: GameKey = CODM_GAME_KEY,
 ) {
   const parts = parseEmailAddress(email);
 
@@ -449,7 +484,7 @@ async function releaseEmailBindStatus(
     return;
   }
 
-  await tx.codmEmail.updateMany({
+  await emailDelegate(tx, gameKey).updateMany({
     where: {
       prefix: parts.prefix,
       postfix: parts.postfix,
@@ -496,6 +531,8 @@ function accountWriteData(
 export async function listAdminAccounts(
   query: AdminAccountListQuery,
 ): Promise<AdminAccountListResult> {
+  const gameKey = normalizeGameKey(query.game_key);
+  const accountsDelegate = accountDelegate(prisma, gameKey);
   const where: Prisma.CodmAccountWhereInput = {};
 
   if (query.status !== undefined) {
@@ -526,19 +563,19 @@ export async function listAdminAccounts(
         : { updatedAt: "desc" };
 
   const [total, accounts, attributeDefinitions] = await Promise.all([
-    prisma.codmAccount.count({ where }),
-    prisma.codmAccount.findMany({
+    accountsDelegate.count({ where }),
+    accountsDelegate.findMany({
       where,
       orderBy,
       skip: (query.page - 1) * query.limit,
       take: query.limit,
     }),
-    listAttributeDefinitionsForGame(prisma, CODM_GAME_KEY),
+    listAttributeDefinitionsForGame(prisma, gameKey),
   ]);
 
   return {
-    list: accounts.map((account) =>
-      serializeAccount(account, attributeDefinitions),
+    list: (accounts as SerializedAccountRecord[]).map((account) =>
+      serializeAccount(account, attributeDefinitions, gameKey),
     ),
     pagination: {
       page: query.page,
@@ -547,6 +584,7 @@ export async function listAdminAccounts(
       totalPages: Math.ceil(total / query.limit),
     },
     keyword: query.keyword,
+    gameKey,
     priceRange:
       query.min_price !== undefined || query.max_price !== undefined
         ? { minPrice: query.min_price, maxPrice: query.max_price }
@@ -554,7 +592,11 @@ export async function listAdminAccounts(
   };
 }
 
-export async function getAdminAccountStatistics(): Promise<AdminAccountStatistics> {
+export async function getAdminAccountStatistics(
+  gameKeyInput: string | null = CODM_GAME_KEY,
+): Promise<AdminAccountStatistics> {
+  const gameKey = normalizeGameKey(gameKeyInput);
+  const accountsDelegate = accountDelegate(prisma, gameKey);
   const [
     totalAggregate,
     statusGroups,
@@ -563,34 +605,38 @@ export async function getAdminAccountStatistics(): Promise<AdminAccountStatistic
     staleListed,
     attributeDefinitions,
   ] = await Promise.all([
-    prisma.codmAccount.aggregate({
+    accountsDelegate.aggregate({
       _count: { _all: true },
       _sum: { price: true },
     }),
-    prisma.codmAccount.groupBy({
+    accountsDelegate.groupBy({
       by: ["status"],
       _count: { _all: true },
       _sum: { price: true },
     }),
-    prisma.codmAccount.findMany({
+    accountsDelegate.findMany({
       where: { status: ACCOUNT_SOLD_STATUS },
       orderBy: { updatedAt: "desc" },
       take: 5,
     }),
-    prisma.codmAccount.findMany({
+    accountsDelegate.findMany({
       where: { status: { in: [ACCOUNT_LISTED_STATUS, ACCOUNT_UNLISTED_STATUS] } },
       orderBy: [{ price: "desc" }, { updatedAt: "desc" }],
       take: 5,
     }),
-    prisma.codmAccount.findMany({
+    accountsDelegate.findMany({
       where: { status: ACCOUNT_LISTED_STATUS },
       orderBy: { updatedAt: "asc" },
       take: 5,
     }),
-    listAttributeDefinitionsForGame(prisma, CODM_GAME_KEY),
+    listAttributeDefinitionsForGame(prisma, gameKey),
   ]);
   const statusMap = new Map(
-    statusGroups.map((group) => [
+    (statusGroups as Array<{
+      status: number;
+      _count: { _all: number };
+      _sum: { price: unknown };
+    }>).map((group) => [
       group.status,
       {
         count: group._count._all,
@@ -628,52 +674,64 @@ export async function getAdminAccountStatistics(): Promise<AdminAccountStatistic
     status: ACCOUNT_SOLD_STATUS,
     totalValue: 0,
   };
+  const total = totalAggregate as {
+    _count: { _all: number };
+    _sum: { price: unknown };
+  };
 
   return {
     summary: {
-      totalCount: totalAggregate._count._all,
+      totalCount: total._count._all,
       listedCount: listed.count,
       unlistedCount: unlisted.count,
       soldCount: sold.count,
-      totalValue: numberFromDb(totalAggregate._sum.price),
+      totalValue: numberFromDb(total._sum.price),
       listedValue: listed.totalValue,
       unlistedValue: unlisted.totalValue,
       soldValue: sold.totalValue,
       availableValue: listed.totalValue + unlisted.totalValue,
     },
     statusBreakdown,
-    recentSold: recentSold.map((account) =>
-      serializeAccount(account, attributeDefinitions),
+    recentSold: (recentSold as SerializedAccountRecord[]).map((account) =>
+      serializeAccount(account, attributeDefinitions, gameKey),
     ),
-    highValueAvailable: highValueAvailable.map((account) =>
-      serializeAccount(account, attributeDefinitions),
+    highValueAvailable: (
+      highValueAvailable as SerializedAccountRecord[]
+    ).map((account) =>
+      serializeAccount(account, attributeDefinitions, gameKey),
     ),
-    staleListed: staleListed.map((account) =>
-      serializeAccount(account, attributeDefinitions),
+    staleListed: (staleListed as SerializedAccountRecord[]).map((account) =>
+      serializeAccount(account, attributeDefinitions, gameKey),
     ),
   };
 }
 
 export async function getAdminAccountById(
   id: number,
+  gameKeyInput: string | null = CODM_GAME_KEY,
 ): Promise<AdminAccount | null> {
+  const gameKey = normalizeGameKey(gameKeyInput);
   const [account, attributeDefinitions] = await Promise.all([
-    prisma.codmAccount.findUnique({ where: { id } }),
-    listAttributeDefinitionsForGame(prisma, CODM_GAME_KEY),
+    accountDelegate(prisma, gameKey).findUnique({ where: { id } }),
+    listAttributeDefinitionsForGame(prisma, gameKey),
   ]);
 
-  return account ? serializeAccount(account, attributeDefinitions) : null;
+  return account
+    ? serializeAccount(account as SerializedAccountRecord, attributeDefinitions, gameKey)
+    : null;
 }
 
 export async function createAdminAccount(
   input: AdminAccountCreateInput,
 ): Promise<AdminAccount> {
   assertValidOptionalUrl(input.xianyuUrl);
+  const game = gameConfig(input.gameKey);
 
   return prisma.$transaction(async (tx) => {
+    const accounts = accountDelegate(tx, game.key);
     const attributeDefinitions = await listAttributeDefinitionsForGame(
       tx,
-      CODM_GAME_KEY,
+      game.key,
       true,
     );
     const attributes = normalizeAccountAttributesForWrite(
@@ -681,13 +739,20 @@ export async function createAdminAccount(
       attributeDefinitions,
     );
 
-    const emailRecord = await assertAccountEmailForWrite(tx, input.email);
+    const emailRecord = await assertAccountEmailForWrite(
+      tx,
+      input.email,
+      undefined,
+      game.key,
+    );
 
     const serialNumber =
       input.serialNumber ??
-      `#CODM-${String(await getNextCounterValue(tx, "CODM_ACCOUNT"))}`;
+      `${game.serialPrefix}${String(
+        await getNextCounterValue(tx, game.accountCounterName),
+      )}`;
 
-    const existingAccount = await tx.codmAccount.findUnique({
+    const existingAccount = await accounts.findUnique({
       where: { serialNumber },
     });
 
@@ -695,7 +760,7 @@ export async function createAdminAccount(
       throw new DomainError("DUPLICATE_SERIAL", "该序列号已存在");
     }
 
-    const account = await tx.codmAccount.create({
+    const account = await accounts.create({
       data: {
         serialNumber,
         images: input.images,
@@ -709,23 +774,32 @@ export async function createAdminAccount(
       },
     });
 
-    await markEmailBindStatus(tx, emailRecord, EMAIL_BOUND_STATUS);
+    await markEmailBindStatus(tx, emailRecord, EMAIL_BOUND_STATUS, game.key);
 
-    return serializeAccount(account, attributeDefinitions);
+    return serializeAccount(
+      account as SerializedAccountRecord,
+      attributeDefinitions,
+      game.key,
+    );
   });
 }
 
 export async function updateAdminAccount(
   id: number,
   input: AdminAccountUpdateInput,
+  gameKeyInput: string | null = CODM_GAME_KEY,
 ): Promise<AdminAccount> {
   assertValidOptionalUrl(input.xianyuUrl);
+  const gameKey = normalizeGameKey(gameKeyInput);
 
   return prisma.$transaction(async (tx) => {
-    const existingAccount = await tx.codmAccount.findUnique({ where: { id } });
+    const accounts = accountDelegate(tx, gameKey);
+    const existingAccount = (await accounts.findUnique({
+      where: { id },
+    })) as SerializedAccountRecord | null;
 
     if (!existingAccount) {
-      throw new DomainError("NOT_FOUND", "CODM账号未找到", 404);
+      throw new DomainError("NOT_FOUND", "账号未找到", 404);
     }
 
     if (existingAccount.status === ACCOUNT_SOLD_STATUS) {
@@ -738,15 +812,16 @@ export async function updateAdminAccount(
     const attributeDefinitions = await listAttributeDefinitionsForAccountUpdate(
       tx,
       existingAttributes,
+      gameKey,
     );
 
     if (
       input.serialNumber &&
       input.serialNumber !== existingAccount.serialNumber
     ) {
-      const serialAccount = await tx.codmAccount.findUnique({
+      const serialAccount = (await accounts.findUnique({
         where: { serialNumber: input.serialNumber },
-      });
+      })) as SerializedAccountRecord | null;
 
       if (serialAccount && serialAccount.id !== existingAccount.id) {
         throw new DomainError("DUPLICATE_SERIAL", "该序列号已被其他账号使用");
@@ -757,7 +832,12 @@ export async function updateAdminAccount(
       input.email !== undefined ? input.email : existingAccount.email;
     const emailChanged = nextEmail !== existingAccount.email;
 
-    const nextEmailRecord = await assertAccountEmailForWrite(tx, nextEmail, id);
+    const nextEmailRecord = await assertAccountEmailForWrite(
+      tx,
+      nextEmail,
+      id,
+      gameKey,
+    );
 
     const attributes =
       input.attributes === undefined
@@ -768,42 +848,65 @@ export async function updateAdminAccount(
             existingAttributes,
           );
 
-    const account = await tx.codmAccount.update({
+    const account = await accounts.update({
       where: { id },
       data: accountWriteData(input, attributes),
     });
 
     if (emailChanged) {
-      await releaseEmailBindStatus(tx, existingAccount.email);
-      await markEmailBindStatus(tx, nextEmailRecord, EMAIL_BOUND_STATUS);
+      await releaseEmailBindStatus(tx, existingAccount.email, gameKey);
+      await markEmailBindStatus(
+        tx,
+        nextEmailRecord,
+        EMAIL_BOUND_STATUS,
+        gameKey,
+      );
     }
 
-    return serializeAccount(account, attributeDefinitions);
+    return serializeAccount(
+      account as SerializedAccountRecord,
+      attributeDefinitions,
+      gameKey,
+    );
   });
 }
 
-export async function deleteAdminAccount(id: number): Promise<void> {
+export async function deleteAdminAccount(
+  id: number,
+  gameKeyInput: string | null = CODM_GAME_KEY,
+): Promise<void> {
+  const gameKey = normalizeGameKey(gameKeyInput);
+
   await prisma.$transaction(async (tx) => {
-    const existingAccount = await tx.codmAccount.findUnique({ where: { id } });
+    const accounts = accountDelegate(tx, gameKey);
+    const existingAccount = (await accounts.findUnique({
+      where: { id },
+    })) as SerializedAccountRecord | null;
 
     if (!existingAccount) {
-      throw new DomainError("NOT_FOUND", "CODM账号未找到", 404);
+      throw new DomainError("NOT_FOUND", "账号未找到", 404);
     }
 
-    await tx.codmAccount.delete({ where: { id } });
-    await syncEmailBindStatusFromAccounts(tx, existingAccount.email);
+    await accounts.delete({ where: { id } });
+    await syncEmailBindStatusFromAccounts(tx, existingAccount.email, gameKey);
   });
 }
 
 export async function updateAdminAccountStatus(
   id: number,
   status: 1 | 2,
+  gameKeyInput: string | null = CODM_GAME_KEY,
 ): Promise<AdminAccount> {
+  const gameKey = normalizeGameKey(gameKeyInput);
+
   return prisma.$transaction(async (tx) => {
-    const existingAccount = await tx.codmAccount.findUnique({ where: { id } });
+    const accounts = accountDelegate(tx, gameKey);
+    const existingAccount = (await accounts.findUnique({
+      where: { id },
+    })) as SerializedAccountRecord | null;
 
     if (!existingAccount) {
-      throw new DomainError("NOT_FOUND", "CODM账号未找到", 404);
+      throw new DomainError("NOT_FOUND", "账号未找到", 404);
     }
 
     if (existingAccount.status === ACCOUNT_SOLD_STATUS) {
@@ -814,28 +917,40 @@ export async function updateAdminAccountStatus(
       );
     }
 
-    await assertAccountEmailForWrite(tx, existingAccount.email, id);
+    await assertAccountEmailForWrite(tx, existingAccount.email, id, gameKey);
 
-    const account = await tx.codmAccount.update({
+    const account = await accounts.update({
       where: { id },
       data: { status },
     });
 
     const attributeDefinitions = await listAttributeDefinitionsForGame(
       tx,
-      CODM_GAME_KEY,
+      gameKey,
     );
 
-    return serializeAccount(account, attributeDefinitions);
+    return serializeAccount(
+      account as SerializedAccountRecord,
+      attributeDefinitions,
+      gameKey,
+    );
   });
 }
 
-export async function sellAdminAccount(id: number): Promise<AdminAccount> {
+export async function sellAdminAccount(
+  id: number,
+  gameKeyInput: string | null = CODM_GAME_KEY,
+): Promise<AdminAccount> {
+  const gameKey = normalizeGameKey(gameKeyInput);
+
   return prisma.$transaction(async (tx) => {
-    const existingAccount = await tx.codmAccount.findUnique({ where: { id } });
+    const accounts = accountDelegate(tx, gameKey);
+    const existingAccount = (await accounts.findUnique({
+      where: { id },
+    })) as SerializedAccountRecord | null;
 
     if (!existingAccount) {
-      throw new DomainError("NOT_FOUND", "CODM账号未找到", 404);
+      throw new DomainError("NOT_FOUND", "账号未找到", 404);
     }
 
     if (existingAccount.status === ACCOUNT_SOLD_STATUS) {
@@ -849,9 +964,10 @@ export async function sellAdminAccount(id: number): Promise<AdminAccount> {
     const emailRecord = await getEmailRecordByAddress(
       tx,
       existingAccount.email,
+      gameKey,
     );
 
-    const account = await tx.codmAccount.update({
+    const account = await accounts.update({
       where: { id },
       data: {
         email: null,
@@ -859,20 +975,27 @@ export async function sellAdminAccount(id: number): Promise<AdminAccount> {
       },
     });
 
-    await markEmailBindStatus(tx, emailRecord, EMAIL_UNBOUND_STATUS);
+    await markEmailBindStatus(tx, emailRecord, EMAIL_UNBOUND_STATUS, gameKey);
 
     const attributeDefinitions = await listAttributeDefinitionsForGame(
       tx,
-      CODM_GAME_KEY,
+      gameKey,
     );
 
-    return serializeAccount(account, attributeDefinitions);
+    return serializeAccount(
+      account as SerializedAccountRecord,
+      attributeDefinitions,
+      gameKey,
+    );
   });
 }
 
 export async function listAdminEmails(
   query: AdminEmailListQuery,
 ): Promise<AdminEmailListResult> {
+  const gameKey = normalizeGameKey(query.game_key);
+  const emailsDelegate = emailDelegate(prisma, gameKey);
+  const accounts = accountDelegate(prisma, gameKey);
   const where: Prisma.CodmEmailWhereInput = {};
 
   if (query.bind_status !== undefined) {
@@ -886,19 +1009,19 @@ export async function listAdminEmails(
     ];
   }
 
-  const total = await prisma.codmEmail.count({ where });
-  const emails = await prisma.codmEmail.findMany({
+  const total = await emailsDelegate.count({ where });
+  const emails = await emailsDelegate.findMany({
     where,
     orderBy: [{ postfix: "asc" }, { updatedAt: "desc" }],
     skip: (query.page - 1) * query.limit,
     take: query.limit,
-  });
+  }) as EmailRecord[];
   const emailAddresses = emails.map(
     (email) => `${email.prefix}${email.postfix}`,
   );
   const boundAccounts =
     emailAddresses.length > 0
-      ? await prisma.codmAccount.findMany({
+      ? await accounts.findMany({
           where: {
             email: { in: emailAddresses },
           },
@@ -907,7 +1030,7 @@ export async function listAdminEmails(
             email: true,
             id: true,
           },
-        })
+        }) as Array<{ email: string | null; id: bigint }>
       : [];
   const accountIdByEmail = new Map<string, bigint>();
 
@@ -922,7 +1045,7 @@ export async function listAdminEmails(
       serializeEmail({
         ...email,
         boundAccountId: accountIdByEmail.get(`${email.prefix}${email.postfix}`),
-      }),
+      }, gameKey),
     ),
     pagination: {
       page: query.page,
@@ -931,13 +1054,18 @@ export async function listAdminEmails(
       totalPages: Math.ceil(total / query.limit),
     },
     keyword: query.keyword,
+    gameKey,
   };
 }
 
 export async function getAdminEmailById(
   id: number,
+  gameKeyInput: string | null = CODM_GAME_KEY,
 ): Promise<AdminEmail | null> {
-  const email = await prisma.codmEmail.findUnique({ where: { id } });
+  const gameKey = normalizeGameKey(gameKeyInput);
+  const email = (await emailDelegate(prisma, gameKey).findUnique({
+    where: { id },
+  })) as (EmailRecord & { createdAt: Date; updatedAt: Date }) | null;
 
   if (!email) {
     return null;
@@ -946,21 +1074,24 @@ export async function getAdminEmailById(
   const linkedAccount = await findLinkedAccountByEmail(
     prisma,
     composeEmailAddress(email.prefix, email.postfix),
+    gameKey,
   );
 
   return serializeEmail({
     ...email,
     boundAccountId: linkedAccount?.id,
-  });
+  }, gameKey);
 }
 
 export async function createAdminEmail(
   input: AdminEmailCreateInput,
 ): Promise<AdminEmail> {
   assertNewEmailPrefix(input.prefix);
+  const gameKey = normalizeGameKey(input.gameKey);
 
   return prisma.$transaction(async (tx) => {
-    const existingEmail = await tx.codmEmail.findFirst({
+    const emails = emailDelegate(tx, gameKey);
+    const existingEmail = await emails.findFirst({
       where: { prefix: input.prefix, postfix: input.postfix },
     });
 
@@ -971,8 +1102,9 @@ export async function createAdminEmail(
     const bindStatus = await getExpectedEmailBindStatus(
       tx,
       composeEmailAddress(input.prefix, input.postfix),
+      gameKey,
     );
-    const email = await tx.codmEmail.create({
+    const email = await emails.create({
       data: {
         prefix: input.prefix,
         postfix: input.postfix,
@@ -980,19 +1112,28 @@ export async function createAdminEmail(
       },
     });
 
-    return serializeEmail(email);
+    return serializeEmail(
+      email as EmailRecord & { createdAt: Date; updatedAt: Date },
+      gameKey,
+    );
   });
 }
 
 export async function updateAdminEmail(
   id: number,
   input: AdminEmailUpdateInput,
+  gameKeyInput: string | null = CODM_GAME_KEY,
 ): Promise<AdminEmail> {
+  const gameKey = normalizeGameKey(gameKeyInput);
+
   return prisma.$transaction(async (tx) => {
-    const existingEmail = await tx.codmEmail.findUnique({ where: { id } });
+    const emails = emailDelegate(tx, gameKey);
+    const existingEmail = (await emails.findUnique({
+      where: { id },
+    })) as (EmailRecord & { createdAt: Date; updatedAt: Date }) | null;
 
     if (!existingEmail) {
-      throw new DomainError("NOT_FOUND", "CODM邮箱未找到", 404);
+      throw new DomainError("NOT_FOUND", "邮箱未找到", 404);
     }
 
     const nextPrefix = input.prefix ?? existingEmail.prefix;
@@ -1007,11 +1148,16 @@ export async function updateAdminEmail(
     assertEmailPrefixMutation(existingEmail.prefix, nextPrefix);
 
     if (addressChanged) {
-      await assertEmailAddressNotLinked(tx, existingAddress, "修改邮箱地址");
+      await assertEmailAddressNotLinked(
+        tx,
+        existingAddress,
+        "修改邮箱地址",
+        gameKey,
+      );
     }
 
     if (addressChanged) {
-      const conflictEmail = await tx.codmEmail.findFirst({
+      const conflictEmail = await emails.findFirst({
         where: {
           prefix: nextPrefix,
           postfix: nextPostfix,
@@ -1024,8 +1170,12 @@ export async function updateAdminEmail(
       }
     }
 
-    const bindStatus = await getExpectedEmailBindStatus(tx, nextAddress);
-    const email = await tx.codmEmail.update({
+    const bindStatus = await getExpectedEmailBindStatus(
+      tx,
+      nextAddress,
+      gameKey,
+    );
+    const email = await emails.update({
       where: { id },
       data: {
         prefix: input.prefix,
@@ -1034,42 +1184,61 @@ export async function updateAdminEmail(
       },
     });
 
-    return serializeEmail(email);
+    return serializeEmail(
+      email as EmailRecord & { createdAt: Date; updatedAt: Date },
+      gameKey,
+    );
   });
 }
 
-export async function deleteAdminEmail(id: number): Promise<void> {
+export async function deleteAdminEmail(
+  id: number,
+  gameKeyInput: string | null = CODM_GAME_KEY,
+): Promise<void> {
+  const gameKey = normalizeGameKey(gameKeyInput);
+
   await prisma.$transaction(async (tx) => {
-    const existingEmail = await tx.codmEmail.findUnique({ where: { id } });
+    const emails = emailDelegate(tx, gameKey);
+    const existingEmail = (await emails.findUnique({
+      where: { id },
+    })) as EmailRecord | null;
 
     if (!existingEmail) {
-      throw new DomainError("NOT_FOUND", "CODM邮箱未找到", 404);
+      throw new DomainError("NOT_FOUND", "邮箱未找到", 404);
     }
 
     await assertEmailAddressNotLinked(
       tx,
       composeEmailAddress(existingEmail.prefix, existingEmail.postfix),
       "删除",
+      gameKey,
     );
 
-    await tx.codmEmail.delete({ where: { id } });
+    await emails.delete({ where: { id } });
   });
 }
 
 export async function updateAdminEmailBindStatus(
   id: number,
   bindStatus: 1 | 2,
+  gameKeyInput: string | null = CODM_GAME_KEY,
 ): Promise<AdminEmail> {
+  const gameKey = normalizeGameKey(gameKeyInput);
+
   return prisma.$transaction(async (tx) => {
-    const existingEmail = await tx.codmEmail.findUnique({ where: { id } });
+    const emails = emailDelegate(tx, gameKey);
+    const existingEmail = (await emails.findUnique({
+      where: { id },
+    })) as (EmailRecord & { createdAt: Date; updatedAt: Date }) | null;
 
     if (!existingEmail) {
-      throw new DomainError("NOT_FOUND", "CODM邮箱未找到", 404);
+      throw new DomainError("NOT_FOUND", "邮箱未找到", 404);
     }
 
     const expectedBindStatus = await getExpectedEmailBindStatus(
       tx,
       composeEmailAddress(existingEmail.prefix, existingEmail.postfix),
+      gameKey,
     );
 
     if (bindStatus !== expectedBindStatus) {
@@ -1081,27 +1250,31 @@ export async function updateAdminEmailBindStatus(
       );
     }
 
-    const email = await tx.codmEmail.update({
+    const email = await emails.update({
       where: { id },
       data: { bindStatus: expectedBindStatus },
     });
 
-    return serializeEmail(email);
+    return serializeEmail(
+      email as EmailRecord & { createdAt: Date; updatedAt: Date },
+      gameKey,
+    );
   });
 }
 
 export async function listAdminGameAttributeDefinitions(
-  gameKey = CODM_GAME_KEY,
+  gameKey: string | null = CODM_GAME_KEY,
 ): Promise<GameAttributeDefinition[]> {
+  const normalizedGameKey = normalizeGameKey(gameKey);
   const [definitions, usageCounts] = await Promise.all([
     prisma.gameAttributeDefinition.findMany({
       where: {
-        gameKey,
+        gameKey: normalizedGameKey,
         deletedAt: null,
       },
       orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
     }),
-    listGameAttributeUsageCounts(gameKey),
+    listGameAttributeUsageCounts(normalizedGameKey),
   ]);
 
   return definitions.map((definition) =>
@@ -1174,7 +1347,11 @@ export async function updateAdminGameAttributeDefinition(
     nextGameKey !== existingDefinition.gameKey ||
     nextAttrKey !== existingDefinition.attrKey ||
     nextType !== existingDefinition.type
-      ? await countGameAttributeUsage(prisma, existingDefinition.attrKey)
+      ? await countGameAttributeUsage(
+          prisma,
+          existingDefinition.attrKey,
+          nextGameKey,
+        )
       : 0;
 
   if (usageCount > 0) {
@@ -1235,7 +1412,11 @@ export async function deleteAdminGameAttributeDefinition(
     throw new DomainError("NOT_FOUND", "属性配置不存在", 404);
   }
 
-  const usageCount = await countGameAttributeUsage(prisma, existing.attrKey);
+  const usageCount = await countGameAttributeUsage(
+    prisma,
+    existing.attrKey,
+    normalizeGameKey(existing.gameKey),
+  );
 
   if (usageCount > 0) {
     throw new DomainError(
@@ -1268,7 +1449,11 @@ export async function clearAdminGameAttributeDefinitionValues(
   }
 
   const clearedCount = await prisma.$executeRaw`
-    UPDATE "codm_accounts"
+    UPDATE ${Prisma.raw(
+      normalizeGameKey(existing.gameKey) === "sanguosha"
+        ? '"sanguosha_accounts"'
+        : '"codm_accounts"',
+    )}
     SET "attributes" = "attributes" - ${existing.attrKey}
     WHERE "attributes" ? ${existing.attrKey}
       AND "attributes" ->> ${existing.attrKey} <> ''

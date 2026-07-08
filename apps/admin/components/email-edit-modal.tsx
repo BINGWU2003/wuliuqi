@@ -13,7 +13,13 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { EmailForm } from "@/components/email-form";
 
-export function EmailEditModal({ emailId }: { emailId: number | null }) {
+export function EmailEditModal({
+  emailId,
+  initialGameKey = "codm",
+}: {
+  emailId: number | null;
+  initialGameKey?: "codm" | "sanguosha";
+}) {
   const router = useRouter();
   const [formBusy, setFormBusy] = useState(false);
 
@@ -62,6 +68,7 @@ export function EmailEditModal({ emailId }: { emailId: number | null }) {
           {emailId ? (
             <EmailForm
               emailId={emailId}
+              initialGameKey={initialGameKey}
               presentation="modal"
               onBusyChange={setFormBusy}
             />

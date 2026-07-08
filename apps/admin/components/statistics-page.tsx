@@ -4,6 +4,7 @@ import type {
   AdminAccount,
   AdminAccountStatistics,
   AdminAccountStatisticsStatus,
+  GameKey,
 } from "@wuliuqi/types";
 import { Badge } from "@wuliuqi/ui/components/badge";
 import { Button } from "@wuliuqi/ui/components/button";
@@ -16,6 +17,13 @@ import {
 } from "@wuliuqi/ui/components/card";
 import { Skeleton } from "@wuliuqi/ui/components/skeleton";
 import { Spinner } from "@wuliuqi/ui/components/spinner";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@wuliuqi/ui/components/select";
 import { toast } from "@wuliuqi/ui/components/sonner";
 import {
   CircleDollarSign,
@@ -27,7 +35,7 @@ import {
   Store,
 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { AccountStatusBadge } from "@/components/status-badge";
 import { fetchAccountStatistics } from "@/lib/client-api";
 import { errorMessage } from "@/lib/feedback";
@@ -39,8 +47,13 @@ type Metric = {
   detail: string;
   icon: typeof PackageSearch;
 };
+const gameOptions: Array<{ label: string; value: GameKey }> = [
+  { label: "CODM", value: "codm" },
+  { label: "三国杀", value: "sanguosha" },
+];
 
 export function StatisticsPage() {
+  const [gameKey, setGameKey] = useState<GameKey>("codm");
   const [statistics, setStatistics] = useState<AdminAccountStatistics | null>(
     null,
   );
@@ -48,7 +61,7 @@ export function StatisticsPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
 
-  async function loadStatistics(refresh = false) {
+  const loadStatistics = useCallback(async (refresh = false) => {
     if (refresh) {
       setRefreshing(true);
     } else {
@@ -58,7 +71,7 @@ export function StatisticsPage() {
     setError("");
 
     try {
-      setStatistics(await fetchAccountStatistics());
+      setStatistics(await fetchAccountStatistics(gameKey));
     } catch (loadError) {
       const message = errorMessage(loadError, "加载统计失败");
       setError(message);
@@ -67,11 +80,11 @@ export function StatisticsPage() {
       setLoading(false);
       setRefreshing(false);
     }
-  }
+  }, [gameKey]);
 
   useEffect(() => {
     void loadStatistics();
-  }, []);
+  }, [loadStatistics]);
 
   if (loading && !statistics) {
     return <StatisticsSkeleton />;
@@ -86,16 +99,33 @@ export function StatisticsPage() {
             查看账号库存、销售金额和重点运营列表。
           </p>
         </div>
-        <Button
-          className="w-full sm:w-auto"
-          disabled={refreshing}
-          type="button"
-          variant="outline"
-          onClick={() => void loadStatistics(true)}
-        >
-          {refreshing ? <Spinner /> : <RefreshCw size={16} />}
-          {refreshing ? "刷新中..." : "刷新"}
-        </Button>
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+          <Select
+            value={gameKey}
+            onValueChange={(value) => setGameKey(value as GameKey)}
+          >
+            <SelectTrigger className="w-full sm:w-36">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {gameOptions.map((game) => (
+                <SelectItem key={game.value} value={game.value}>
+                  {game.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            className="w-full sm:w-auto"
+            disabled={refreshing}
+            type="button"
+            variant="outline"
+            onClick={() => void loadStatistics(true)}
+          >
+            {refreshing ? <Spinner /> : <RefreshCw size={16} />}
+            {refreshing ? "刷新中..." : "刷新"}
+          </Button>
+        </div>
       </div>
 
       {error ? (
@@ -315,7 +345,7 @@ function AccountListCard({
                 ) : (
                   <Link
                     className="font-medium text-foreground hover:underline"
-                    href={`/accounts/${account.id}/edit`}
+                    href={`/accounts/${account.id}/edit?game_key=${account.gameKey}`}
                     scroll={false}
                   >
                     编辑

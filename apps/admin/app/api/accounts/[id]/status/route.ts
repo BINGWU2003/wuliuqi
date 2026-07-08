@@ -20,7 +20,11 @@ export async function PATCH(
     }
 
     const { status } = accountStatusSchema.parse(await request.json());
-    const account = await updateAdminAccountStatus(id, status);
+    const account = await updateAdminAccountStatus(
+      id,
+      status,
+      request.nextUrl.searchParams.get("game_key") ?? undefined,
+    );
 
     return ok(account);
   } catch (error) {

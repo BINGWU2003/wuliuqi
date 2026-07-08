@@ -9,8 +9,18 @@ export interface Pagination {
   totalPages: number;
 }
 
+export type GameKey = "codm" | "sanguosha";
+
+export interface GameOption {
+  key: GameKey;
+  label: string;
+  shortLabel: string;
+  accountListPath: string;
+}
+
 export interface ShopAccount {
   id: number;
+  gameKey: GameKey;
   serialNumber: string;
   images: string[];
   attributes: AccountAttributes;
@@ -28,11 +38,17 @@ export interface ShopAccount {
 export interface ShopAccountListResult {
   list: ShopAccount[];
   pagination: Pagination;
+  gameKey: GameKey;
   keyword?: string;
   priceRange?: {
     minPrice?: number;
     maxPrice?: number;
   };
+}
+
+export interface ShopHomeAccountListResult {
+  list: ShopAccount[];
+  nextCursor?: string;
 }
 
 export interface CarouselItem {
@@ -54,6 +70,7 @@ export type AdminAccount = ShopAccount;
 export interface AdminAccountListResult {
   list: AdminAccount[];
   pagination: Pagination;
+  gameKey: GameKey;
   keyword?: string;
   priceRange?: {
     minPrice?: number;
@@ -88,6 +105,7 @@ export interface AdminAccountStatistics {
 
 export interface AdminEmail {
   id: number;
+  gameKey: GameKey;
   prefix: string;
   postfix: string;
   email: string;
@@ -100,6 +118,7 @@ export interface AdminEmail {
 export interface AdminEmailListResult {
   list: AdminEmail[];
   pagination: Pagination;
+  gameKey: GameKey;
   keyword?: string;
 }
 

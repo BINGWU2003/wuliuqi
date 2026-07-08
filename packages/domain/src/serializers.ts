@@ -10,11 +10,12 @@ import type {
   GameAttributeDefinition,
   GameAttributeOption,
   GameAttributeType,
+  GameKey,
   SequenceCounter,
   ShopAccount,
 } from "@wuliuqi/types";
 
-type AccountRecord = {
+export type AccountRecord = {
   id: bigint;
   serialNumber: string;
   images: Prisma.JsonValue | null;
@@ -247,11 +248,13 @@ export function serializeAccountAttributeValues(
 export function serializeAccount(
   account: AccountRecord,
   definitions: GameAttributeDefinition[] = [],
+  gameKey: GameKey = "codm",
 ): ShopAccount {
   const attributes = normalizeAccountAttributes(account.attributes);
 
   return {
     id: bigintToNumber(account.id),
+    gameKey,
     serialNumber: account.serialNumber,
     images: normalizeImages(account.images),
     attributes,
@@ -277,7 +280,10 @@ export function serializeCarousel(carousel: CarouselRecord): Carousel {
   };
 }
 
-export function serializeEmail(email: EmailRecord): AdminEmail {
+export function serializeEmail(
+  email: EmailRecord,
+  gameKey: GameKey = "codm",
+): AdminEmail {
   const boundAccountId =
     typeof email.boundAccountId === "bigint"
       ? bigintToNumber(email.boundAccountId)
@@ -287,6 +293,7 @@ export function serializeEmail(email: EmailRecord): AdminEmail {
 
   return {
     id: bigintToNumber(email.id),
+    gameKey,
     prefix: email.prefix,
     postfix: email.postfix,
     email: `${email.prefix}${email.postfix}`,

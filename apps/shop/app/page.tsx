@@ -1,14 +1,11 @@
-import { AccountList } from "@/components/account-list";
+import { HomeAccountFeed } from "@/components/home-account-feed";
 import { HomeCarousel } from "@/components/home-carousel";
 
 export default function Home() {
   return (
     <main className="flex flex-col gap-5">
       <HomeCarousel />
-      <AccountList
-        eyebrow="Verified accounts"
-        heading="账号市场"
-      />
+      <HomeAccountFeed />
     </main>
   );
 }

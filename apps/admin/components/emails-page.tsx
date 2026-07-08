@@ -1,6 +1,6 @@
 "use client";
 
-import type { AdminEmail } from "@wuliuqi/types";
+import type { AdminEmail, GameKey } from "@wuliuqi/types";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -64,6 +64,10 @@ import { formatDate } from "@/lib/format";
 
 const EMAIL_PAGE_SIZE = 50;
 const MOBILE_VIEWPORT_QUERY = "(max-width: 639px)";
+const gameOptions: Array<{ label: string; value: GameKey }> = [
+  { label: "CODM", value: "codm" },
+  { label: "三国杀", value: "sanguosha" },
+];
 
 type LoadMode = "append" | "replace";
 type EmailPendingAction = { emailId: number; name: "delete" } | null;
@@ -77,6 +81,7 @@ function isMobileViewport() {
 
 export function EmailsPage() {
   const [emails, setEmails] = useState<AdminEmail[]>([]);
+  const [gameKey, setGameKey] = useState<GameKey>("codm");
   const [searchValue, setSearchValue] = useState("");
   const [keyword, setKeyword] = useState("");
   const [bindStatusValue, setBindStatusValue] = useState("all");
@@ -99,12 +104,13 @@ export function EmailsPage() {
   const fetchEmailPage = useCallback(
     (nextPage: number) =>
       fetchEmails({
+        game_key: gameKey,
         bind_status: bindStatus === "all" ? undefined : Number(bindStatus),
         keyword: keyword || undefined,
         limit: EMAIL_PAGE_SIZE,
         page: nextPage,
       }),
-    [bindStatus, keyword],
+    [bindStatus, gameKey, keyword],
   );
 
   const applyPagination = useCallback(
@@ -327,7 +333,7 @@ export function EmailsPage() {
     setError("");
 
     try {
-      await deleteEmail(deleteTarget.id);
+      await deleteEmail(deleteTarget.id, deleteTarget.gameKey);
       await reloadCurrentView();
       setDeleteTarget(null);
       toast.success("邮箱已删除");
@@ -355,7 +361,7 @@ export function EmailsPage() {
           </p>
         </div>
         <Button asChild className="w-full sm:w-auto">
-          <Link href="/emails/new">
+          <Link href={`/emails/new?game_key=${gameKey}`}>
             <Plus size={16} />
             新建邮箱
           </Link>
@@ -366,7 +372,7 @@ export function EmailsPage() {
         <CardHeader className="border-b border-border">
           <CardTitle className="text-base">筛选</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-3 pt-4 sm:grid-cols-[minmax(220px,1fr)_160px_auto_auto]">
+        <CardContent className="grid gap-3 pt-4 sm:grid-cols-[minmax(220px,1fr)_150px_160px_auto_auto]">
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-2.5 size-4 text-muted-foreground" />
             <Input
@@ -381,6 +387,21 @@ export function EmailsPage() {
               }}
             />
           </div>
+          <Select
+            value={gameKey}
+            onValueChange={(value) => setGameKey(value as GameKey)}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {gameOptions.map((game) => (
+                <SelectItem key={game.value} value={game.value}>
+                  {game.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Select value={bindStatusValue} onValueChange={setBindStatusValue}>
             <SelectTrigger>
               <SelectValue />
@@ -435,7 +456,10 @@ export function EmailsPage() {
             </div>
             <div className="mt-3 grid grid-cols-[1fr_auto] gap-2 border-t border-border pt-3">
               <Button asChild size="sm" variant="outline">
-                <Link href={`/emails/${email.id}/edit`} scroll={false}>
+                <Link
+                  href={`/emails/${email.id}/edit?game_key=${email.gameKey}`}
+                  scroll={false}
+                >
                   <Edit size={15} />
                   编辑
                 </Link>
@@ -524,7 +548,7 @@ export function EmailsPage() {
                         <div className="flex justify-end gap-1">
                           <Button asChild size="sm" variant="ghost">
                             <Link
-                              href={`/emails/${email.id}/edit`}
+                              href={`/emails/${email.id}/edit?game_key=${email.gameKey}`}
                               scroll={false}
                             >
                               <Edit size={15} />
@@ -832,7 +856,7 @@ function LinkedAccountBadge({
   return (
     <Link
       className="inline-flex h-6 items-center rounded-sm border border-sky-200 bg-sky-50 px-2 text-xs font-medium text-sky-700 transition-colors hover:border-sky-300 hover:bg-sky-100 dark:border-sky-900/70 dark:bg-sky-950/50 dark:text-sky-300 dark:hover:bg-sky-950"
-      href={`/accounts/${email.boundAccountId}/edit`}
+      href={`/accounts/${email.boundAccountId}/edit?game_key=${email.gameKey}`}
       scroll={false}
       title={`查看账号 #${email.boundAccountId}`}
     >

@@ -12,7 +12,13 @@ import { X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { AccountDetail } from "@/components/account-detail";
 
-export function AccountDetailModal({ id }: { id: number | null }) {
+export function AccountDetailModal({
+  gameKey = "codm",
+  id,
+}: {
+  gameKey?: string;
+  id: number | null;
+}) {
   const router = useRouter();
 
   function closeModal() {
@@ -52,7 +58,7 @@ export function AccountDetailModal({ id }: { id: number | null }) {
           </Button>
         </div>
         <div className="h-[calc(100%-3rem)] overflow-y-auto p-3 sm:p-5">
-          <AccountDetail id={id} presentation="modal" />
+          <AccountDetail gameKey={gameKey} id={id} presentation="modal" />
         </div>
       </DialogContent>
     </Dialog>

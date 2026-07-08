@@ -11,7 +11,7 @@ import { requireAdminSession } from "@/lib/session";
 type Params = Promise<{ id: string }>;
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   segmentData: { params: Params },
 ) {
   try {
@@ -23,10 +23,13 @@ export async function GET(
       return fail("BAD_REQUEST", "无效的邮箱ID", 400);
     }
 
-    const email = await getAdminEmailById(id);
+    const email = await getAdminEmailById(
+      id,
+      request.nextUrl.searchParams.get("game_key") ?? undefined,
+    );
 
     if (!email) {
-      return fail("NOT_FOUND", "CODM邮箱未找到", 404);
+      return fail("NOT_FOUND", "邮箱未找到", 404);
     }
 
     return ok(email);
@@ -49,7 +52,11 @@ export async function PATCH(
     }
 
     const input = adminEmailUpdateSchema.parse(await request.json());
-    const email = await updateAdminEmail(id, input);
+    const email = await updateAdminEmail(
+      id,
+      input,
+      request.nextUrl.searchParams.get("game_key") ?? undefined,
+    );
 
     return ok(email);
   } catch (error) {
@@ -58,7 +65,7 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   segmentData: { params: Params },
 ) {
   try {
@@ -70,7 +77,10 @@ export async function DELETE(
       return fail("BAD_REQUEST", "无效的邮箱ID", 400);
     }
 
-    await deleteAdminEmail(id);
+    await deleteAdminEmail(
+      id,
+      request.nextUrl.searchParams.get("game_key") ?? undefined,
+    );
 
     return ok({ deleted: true });
   } catch (error) {
