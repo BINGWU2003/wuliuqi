@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 
 const EMAIL_BOUND_STATUS = 1;
 const EMAIL_UNBOUND_STATUS = 2;
+const ACCOUNT_UNLISTED_STATUS = 2;
 const ACCOUNT_SOLD_STATUS = 3;
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -86,33 +87,7 @@ function serializeEmail(email, expectedBindStatus) {
   };
 }
 
-async function main() {
-  const [emails, activeAccounts] = await Promise.all([
-    prisma.codmEmail.findMany({
-      orderBy: [{ postfix: "asc" }, { updatedAt: "desc" }],
-      select: {
-        id: true,
-        prefix: true,
-        postfix: true,
-        bindStatus: true,
-      },
-    }),
-    prisma.codmAccount.findMany({
-      where: {
-        email: { not: null },
-        status: { not: ACCOUNT_SOLD_STATUS },
-      },
-      orderBy: { updatedAt: "desc" },
-      select: {
-        id: true,
-        serialNumber: true,
-        title: true,
-        status: true,
-        email: true,
-      },
-    }),
-  ]);
-
+function buildEmailReconcileReport(emails, activeAccounts) {
   const emailRowsByAddress = new Map();
   const activeAccountsByEmail = new Map();
 
@@ -167,25 +142,130 @@ async function main() {
     }
   }
 
+  return {
+    mismatchedEmails,
+    missingEmailRecords,
+    duplicateEmailRows,
+    duplicateActiveAccounts,
+  };
+}
+
+async function loadCurrentState(client) {
+  const [emails, historicalSoldAccounts, activeAccounts] = await Promise.all([
+    client.codmEmail.findMany({
+      orderBy: [{ postfix: "asc" }, { updatedAt: "desc" }],
+      select: {
+        id: true,
+        prefix: true,
+        postfix: true,
+        bindStatus: true,
+      },
+    }),
+    client.codmAccount.findMany({
+      where: { status: ACCOUNT_UNLISTED_STATUS },
+      orderBy: { updatedAt: "desc" },
+      select: {
+        id: true,
+        serialNumber: true,
+        title: true,
+        status: true,
+        email: true,
+      },
+    }),
+    client.codmAccount.findMany({
+      where: {
+        email: { not: null },
+        status: {
+          notIn: [ACCOUNT_UNLISTED_STATUS, ACCOUNT_SOLD_STATUS],
+        },
+      },
+      orderBy: { updatedAt: "desc" },
+      select: {
+        id: true,
+        serialNumber: true,
+        title: true,
+        status: true,
+        email: true,
+      },
+    }),
+  ]);
+
+  return {
+    emails,
+    historicalSoldAccounts,
+    activeAccounts,
+  };
+}
+
+async function main() {
+  const initialState = await loadCurrentState(prisma);
+  const initialEmailReport = buildEmailReconcileReport(
+    initialState.emails,
+    initialState.activeAccounts,
+  );
+  const historicalSoldAccountsWithEmail =
+    initialState.historicalSoldAccounts.filter((account) => account.email);
+
+  let writtenEmailRows = 0;
+  let writtenSoldAccounts = 0;
+
   if (shouldWrite) {
-    for (const email of mismatchedEmails) {
-      await prisma.codmEmail.update({
-        where: { id: BigInt(email.id) },
-        data: { bindStatus: email.expectedBindStatus },
+    await prisma.$transaction(async (tx) => {
+      const soldAccountResult = await tx.codmAccount.updateMany({
+        where: { status: ACCOUNT_UNLISTED_STATUS },
+        data: {
+          status: ACCOUNT_SOLD_STATUS,
+          email: null,
+        },
       });
-    }
+
+      writtenSoldAccounts = soldAccountResult.count;
+
+      for (const email of initialEmailReport.mismatchedEmails) {
+        await tx.codmEmail.update({
+          where: { id: BigInt(email.id) },
+          data: { bindStatus: email.expectedBindStatus },
+        });
+        writtenEmailRows += 1;
+      }
+    });
   }
+
+  const finalState = shouldWrite
+    ? await loadCurrentState(prisma)
+    : initialState;
+  const finalEmailReport = buildEmailReconcileReport(
+    finalState.emails,
+    finalState.activeAccounts,
+  );
 
   console.log(
     JSON.stringify(
       {
         mode: shouldWrite ? "write" : "dry-run",
-        updatedEmailRows: shouldWrite ? mismatchedEmails.length : 0,
-        pendingEmailRows: shouldWrite ? 0 : mismatchedEmails.length,
-        mismatchedEmails,
-        missingEmailRecords,
-        duplicateEmailRows,
-        duplicateActiveAccounts,
+        warning:
+          "此脚本用于一次性修正历史下架即已售数据；新业务上线后不要把未来 status=2 的真实下架账号重复当作已售处理。",
+        pendingSoldAccounts: shouldWrite
+          ? 0
+          : initialState.historicalSoldAccounts.length,
+        pendingAccountEmailClears: shouldWrite
+          ? 0
+          : historicalSoldAccountsWithEmail.length,
+        pendingEmailRows: shouldWrite
+          ? 0
+          : initialEmailReport.mismatchedEmails.length,
+        updatedSoldAccounts: writtenSoldAccounts,
+        updatedEmailRows: writtenEmailRows,
+        historicalSoldAccounts:
+          initialState.historicalSoldAccounts.map(serializeAccount),
+        historicalSoldAccountsWithEmail:
+          historicalSoldAccountsWithEmail.map(serializeAccount),
+        mismatchedEmails: shouldWrite
+          ? finalEmailReport.mismatchedEmails
+          : initialEmailReport.mismatchedEmails,
+        missingEmailRecords: finalEmailReport.missingEmailRecords,
+        duplicateEmailRows: finalEmailReport.duplicateEmailRows,
+        duplicateActiveAccounts: finalEmailReport.duplicateActiveAccounts,
       },
       null,
       2,

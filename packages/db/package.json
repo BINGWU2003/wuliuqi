@@ -15,7 +15,8 @@
     "migrate:deploy": "prisma migrate deploy",
     "db:pull": "prisma db pull",
     "backfill:codm-skin-attributes": "node scripts/backfill-codm-skin-attributes.mjs",
-    "fix:email-bind-status": "node scripts/reconcile-email-bind-status.mjs"
+    "fix:email-bind-status": "node scripts/reconcile-email-bind-status.mjs",
+    "fix:sold-account-emails": "node scripts/reconcile-sold-account-emails.mjs"
   },
   "dependencies": {
     "@prisma/client": "catalog:",
