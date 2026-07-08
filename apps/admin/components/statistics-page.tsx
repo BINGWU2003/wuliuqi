@@ -10,6 +10,7 @@ import { Button } from "@wuliuqi/ui/components/button";
 import {
   Card,
   CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
 } from "@wuliuqi/ui/components/card";
@@ -180,14 +181,17 @@ function StatisticsContent({
       <div className="grid gap-3 xl:grid-cols-3">
         <AccountListCard
           accounts={statistics.recentSold}
+          description="已售账号按最近更新时间倒序排列，当前用更新时间近似售出时间。"
           title="最近售出"
         />
         <AccountListCard
           accounts={statistics.highValueAvailable}
+          description="出售中和已下架账号按标价从高到低排列。"
           title="高价未售"
         />
         <AccountListCard
           accounts={statistics.staleListed}
+          description="出售中账号按最近更新时间正序排列。"
           title="长期未更新"
         />
       </div>
@@ -264,15 +268,18 @@ function DistributionCard({
 
 function AccountListCard({
   accounts,
+  description,
   title,
 }: {
   accounts: AdminAccount[];
+  description: string;
   title: string;
 }) {
   return (
     <Card className="rounded-md shadow-none">
       <CardHeader className="border-b border-border">
         <CardTitle className="text-base">{title}</CardTitle>
+        <CardDescription className="leading-5">{description}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-3 pt-4">
         {accounts.length === 0 ? (
