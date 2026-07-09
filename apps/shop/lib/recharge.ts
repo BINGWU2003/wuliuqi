@@ -6,7 +6,7 @@ export interface CpPackage {
   id: string;
   label: string;
   gainedCp: number;
-  costCp: number;
+  priceRmb: number;
   type: "normal" | "double";
   baseCp?: number;
   bonusCp?: number;
@@ -38,7 +38,7 @@ export interface RechargePlan {
   description: string;
   uses: PackageUse[];
   gainedCp: number;
-  costCp: number;
+  priceRmb: number;
   currentCp: number;
   targetCp: number;
   targetLabel: string;
@@ -52,54 +52,60 @@ export interface RechargePlan {
 type NormalCombination = {
   counts: Map<string, number>;
   gainedCp: number;
-  costCp: number;
+  priceRmb: number;
   count: number;
 };
 
 type DoubleSubset = {
   packs: CpPackage[];
   gainedCp: number;
-  costCp: number;
+  priceRmb: number;
   count: number;
 };
 
 const maxCalculatedCp = 200000;
 
 export const CODM_NORMAL_PACKAGES: CpPackage[] = [
-  { id: "normal-80", label: "80 CP", gainedCp: 80, costCp: 80, type: "normal" },
+  {
+    id: "normal-80",
+    label: "80 CP",
+    gainedCp: 80,
+    priceRmb: 7,
+    type: "normal",
+  },
   {
     id: "normal-420",
     label: "420 CP",
     gainedCp: 420,
-    costCp: 420,
+    priceRmb: 32,
     type: "normal",
   },
   {
     id: "normal-880",
     label: "880 CP",
     gainedCp: 880,
-    costCp: 880,
+    priceRmb: 62,
     type: "normal",
   },
   {
     id: "normal-2400",
     label: "2400 CP",
     gainedCp: 2400,
-    costCp: 2400,
+    priceRmb: 160,
     type: "normal",
   },
   {
     id: "normal-5000",
     label: "5000 CP",
     gainedCp: 5000,
-    costCp: 5000,
+    priceRmb: 310,
     type: "normal",
   },
   {
     id: "normal-10800",
     label: "10800 CP",
     gainedCp: 10800,
-    costCp: 10800,
+    priceRmb: 580,
     type: "normal",
   },
 ];
@@ -109,7 +115,7 @@ export const CODM_DOUBLE_PACKAGES: CpPackage[] = [
     id: "double-80",
     label: "80 + 80",
     gainedCp: 160,
-    costCp: 80,
+    priceRmb: 7,
     type: "double",
     baseCp: 80,
     bonusCp: 80,
@@ -118,7 +124,7 @@ export const CODM_DOUBLE_PACKAGES: CpPackage[] = [
     id: "double-400",
     label: "400 + 400",
     gainedCp: 800,
-    costCp: 400,
+    priceRmb: 32,
     type: "double",
     baseCp: 400,
     bonusCp: 400,
@@ -127,7 +133,7 @@ export const CODM_DOUBLE_PACKAGES: CpPackage[] = [
     id: "double-800",
     label: "800 + 800",
     gainedCp: 1600,
-    costCp: 800,
+    priceRmb: 62,
     type: "double",
     baseCp: 800,
     bonusCp: 800,
@@ -136,7 +142,7 @@ export const CODM_DOUBLE_PACKAGES: CpPackage[] = [
     id: "double-2000",
     label: "2000 + 2000",
     gainedCp: 4000,
-    costCp: 2000,
+    priceRmb: 160,
     type: "double",
     baseCp: 2000,
     bonusCp: 2000,
@@ -145,7 +151,7 @@ export const CODM_DOUBLE_PACKAGES: CpPackage[] = [
     id: "double-4000",
     label: "4000 + 4000",
     gainedCp: 8000,
-    costCp: 4000,
+    priceRmb: 310,
     type: "double",
     baseCp: 4000,
     bonusCp: 4000,
@@ -154,7 +160,7 @@ export const CODM_DOUBLE_PACKAGES: CpPackage[] = [
     id: "double-8000",
     label: "8000 + 8000",
     gainedCp: 16000,
-    costCp: 8000,
+    priceRmb: 580,
     type: "double",
     baseCp: 8000,
     bonusCp: 8000,
@@ -293,6 +299,7 @@ export function buildRechargePlanText(plan: RechargePlan) {
     lines.push(`双倍套餐：${doubleUses}`);
   }
   lines.push(`普通套餐：${formatPackageUses(plan.uses, "normal")}`);
+  lines.push(`预计金额：${plan.priceRmb} 元`);
   lines.push(`共获得：${plan.gainedCp} CP`);
   lines.push(`充值后：${plan.finalCp} CP`);
   lines.push(`预计剩余：${plan.overflowCp} CP`);
@@ -371,7 +378,7 @@ function buildPlan({
 }): RechargePlan {
   const uses = mergeUses(doubleSubset.packs, normal.counts);
   const gainedCp = doubleSubset.gainedCp + normal.gainedCp;
-  const costCp = doubleSubset.costCp + normal.costCp;
+  const priceRmb = doubleSubset.priceRmb + normal.priceRmb;
   const needCp = Math.max(targetCp - currentCp, 0);
   const finalCp = currentCp + gainedCp;
   const overflowCp = Math.max(finalCp - targetCp, 0);
@@ -388,7 +395,7 @@ function buildPlan({
     description: getPlanDescription(kind),
     uses,
     gainedCp,
-    costCp,
+    priceRmb,
     currentCp,
     targetCp,
     targetLabel,
@@ -461,14 +468,19 @@ function comparePlans(
 ) {
   if (kind === "doublePriority") {
     return compareBy(
-      [left.costCp, left.overflowCp, left.uses.length, -countDoubleUses(left)],
-      [right.costCp, right.overflowCp, right.uses.length, -countDoubleUses(right)],
+      [-countDoubleUses(left), left.priceRmb, left.overflowCp, left.uses.length],
+      [
+        -countDoubleUses(right),
+        right.priceRmb,
+        right.overflowCp,
+        right.uses.length,
+      ],
     );
   }
 
   return compareBy(
-    [left.overflowCp, left.costCp, left.uses.length, -countDoubleUses(left)],
-    [right.overflowCp, right.costCp, right.uses.length, -countDoubleUses(right)],
+    [left.priceRmb, left.overflowCp, left.uses.length, -countDoubleUses(left)],
+    [right.priceRmb, right.overflowCp, right.uses.length, -countDoubleUses(right)],
   );
 }
 
@@ -478,8 +490,18 @@ function compareNormalCandidates(
   requiredCp: number,
 ) {
   return compareBy(
-    [left.gainedCp - requiredCp, left.count, normalPackagePreference(left)],
-    [right.gainedCp - requiredCp, right.count, normalPackagePreference(right)],
+    [
+      left.priceRmb,
+      left.gainedCp - requiredCp,
+      left.count,
+      normalPackagePreference(left),
+    ],
+    [
+      right.priceRmb,
+      right.gainedCp - requiredCp,
+      right.count,
+      normalPackagePreference(right),
+    ],
   );
 }
 
@@ -488,8 +510,8 @@ function compareNormalCombinations(
   right: NormalCombination,
 ) {
   return compareBy(
-    [left.count, normalPackagePreference(left)],
-    [right.count, normalPackagePreference(right)],
+    [left.priceRmb, left.count, normalPackagePreference(left)],
+    [right.priceRmb, right.count, normalPackagePreference(right)],
   );
 }
 
@@ -526,7 +548,7 @@ function getDoubleSubsets(packages: CpPackage[]) {
       subsets.push({
         packs: [...current.packs, pack],
         gainedCp: current.gainedCp + pack.gainedCp,
-        costCp: current.costCp + pack.costCp,
+        priceRmb: current.priceRmb + pack.priceRmb,
         count: current.count + 1,
       });
     }
@@ -557,7 +579,7 @@ function addNormalPackage(combination: NormalCombination, pack: CpPackage) {
   return {
     counts,
     gainedCp: combination.gainedCp + pack.gainedCp,
-    costCp: combination.costCp + pack.costCp,
+    priceRmb: combination.priceRmb + pack.priceRmb,
     count: combination.count + 1,
   };
 }
@@ -566,7 +588,7 @@ function emptyNormalCombination(): NormalCombination {
   return {
     counts: new Map(),
     gainedCp: 0,
-    costCp: 0,
+    priceRmb: 0,
     count: 0,
   };
 }
@@ -575,14 +597,14 @@ function emptyDoubleSubset(): DoubleSubset {
   return {
     packs: [],
     gainedCp: 0,
-    costCp: 0,
+    priceRmb: 0,
     count: 0,
   };
 }
 
 function getPlanTitle(kind: RechargePlanKind) {
   if (kind === "leastOverflow") {
-    return "溢出最少方案";
+    return "金额最省方案";
   }
 
   if (kind === "doublePriority") {
@@ -594,14 +616,14 @@ function getPlanTitle(kind: RechargePlanKind) {
 
 function getPlanDescription(kind: RechargePlanKind) {
   if (kind === "leastOverflow") {
-    return "优先让充值后剩余 CP 尽量少。";
+    return "优先选择总价最低的组合，同价时让剩余 CP 尽量少。";
   }
 
   if (kind === "doublePriority") {
-    return "优先利用双倍收益，按获得同等 CP 的充值档位更少来计算。";
+    return "优先利用可用双倍档位，再按总价、剩余 CP 和套餐数量排序。";
   }
 
-  return "在普通套餐中优先选择剩余 CP 最少的组合。";
+  return "在普通套餐中优先选择总价最低的组合，同价时剩余 CP 更少。";
 }
 
 function normalizeTargetItems(items: RechargeTargetItem[]) {

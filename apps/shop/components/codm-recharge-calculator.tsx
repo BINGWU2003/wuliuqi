@@ -311,7 +311,10 @@ export function CodmRechargeCalculator() {
                         onClick={() => toggleDoublePackage(pack.id)}
                       >
                         {checked ? <Check size={15} /> : null}
-                        {pack.label}
+                        <span>{pack.label}</span>
+                        <span className={cn(checked ? "text-primary-foreground/75" : "text-muted-foreground")}>
+                          {pack.priceRmb}元
+                        </span>
                       </button>
                     );
                   })}
@@ -326,7 +329,7 @@ export function CodmRechargeCalculator() {
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {CODM_NORMAL_PACKAGES.map((pack) => (
                   <Badge key={pack.id} className="rounded-sm" variant="secondary">
-                    {pack.label}
+                    {pack.label} / {pack.priceRmb} 元
                   </Badge>
                 ))}
               </div>
@@ -580,7 +583,8 @@ function PlanCard({
         </div>
       </CardHeader>
       <CardContent className="space-y-4 p-4">
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <Metric label="预计金额" value={`${plan.priceRmb} 元`} />
           <Metric label="共获得" value={`${plan.gainedCp} CP`} />
           <Metric label="充值后" value={`${plan.finalCp} CP`} />
           <Metric label="预计剩余" value={`${plan.overflowCp} CP`} />
