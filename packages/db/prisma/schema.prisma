@@ -8,18 +8,21 @@ datasource db {
 }
 
 model CodmAccount {
-  id           BigInt   @id @default(autoincrement())
-  serialNumber String   @unique @map("serial_number") @db.VarChar(50)
+  id           BigInt    @id @default(autoincrement())
+  serialNumber String    @unique @map("serial_number") @db.VarChar(50)
   images       Json?
-  attributes   Json     @default("{}")
-  price        Decimal  @default(0.00) @db.Decimal(10, 2)
-  title        String   @db.VarChar(255)
-  describe     String?  @db.Text
-  xianyuUrl    String?  @map("xianyu_url") @db.VarChar(512)
-  email        String?  @db.VarChar(255)
-  status       Int      @default(1) @db.SmallInt
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at")
+  attributes   Json      @default("{}")
+  price        Decimal   @default(0.00) @db.Decimal(10, 2)
+  costPrice    Decimal   @default(0.00) @map("cost_price") @db.Decimal(10, 2)
+  soldPrice    Decimal?  @map("sold_price") @db.Decimal(10, 2)
+  soldAt       DateTime? @map("sold_at")
+  title        String    @db.VarChar(255)
+  describe     String?   @db.Text
+  xianyuUrl    String?   @map("xianyu_url") @db.VarChar(512)
+  email        String?   @db.VarChar(255)
+  status       Int       @default(1) @db.SmallInt
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @default(now()) @updatedAt @map("updated_at")
 
   @@index([status, updatedAt(sort: Desc)], map: "codm_accounts_status_updated_at_idx")
   @@index([email], map: "codm_accounts_email_idx")
@@ -39,18 +42,21 @@ model CodmEmail {
 }
 
 model SanguoshaAccount {
-  id           BigInt   @id @default(autoincrement())
-  serialNumber String   @unique @map("serial_number") @db.VarChar(50)
+  id           BigInt    @id @default(autoincrement())
+  serialNumber String    @unique @map("serial_number") @db.VarChar(50)
   images       Json?
-  attributes   Json     @default("{}")
-  price        Decimal  @default(0.00) @db.Decimal(10, 2)
-  title        String   @db.VarChar(255)
-  describe     String?  @db.Text
-  xianyuUrl    String?  @map("xianyu_url") @db.VarChar(512)
-  email        String?  @db.VarChar(255)
-  status       Int      @default(1) @db.SmallInt
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at")
+  attributes   Json      @default("{}")
+  price        Decimal   @default(0.00) @db.Decimal(10, 2)
+  costPrice    Decimal   @default(0.00) @map("cost_price") @db.Decimal(10, 2)
+  soldPrice    Decimal?  @map("sold_price") @db.Decimal(10, 2)
+  soldAt       DateTime? @map("sold_at")
+  title        String    @db.VarChar(255)
+  describe     String?   @db.Text
+  xianyuUrl    String?   @map("xianyu_url") @db.VarChar(512)
+  email        String?   @db.VarChar(255)
+  status       Int       @default(1) @db.SmallInt
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @default(now()) @updatedAt @map("updated_at")
 
   @@index([status, updatedAt(sort: Desc)], map: "sanguosha_accounts_status_updated_at_idx")
   @@index([createdAt(sort: Desc)], map: "sanguosha_accounts_created_at_idx")
@@ -104,17 +110,17 @@ model SequenceCounter {
 }
 
 model GameAttributeDefinition {
-  id        BigInt   @id @default(autoincrement())
-  gameKey   String   @map("game_key") @db.VarChar(50)
-  attrKey   String   @map("attr_key") @db.VarChar(80)
-  label     String   @db.VarChar(80)
-  type      String   @db.VarChar(20)
-  unit      String?  @db.VarChar(20)
-  options   Json     @default("[]")
-  enabled   Boolean  @default(true)
-  sortOrder Int      @default(0) @map("sort_order")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+  id        BigInt    @id @default(autoincrement())
+  gameKey   String    @map("game_key") @db.VarChar(50)
+  attrKey   String    @map("attr_key") @db.VarChar(80)
+  label     String    @db.VarChar(80)
+  type      String    @db.VarChar(20)
+  unit      String?   @db.VarChar(20)
+  options   Json      @default("[]")
+  enabled   Boolean   @default(true)
+  sortOrder Int       @default(0) @map("sort_order")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @default(now()) @updatedAt @map("updated_at")
   deletedAt DateTime? @map("deleted_at")
 
   @@unique([gameKey, attrKey], map: "game_attribute_definitions_game_attr_key")

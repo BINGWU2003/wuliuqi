@@ -147,6 +147,9 @@ function accountRecord(
     images: string[];
     attributes: Record<string, number | string>;
     price: number;
+    costPrice: number;
+    soldPrice: number | null;
+    soldAt: Date | null;
     title: string;
     describe: string | null;
     xianyuUrl: string | null;
@@ -162,6 +165,9 @@ function accountRecord(
     images: [],
     attributes: {},
     price: 99,
+    costPrice: 60,
+    soldPrice: null,
+    soldAt: null,
     title: "测试账号",
     describe: "测试描述",
     xianyuUrl: null,
@@ -465,12 +471,24 @@ describe("后台账号", () => {
   it("统计账号状态、金额和运营列表", async () => {
     prismaMock.codmAccount.aggregate.mockResolvedValue({
       _count: { _all: 6 },
-      _sum: { price: 2850 },
+      _sum: { price: 2850, costPrice: 1510, soldPrice: 1180 },
     });
     prismaMock.codmAccount.groupBy.mockResolvedValue([
-      { status: 1, _count: { _all: 2 }, _sum: { price: 1200 } },
-      { status: 2, _count: { _all: 1 }, _sum: { price: 400 } },
-      { status: 3, _count: { _all: 3 }, _sum: { price: 1250 } },
+      {
+        status: 1,
+        _count: { _all: 2 },
+        _sum: { price: 1200, costPrice: 650, soldPrice: null },
+      },
+      {
+        status: 2,
+        _count: { _all: 1 },
+        _sum: { price: 400, costPrice: 260, soldPrice: null },
+      },
+      {
+        status: 3,
+        _count: { _all: 3 },
+        _sum: { price: 1250, costPrice: 600, soldPrice: 1180 },
+      },
     ]);
     prismaMock.codmAccount.findMany
       .mockResolvedValueOnce([
@@ -478,6 +496,9 @@ describe("后台账号", () => {
           id: 31n,
           serialNumber: "#CODM-31",
           price: 800,
+          costPrice: 500,
+          soldPrice: 760,
+          soldAt: new Date("2026-07-08T08:00:00.000Z"),
           status: 3,
           updatedAt: new Date("2026-07-08T08:00:00.000Z"),
         }),
@@ -505,12 +526,12 @@ describe("后台账号", () => {
 
     expect(prismaMock.codmAccount.aggregate).toHaveBeenCalledWith({
       _count: { _all: true },
-      _sum: { price: true },
+      _sum: { price: true, costPrice: true, soldPrice: true },
     });
     expect(prismaMock.codmAccount.groupBy).toHaveBeenCalledWith({
       by: ["status"],
       _count: { _all: true },
-      _sum: { price: true },
+      _sum: { price: true, costPrice: true, soldPrice: true },
     });
     expect(prismaMock.codmAccount.findMany).toHaveBeenNthCalledWith(1, {
       where: { status: 3 },
@@ -530,22 +551,54 @@ describe("后台账号", () => {
     expect(statistics.summary).toEqual({
       availableValue: 1600,
       listedCount: 2,
+      listedCost: 650,
       listedValue: 1200,
       soldCount: 3,
-      soldValue: 1250,
+      soldCost: 600,
+      soldProfit: 580,
+      soldRevenue: 1180,
+      soldValue: 1180,
       totalCount: 6,
+      totalCost: 1510,
       totalValue: 2850,
       unlistedCount: 1,
+      unlistedCost: 260,
       unlistedValue: 400,
+      availableCost: 910,
+      availableEstimatedProfit: 690,
     });
     expect(statistics.statusBreakdown).toEqual([
-      { count: 2, label: "已上架", status: 1, totalValue: 1200 },
-      { count: 1, label: "已下架", status: 2, totalValue: 400 },
-      { count: 3, label: "已出售", status: 3, totalValue: 1250 },
+      {
+        count: 2,
+        label: "已上架",
+        status: 1,
+        totalCost: 650,
+        totalRevenue: 0,
+        totalValue: 1200,
+      },
+      {
+        count: 1,
+        label: "已下架",
+        status: 2,
+        totalCost: 260,
+        totalRevenue: 0,
+        totalValue: 400,
+      },
+      {
+        count: 3,
+        label: "已出售",
+        status: 3,
+        totalCost: 600,
+        totalRevenue: 1180,
+        totalValue: 1180,
+      },
     ]);
     expect(statistics.recentSold[0]).toMatchObject({
       id: 31,
+      costPrice: 500,
+      profit: 260,
       serialNumber: "#CODM-31",
+      soldPrice: 760,
       status: 3,
     });
     expect(statistics.highValueAvailable[0]).toMatchObject({
@@ -561,11 +614,19 @@ describe("后台账号", () => {
   it("按游戏统计三国杀账号，不读取 CODM 账号表", async () => {
     prismaMock.sanguoshaAccount.aggregate.mockResolvedValue({
       _count: { _all: 2 },
-      _sum: { price: 1200 },
+      _sum: { price: 1200, costPrice: 720, soldPrice: 460 },
     });
     prismaMock.sanguoshaAccount.groupBy.mockResolvedValue([
-      { status: 1, _count: { _all: 1 }, _sum: { price: 700 } },
-      { status: 3, _count: { _all: 1 }, _sum: { price: 500 } },
+      {
+        status: 1,
+        _count: { _all: 1 },
+        _sum: { price: 700, costPrice: 420, soldPrice: null },
+      },
+      {
+        status: 3,
+        _count: { _all: 1 },
+        _sum: { price: 500, costPrice: 300, soldPrice: 460 },
+      },
     ]);
     prismaMock.sanguoshaAccount.findMany
       .mockResolvedValueOnce([
@@ -598,14 +659,17 @@ describe("后台账号", () => {
       listedCount: 1,
       soldCount: 1,
       availableValue: 700,
-      soldValue: 500,
+      soldCost: 300,
+      soldProfit: 160,
+      soldRevenue: 460,
+      soldValue: 460,
     });
   });
 
   it("统计账号为空时返回零值和空列表", async () => {
     prismaMock.codmAccount.aggregate.mockResolvedValue({
       _count: { _all: 0 },
-      _sum: { price: null },
+      _sum: { price: null, costPrice: null, soldPrice: null },
     });
     prismaMock.codmAccount.groupBy.mockResolvedValue([]);
     prismaMock.codmAccount.findMany
@@ -618,19 +682,48 @@ describe("后台账号", () => {
 
     expect(statistics.summary).toEqual({
       availableValue: 0,
+      availableCost: 0,
+      availableEstimatedProfit: 0,
       listedCount: 0,
+      listedCost: 0,
       listedValue: 0,
       soldCount: 0,
+      soldCost: 0,
+      soldProfit: 0,
+      soldRevenue: 0,
       soldValue: 0,
       totalCount: 0,
+      totalCost: 0,
       totalValue: 0,
       unlistedCount: 0,
+      unlistedCost: 0,
       unlistedValue: 0,
     });
     expect(statistics.statusBreakdown).toEqual([
-      { count: 0, label: "已上架", status: 1, totalValue: 0 },
-      { count: 0, label: "已下架", status: 2, totalValue: 0 },
-      { count: 0, label: "已出售", status: 3, totalValue: 0 },
+      {
+        count: 0,
+        label: "已上架",
+        status: 1,
+        totalCost: 0,
+        totalRevenue: 0,
+        totalValue: 0,
+      },
+      {
+        count: 0,
+        label: "已下架",
+        status: 2,
+        totalCost: 0,
+        totalRevenue: 0,
+        totalValue: 0,
+      },
+      {
+        count: 0,
+        label: "已出售",
+        status: 3,
+        totalCost: 0,
+        totalRevenue: 0,
+        totalValue: 0,
+      },
     ]);
     expect(statistics.recentSold).toEqual([]);
     expect(statistics.highValueAvailable).toEqual([]);
@@ -664,6 +757,7 @@ describe("后台账号", () => {
       accountRecord({
         serialNumber: "#CODM-42",
         attributes: { mythic_skins: 3, rank: "legendary" },
+        costPrice: 120,
         email: "buyer@example.com",
         status: 1,
       }),
@@ -674,6 +768,7 @@ describe("后台账号", () => {
       images: ["https://cdn.example.com/account.jpg"],
       attributes: { mythic_skins: "3", rank: "legendary" },
       price: 199,
+      costPrice: 120,
       title: "满级账号",
       description: "测试描述",
       xianyuUrl: "https://www.goofish.com/item/1",
@@ -689,6 +784,7 @@ describe("后台账号", () => {
       data: expect.objectContaining({
         serialNumber: "#CODM-42",
         attributes: { mythic_skins: 3, rank: "legendary" },
+        costPrice: 120,
         email: "buyer@example.com",
         status: 1,
       }),
@@ -700,6 +796,7 @@ describe("后台账号", () => {
     expect(account).toMatchObject({
       serialNumber: "#CODM-42",
       attributes: { mythic_skins: 3, rank: "legendary" },
+      costPrice: 120,
     });
   });
 
@@ -712,6 +809,7 @@ describe("后台账号", () => {
         images: ["https://cdn.example.com/account.jpg"],
         attributes: {},
         price: 199,
+        costPrice: 120,
         title: "满级账号",
         description: "测试描述",
         xianyuUrl: undefined,
@@ -732,6 +830,7 @@ describe("后台账号", () => {
         images: ["https://cdn.example.com/account.jpg"],
         attributes: {},
         price: 199,
+        costPrice: 120,
         title: "满级账号",
         description: "测试描述",
         xianyuUrl: undefined,
@@ -769,6 +868,7 @@ describe("后台账号", () => {
       images: ["https://cdn.example.com/account.jpg"],
       attributes: {},
       price: 199,
+      costPrice: 120,
       title: "满级账号",
       description: "测试描述",
       xianyuUrl: undefined,
@@ -809,6 +909,7 @@ describe("后台账号", () => {
       images: ["https://cdn.example.com/sgs.jpg"],
       attributes: {},
       price: 199,
+      costPrice: 120,
       title: "三国杀账号",
       description: "测试描述",
       xianyuUrl: undefined,
@@ -848,6 +949,7 @@ describe("后台账号", () => {
         images: ["https://cdn.example.com/sgs.jpg"],
         attributes: {},
         price: 199,
+        costPrice: 120,
         title: "三国杀账号",
         description: "测试描述",
         xianyuUrl: undefined,
@@ -884,6 +986,7 @@ describe("后台账号", () => {
         images: ["https://cdn.example.com/account.jpg"],
         attributes: { mythic_skins: -1, rank: "invalid" },
         price: 199,
+        costPrice: 120,
         title: "满级账号",
         description: "测试描述",
         xianyuUrl: undefined,
@@ -943,11 +1046,13 @@ describe("后台账号", () => {
     prismaMock.codmAccount.update.mockResolvedValue(
       accountRecord({
         attributes: { rank: "legendary" },
+        costPrice: 88,
       }),
     );
 
     const account = await updateAdminAccount(7, {
       attributes: { rank: "legendary" },
+      costPrice: 88,
       email: undefined,
       serialNumber: undefined,
       xianyuUrl: undefined,
@@ -957,8 +1062,10 @@ describe("后台账号", () => {
       where: { id: 7 },
       data: expect.objectContaining({
         attributes: { rank: "legendary" },
+        costPrice: 88,
       }),
     });
+    expect(account.costPrice).toBe(88);
     expect(account.attributeValues).toMatchObject([
       {
         key: "rank",
@@ -1100,9 +1207,14 @@ describe("后台账号", () => {
   });
 
   it("出售账号会将账号标记为已出售，并释放邮箱为未绑定状态", async () => {
+    const beforeSell = new Date("2026-07-08T09:00:00.000Z");
+    vi.useFakeTimers();
+    vi.setSystemTime(beforeSell);
     prismaMock.codmAccount.findUnique.mockResolvedValue(
       accountRecord({
+        costPrice: 50,
         email: "buyer@example.com",
+        price: 99,
         status: 1,
       }),
     );
@@ -1111,7 +1223,10 @@ describe("后台账号", () => {
     );
     prismaMock.codmAccount.update.mockResolvedValue(
       accountRecord({
+        costPrice: 50,
         email: null,
+        soldAt: beforeSell,
+        soldPrice: 88,
         status: 3,
       }),
     );
@@ -1120,12 +1235,14 @@ describe("后台账号", () => {
     );
     prismaMock.gameAttributeDefinition.findMany.mockResolvedValue([]);
 
-    const account = await sellAdminAccount(7);
+    const account = await sellAdminAccount(7, { soldPrice: 88 });
 
     expect(prismaMock.codmAccount.update).toHaveBeenCalledWith({
       where: { id: 7 },
       data: {
         email: null,
+        soldAt: beforeSell,
+        soldPrice: 88,
         status: 3,
       },
     });
@@ -1135,8 +1252,11 @@ describe("后台账号", () => {
     });
     expect(account).toMatchObject({
       email: "",
+      profit: 38,
+      soldPrice: 88,
       status: 3,
     });
+    vi.useRealTimers();
   });
 
   it("出售操作不可逆，已出售账号不能再次出售", async () => {
@@ -1147,7 +1267,7 @@ describe("后台账号", () => {
       }),
     );
 
-    await expect(sellAdminAccount(7)).rejects.toMatchObject({
+    await expect(sellAdminAccount(7, { soldPrice: 88 })).rejects.toMatchObject({
       code: "ACCOUNT_SOLD",
     });
     expect(prismaMock.codmAccount.update).not.toHaveBeenCalled();
@@ -1161,7 +1281,7 @@ describe("后台账号", () => {
       }),
     );
 
-    await expect(sellAdminAccount(7)).rejects.toMatchObject({
+    await expect(sellAdminAccount(7, { soldPrice: 88 })).rejects.toMatchObject({
       code: "EMAIL_REQUIRED",
     });
     expect(prismaMock.codmAccount.update).not.toHaveBeenCalled();
@@ -1176,7 +1296,7 @@ describe("后台账号", () => {
     );
     prismaMock.codmEmail.findFirst.mockResolvedValue(null);
 
-    await expect(sellAdminAccount(7)).rejects.toMatchObject({
+    await expect(sellAdminAccount(7, { soldPrice: 88 })).rejects.toMatchObject({
       code: "EMAIL_NOT_FOUND",
     });
     expect(prismaMock.codmAccount.update).not.toHaveBeenCalled();

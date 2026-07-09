@@ -3,6 +3,7 @@ import type {
   AccountAttributePrimitive,
   AccountAttributeValue,
   AccountAttributes,
+  AdminAccount,
   AdminEmail,
   AdminEmailPostfix,
   AdminUser,
@@ -22,6 +23,9 @@ export type AccountRecord = {
   images: Prisma.JsonValue | null;
   attributes: Prisma.JsonValue;
   price: Prisma.Decimal;
+  costPrice: Prisma.Decimal;
+  soldPrice: Prisma.Decimal | null;
+  soldAt: Date | null;
   title: string;
   describe: string | null;
   xianyuUrl: string | null;
@@ -257,14 +261,38 @@ export function serializeAccountAttributeValues(
     .sort((a, b) => a.sortOrder - b.sortOrder);
 }
 
+type SerializeAccountOptions = {
+  includeFinancials?: boolean;
+};
+
+export function serializeAccount(
+  account: AccountRecord,
+  definitions: GameAttributeDefinition[] | undefined,
+  gameKey: GameKey,
+  options: { includeFinancials: true },
+): AdminAccount;
+export function serializeAccount(
+  account: AccountRecord,
+  definitions?: GameAttributeDefinition[],
+  gameKey?: GameKey,
+  options?: SerializeAccountOptions,
+): ShopAccount;
 export function serializeAccount(
   account: AccountRecord,
   definitions: GameAttributeDefinition[] = [],
   gameKey: GameKey = "codm",
-): ShopAccount {
+  options: SerializeAccountOptions = {},
+): ShopAccount | AdminAccount {
   const attributes = normalizeAccountAttributes(account.attributes);
+  const costPrice = Number(account.costPrice);
+  const soldPrice =
+    account.soldPrice === null || account.soldPrice === undefined
+      ? undefined
+      : Number(account.soldPrice);
+  const profit =
+    soldPrice === undefined ? undefined : Number((soldPrice - costPrice).toFixed(2));
 
-  return {
+  const serialized: ShopAccount = {
     id: bigintToNumber(account.id),
     gameKey,
     serialNumber: account.serialNumber,
@@ -279,6 +307,18 @@ export function serializeAccount(
     status: account.status,
     createdAt: toIsoString(account.createdAt),
     updatedAt: toIsoString(account.updatedAt),
+  };
+
+  if (!options.includeFinancials) {
+    return serialized;
+  }
+
+  return {
+    ...serialized,
+    costPrice,
+    ...(soldPrice === undefined ? {} : { soldPrice }),
+    ...(account.soldAt ? { soldAt: toIsoString(account.soldAt) } : {}),
+    ...(profit === undefined ? {} : { profit }),
   };
 }
 

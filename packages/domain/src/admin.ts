@@ -16,6 +16,7 @@ import type {
 import type {
   AdminAccountCreateInput,
   AdminAccountListQuery,
+  AdminAccountSellInput,
   AdminAccountUpdateInput,
   AdminEmailCreateInput,
   AdminEmailListQuery,
@@ -89,6 +90,16 @@ const ACCOUNT_STATUSES = [
   { status: ACCOUNT_UNLISTED_STATUS, label: "已下架" },
   { status: ACCOUNT_SOLD_STATUS, label: "已出售" },
 ] as const;
+
+function serializeAdminAccount(
+  account: SerializedAccountRecord,
+  attributeDefinitions: GameAttributeDefinition[],
+  gameKey: GameKey,
+) {
+  return serializeAccount(account, attributeDefinitions, gameKey, {
+    includeFinancials: true,
+  });
+}
 
 export class DomainError extends Error {
   constructor(
@@ -587,6 +598,7 @@ function accountWriteData(
     images: input.images,
     attributes,
     price: input.price,
+    costPrice: input.costPrice,
     title: input.title,
     describe: input.description,
     xianyuUrl: input.xianyuUrl,
@@ -642,7 +654,7 @@ export async function listAdminAccounts(
 
   return {
     list: (accounts as SerializedAccountRecord[]).map((account) =>
-      serializeAccount(account, attributeDefinitions, gameKey),
+      serializeAdminAccount(account, attributeDefinitions, gameKey),
     ),
     pagination: {
       page: query.page,
@@ -674,12 +686,12 @@ export async function getAdminAccountStatistics(
   ] = await Promise.all([
     accountsDelegate.aggregate({
       _count: { _all: true },
-      _sum: { price: true },
+      _sum: { price: true, costPrice: true, soldPrice: true },
     }),
     accountsDelegate.groupBy({
       by: ["status"],
       _count: { _all: true },
-      _sum: { price: true },
+      _sum: { price: true, costPrice: true, soldPrice: true },
     }),
     accountsDelegate.findMany({
       where: { status: ACCOUNT_SOLD_STATUS },
@@ -702,12 +714,14 @@ export async function getAdminAccountStatistics(
     (statusGroups as Array<{
       status: number;
       _count: { _all: number };
-      _sum: { price: unknown };
+      _sum: { price: unknown; costPrice: unknown; soldPrice: unknown };
     }>).map((group) => [
       group.status,
       {
         count: group._count._all,
-        totalValue: numberFromDb(group._sum.price),
+        priceValue: numberFromDb(group._sum.price),
+        totalCost: numberFromDb(group._sum.costPrice),
+        totalRevenue: numberFromDb(group._sum.soldPrice),
       },
     ]),
   );
@@ -715,7 +729,12 @@ export async function getAdminAccountStatistics(
     status,
     label,
     count: statusMap.get(status)?.count ?? 0,
-    totalValue: statusMap.get(status)?.totalValue ?? 0,
+    totalValue:
+      status === ACCOUNT_SOLD_STATUS
+        ? (statusMap.get(status)?.totalRevenue ?? 0)
+        : (statusMap.get(status)?.priceValue ?? 0),
+    totalCost: statusMap.get(status)?.totalCost ?? 0,
+    totalRevenue: statusMap.get(status)?.totalRevenue ?? 0,
   }));
   const listed = statusBreakdown.find(
     (item) => item.status === ACCOUNT_LISTED_STATUS,
@@ -723,6 +742,8 @@ export async function getAdminAccountStatistics(
     count: 0,
     label: "已上架",
     status: ACCOUNT_LISTED_STATUS,
+    totalCost: 0,
+    totalRevenue: 0,
     totalValue: 0,
   };
   const unlisted = statusBreakdown.find(
@@ -731,6 +752,8 @@ export async function getAdminAccountStatistics(
     count: 0,
     label: "已下架",
     status: ACCOUNT_UNLISTED_STATUS,
+    totalCost: 0,
+    totalRevenue: 0,
     totalValue: 0,
   };
   const sold = statusBreakdown.find(
@@ -739,12 +762,18 @@ export async function getAdminAccountStatistics(
     count: 0,
     label: "已出售",
     status: ACCOUNT_SOLD_STATUS,
+    totalCost: 0,
+    totalRevenue: 0,
     totalValue: 0,
   };
   const total = totalAggregate as {
     _count: { _all: number };
-    _sum: { price: unknown };
+    _sum: { price: unknown; costPrice: unknown; soldPrice: unknown };
   };
+  const soldRevenue = sold.totalRevenue;
+  const soldCost = sold.totalCost;
+  const availableCost = listed.totalCost + unlisted.totalCost;
+  const availableValue = listed.totalValue + unlisted.totalValue;
 
   return {
     summary: {
@@ -753,22 +782,32 @@ export async function getAdminAccountStatistics(
       unlistedCount: unlisted.count,
       soldCount: sold.count,
       totalValue: numberFromDb(total._sum.price),
+      totalCost: numberFromDb(total._sum.costPrice),
       listedValue: listed.totalValue,
+      listedCost: listed.totalCost,
       unlistedValue: unlisted.totalValue,
-      soldValue: sold.totalValue,
-      availableValue: listed.totalValue + unlisted.totalValue,
+      unlistedCost: unlisted.totalCost,
+      soldValue: soldRevenue,
+      soldRevenue,
+      soldCost,
+      soldProfit: Number((soldRevenue - soldCost).toFixed(2)),
+      availableValue,
+      availableCost,
+      availableEstimatedProfit: Number(
+        (availableValue - availableCost).toFixed(2),
+      ),
     },
     statusBreakdown,
     recentSold: (recentSold as SerializedAccountRecord[]).map((account) =>
-      serializeAccount(account, attributeDefinitions, gameKey),
+      serializeAdminAccount(account, attributeDefinitions, gameKey),
     ),
     highValueAvailable: (
       highValueAvailable as SerializedAccountRecord[]
     ).map((account) =>
-      serializeAccount(account, attributeDefinitions, gameKey),
+      serializeAdminAccount(account, attributeDefinitions, gameKey),
     ),
     staleListed: (staleListed as SerializedAccountRecord[]).map((account) =>
-      serializeAccount(account, attributeDefinitions, gameKey),
+      serializeAdminAccount(account, attributeDefinitions, gameKey),
     ),
   };
 }
@@ -784,7 +823,11 @@ export async function getAdminAccountById(
   ]);
 
   return account
-    ? serializeAccount(account as SerializedAccountRecord, attributeDefinitions, gameKey)
+    ? serializeAdminAccount(
+        account as SerializedAccountRecord,
+        attributeDefinitions,
+        gameKey,
+      )
     : null;
 }
 
@@ -837,6 +880,7 @@ export async function createAdminAccount(
         images: input.images,
         attributes,
         price: input.price,
+        costPrice: input.costPrice,
         title: input.title,
         describe: input.description,
         xianyuUrl: input.xianyuUrl,
@@ -847,7 +891,7 @@ export async function createAdminAccount(
 
     await markEmailBindStatus(tx, emailRecord, EMAIL_BOUND_STATUS, game.key);
 
-    return serializeAccount(
+    return serializeAdminAccount(
       account as SerializedAccountRecord,
       attributeDefinitions,
       game.key,
@@ -934,7 +978,7 @@ export async function updateAdminAccount(
       );
     }
 
-    return serializeAccount(
+    return serializeAdminAccount(
       account as SerializedAccountRecord,
       attributeDefinitions,
       gameKey,
@@ -1000,7 +1044,7 @@ export async function updateAdminAccountStatus(
       gameKey,
     );
 
-    return serializeAccount(
+    return serializeAdminAccount(
       account as SerializedAccountRecord,
       attributeDefinitions,
       gameKey,
@@ -1010,6 +1054,7 @@ export async function updateAdminAccountStatus(
 
 export async function sellAdminAccount(
   id: number,
+  input: AdminAccountSellInput,
   gameKeyInput: string | null = CODM_GAME_KEY,
 ): Promise<AdminAccount> {
   const gameKey = normalizeGameKey(gameKeyInput);
@@ -1042,6 +1087,8 @@ export async function sellAdminAccount(
       where: { id },
       data: {
         email: null,
+        soldAt: new Date(),
+        soldPrice: input.soldPrice,
         status: ACCOUNT_SOLD_STATUS,
       },
     });
@@ -1053,7 +1100,7 @@ export async function sellAdminAccount(
       gameKey,
     );
 
-    return serializeAccount(
+    return serializeAdminAccount(
       account as SerializedAccountRecord,
       attributeDefinitions,
       gameKey,

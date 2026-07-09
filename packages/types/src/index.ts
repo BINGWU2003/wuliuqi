@@ -67,7 +67,12 @@ export interface Carousel {
   updatedAt?: string;
 }
 
-export type AdminAccount = ShopAccount;
+export interface AdminAccount extends ShopAccount {
+  costPrice: number;
+  soldPrice?: number;
+  soldAt?: string;
+  profit?: number;
+}
 
 export interface AdminAccountListResult {
   list: AdminAccount[];
@@ -85,6 +90,8 @@ export interface AdminAccountStatisticsStatus {
   label: string;
   count: number;
   totalValue: number;
+  totalCost: number;
+  totalRevenue: number;
 }
 
 export interface AdminAccountStatistics {
@@ -94,10 +101,18 @@ export interface AdminAccountStatistics {
     unlistedCount: number;
     soldCount: number;
     totalValue: number;
+    totalCost: number;
     listedValue: number;
+    listedCost: number;
     unlistedValue: number;
+    unlistedCost: number;
     soldValue: number;
+    soldRevenue: number;
+    soldCost: number;
+    soldProfit: number;
     availableValue: number;
+    availableCost: number;
+    availableEstimatedProfit: number;
   };
   statusBreakdown: AdminAccountStatisticsStatus[];
   recentSold: AdminAccount[];

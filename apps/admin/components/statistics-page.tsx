@@ -150,50 +150,62 @@ function StatisticsContent({
     {
       label: "账号总数",
       value: String(statistics.summary.totalCount),
-      detail: `总标价 ${formatPrice(statistics.summary.totalValue)}`,
+      detail: `总成本 ${formatPrice(statistics.summary.totalCost)}`,
       icon: PackageSearch,
     },
     {
       label: "已上架",
       value: String(statistics.summary.listedCount),
-      detail: formatPrice(statistics.summary.listedValue),
+      detail: `标价 ${formatPrice(statistics.summary.listedValue)}`,
       icon: Store,
     },
     {
       label: "已下架",
       value: String(statistics.summary.unlistedCount),
-      detail: formatPrice(statistics.summary.unlistedValue),
+      detail: `标价 ${formatPrice(statistics.summary.unlistedValue)}`,
       icon: PackageMinus,
     },
     {
       label: "已出售",
       value: String(statistics.summary.soldCount),
-      detail: formatPrice(statistics.summary.soldValue),
+      detail: `成交额 ${formatPrice(statistics.summary.soldRevenue)}`,
       icon: PackageCheck,
     },
     {
-      label: "可售总金额",
+      label: "可售标价",
       value: formatPrice(statistics.summary.availableValue),
-      detail: "已上架与已下架账号标价合计",
+      detail: `库存成本 ${formatPrice(statistics.summary.availableCost)}`,
       icon: CircleDollarSign,
     },
     {
-      label: "已售总金额",
-      value: formatPrice(statistics.summary.soldValue),
-      detail: "按账号标价统计",
+      label: "可售预估利润",
+      value: formatPrice(statistics.summary.availableEstimatedProfit),
+      detail: "已上架与已下架账号标价减成本",
+      icon: PackageSearch,
+    },
+    {
+      label: "已售成交额",
+      value: formatPrice(statistics.summary.soldRevenue),
+      detail: `已售成本 ${formatPrice(statistics.summary.soldCost)}`,
+      icon: PackageCheck,
+    },
+    {
+      label: "已售毛利润",
+      value: formatPrice(statistics.summary.soldProfit),
+      detail: "成交价减成本",
       icon: PackageX,
     },
   ];
 
   return (
     <>
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {metrics.map((metric) => (
           <MetricCard key={metric.label} metric={metric} />
         ))}
       </div>
 
-      <div className="grid gap-3 lg:grid-cols-2">
+      <div className="grid gap-3 lg:grid-cols-3">
         <DistributionCard
           label="数量"
           rows={statistics.statusBreakdown}
@@ -205,6 +217,12 @@ function StatisticsContent({
           rows={statistics.statusBreakdown}
           value={(row) => row.totalValue}
           valueLabel={(row) => formatPrice(row.totalValue)}
+        />
+        <DistributionCard
+          label="成本"
+          rows={statistics.statusBreakdown}
+          value={(row) => row.totalCost}
+          valueLabel={(row) => formatPrice(row.totalCost)}
         />
       </div>
 
@@ -334,8 +352,17 @@ function AccountListCard({
                     <AccountStatusBadge status={account.status} />
                   </div>
                 </div>
-                <div className="shrink-0 font-mono text-sm font-semibold text-price">
-                  {formatPrice(account.price)}
+                <div className="shrink-0 text-right font-mono text-sm font-semibold text-price">
+                  {formatPrice(
+                    account.status === 3
+                      ? (account.soldPrice ?? account.price)
+                      : account.price,
+                  )}
+                  <div className="mt-1 text-[11px] font-normal text-muted-foreground">
+                    {account.status === 3
+                      ? `利润 ${formatPrice(account.profit ?? 0)}`
+                      : `成本 ${formatPrice(account.costPrice)}`}
+                  </div>
                 </div>
               </div>
               <div className="mt-2 flex items-center justify-between gap-3 text-xs text-muted-foreground">
@@ -370,12 +397,13 @@ function StatisticsSkeleton() {
         </div>
         <Skeleton className="h-9 w-full sm:w-24" />
       </div>
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        {Array.from({ length: 6 }).map((_, index) => (
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {Array.from({ length: 8 }).map((_, index) => (
           <Skeleton className="h-28" key={index} />
         ))}
       </div>
-      <div className="grid gap-3 lg:grid-cols-2">
+      <div className="grid gap-3 lg:grid-cols-3">
+        <Skeleton className="h-52" />
         <Skeleton className="h-52" />
         <Skeleton className="h-52" />
       </div>

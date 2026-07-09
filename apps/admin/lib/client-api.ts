@@ -27,6 +27,7 @@ type AccountPayload = {
   images: string[];
   attributes?: AccountAttributes;
   price: number;
+  costPrice: number;
   title: string;
   description: string;
   xianyuUrl?: string;
@@ -161,11 +162,16 @@ export async function updateAccountStatus(
   });
 }
 
-export async function sellAccount(id: number, gameKey: GameKey = "codm") {
+export async function sellAccount(
+  id: number,
+  soldPrice: number,
+  gameKey: GameKey = "codm",
+) {
   const params = paramsFrom({ game_key: gameKey });
 
   return requestJson<AdminAccount>(`/api/accounts/${id}/sell?${params}`, {
     method: "POST",
+    body: JSON.stringify({ soldPrice }),
   });
 }
 

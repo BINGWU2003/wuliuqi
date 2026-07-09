@@ -111,6 +111,7 @@ export function AccountsPage() {
     useState<AccountPendingAction>(null);
   const [deleteTarget, setDeleteTarget] = useState<AdminAccount | null>(null);
   const [sellTarget, setSellTarget] = useState<AdminAccount | null>(null);
+  const [soldPriceValue, setSoldPriceValue] = useState("");
   const [gameSelectorOpen, setGameSelectorOpen] = useState(false);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const loadingRef = useRef(false);
@@ -381,8 +382,24 @@ export function AccountsPage() {
     }
   }
 
+  function openSellDialog(account: AdminAccount) {
+    setSellTarget(account);
+    setSoldPriceValue(String(account.price));
+  }
+
   async function confirmSellAccount() {
     if (!sellTarget || pendingAction !== null) {
+      return;
+    }
+
+    const soldPrice = Number(soldPriceValue);
+
+    if (
+      soldPriceValue.trim() === "" ||
+      !Number.isFinite(soldPrice) ||
+      soldPrice < 0
+    ) {
+      toast.error("请输入有效的成交价");
       return;
     }
 
@@ -390,9 +407,10 @@ export function AccountsPage() {
     setError("");
 
     try {
-      await sellAccount(sellTarget.id, sellTarget.gameKey);
+      await sellAccount(sellTarget.id, soldPrice, sellTarget.gameKey);
       await reloadCurrentView();
       setSellTarget(null);
+      setSoldPriceValue("");
       toast.success("账号已出售，邮箱已解绑");
     } catch (sellError) {
       const message = errorMessage(sellError, "出售失败");
@@ -568,6 +586,12 @@ export function AccountsPage() {
                   <div className="mt-2 font-mono text-sm font-semibold text-price">
                     {formatPrice(account.price)}
                   </div>
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    成本 {formatPrice(account.costPrice)}
+                    {account.status === 3
+                      ? ` / 成交 ${formatPrice(account.soldPrice ?? account.price)}`
+                      : ""}
+                  </div>
                   <div className="mt-2 truncate text-xs text-muted-foreground">
                     {account.email || "-"}
                   </div>
@@ -625,7 +649,7 @@ export function AccountsPage() {
                     size="sm"
                     type="button"
                     variant="outline"
-                    onClick={() => setSellTarget(account)}
+                    onClick={() => openSellDialog(account)}
                   >
                     {sellActionId === account.id ? (
                       <Spinner />
@@ -683,7 +707,7 @@ export function AccountsPage() {
                     账号
                   </TableHead>
                   <TableHead className="min-w-28 whitespace-nowrap">
-                    价格
+                    金额
                   </TableHead>
                   <TableHead className="min-w-64 whitespace-nowrap">
                     邮箱
@@ -742,10 +766,26 @@ export function AccountsPage() {
                             </div>
                           </div>
                         </TableCell>
-                        <TableCell className="font-mono font-semibold text-price">
-                          <CellTooltip content={formatPrice(account.price)}>
-                            {formatPrice(account.price)}
+                        <TableCell className="font-mono">
+                          <CellTooltip
+                            content={`标价 ${formatPrice(account.price)} / 成本 ${formatPrice(account.costPrice)}`}
+                          >
+                            <span className="font-semibold text-price">
+                              {formatPrice(account.price)}
+                            </span>
                           </CellTooltip>
+                          <div className="mt-1 text-xs text-muted-foreground">
+                            成本 {formatPrice(account.costPrice)}
+                          </div>
+                          {isSold ? (
+                            <div className="mt-1 text-xs text-muted-foreground">
+                              成交{" "}
+                              {formatPrice(account.soldPrice ?? account.price)}
+                              {account.profit !== undefined
+                                ? ` / 利润 ${formatPrice(account.profit)}`
+                                : ""}
+                            </div>
+                          ) : null}
                         </TableCell>
                         <TableCell className="max-w-64 text-muted-foreground">
                           <CellTooltip content={account.email || "-"}>
@@ -800,7 +840,7 @@ export function AccountsPage() {
                                 size="sm"
                                 type="button"
                                 variant="outline"
-                                onClick={() => setSellTarget(account)}
+                                  onClick={() => openSellDialog(account)}
                               >
                                 {sellActionId === account.id ? (
                                   <Spinner />
@@ -860,6 +900,7 @@ export function AccountsPage() {
         onOpenChange={(open) => {
           if (!open && sellActionId === null) {
             setSellTarget(null);
+            setSoldPriceValue("");
           }
         }}
       >
@@ -871,13 +912,28 @@ export function AccountsPage() {
               ？出售后会解绑邮箱并将邮箱恢复为未绑定状态，此操作不可逆。
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <label className="block space-y-1.5">
+            <span className="text-sm font-medium">成交价</span>
+            <Input
+              min={0}
+              step="0.01"
+              type="number"
+              value={soldPriceValue}
+              onChange={(event) => setSoldPriceValue(event.target.value)}
+            />
+          </label>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={sellActionId !== null}>
               取消
             </AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/30"
-              disabled={sellActionId !== null}
+              disabled={
+                sellActionId !== null ||
+                soldPriceValue.trim() === "" ||
+                !Number.isFinite(Number(soldPriceValue)) ||
+                Number(soldPriceValue) < 0
+              }
               onClick={(event) => {
                 event.preventDefault();
                 void confirmSellAccount();

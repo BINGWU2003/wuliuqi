@@ -130,6 +130,7 @@ export const adminAccountCreateSchema = z.object({
   images: z.array(z.string().trim().min(1)).min(1, "请至少上传一张图片"),
   attributes: accountAttributesSchema.default({}),
   price: z.coerce.number().min(0, "价格不能为负数"),
+  costPrice: z.coerce.number().min(0, "成本价不能为负数").default(0),
   title: z.string().trim().min(1, "标题为必填项"),
   description: z.string().trim().min(1, "描述为必填项"),
   xianyuUrl: optionalString,
@@ -146,6 +147,7 @@ export const adminAccountUpdateSchema = z
       .optional(),
     attributes: accountAttributesSchema.optional(),
     price: z.coerce.number().min(0, "价格不能为负数").optional(),
+    costPrice: z.coerce.number().min(0, "成本价不能为负数").optional(),
     title: z.string().trim().min(1, "标题为必填项").optional(),
     description: z.string().trim().min(1, "描述为必填项").optional(),
     xianyuUrl: optionalString,
@@ -158,6 +160,10 @@ export const adminAccountUpdateSchema = z
 
 export const accountStatusSchema = z.object({
   status: z.union([z.literal(1), z.literal(2)]),
+});
+
+export const adminAccountSellSchema = z.object({
+  soldPrice: z.coerce.number().min(0, "成交价不能为负数"),
 });
 
 export const adminEmailListQuerySchema = z.object({
@@ -415,6 +421,7 @@ export const publicChatSchema = z.object({
 export type AdminAccountListQuery = z.infer<typeof adminAccountListQuerySchema>;
 export type AdminAccountCreateInput = z.infer<typeof adminAccountCreateSchema>;
 export type AdminAccountUpdateInput = z.infer<typeof adminAccountUpdateSchema>;
+export type AdminAccountSellInput = z.infer<typeof adminAccountSellSchema>;
 export type GameAttributeDefinitionCreateInput = z.infer<
   typeof gameAttributeDefinitionCreateSchema
 >;

@@ -48,6 +48,7 @@ type AccountFormState = {
   images: string[];
   attributes: AccountAttributes;
   price: number;
+  costPrice: number;
   title: string;
   description: string;
   xianyuUrl: string;
@@ -60,6 +61,7 @@ const emptyForm: AccountFormState = {
   images: [],
   attributes: {},
   price: 0,
+  costPrice: 0,
   title: "",
   description: "",
   xianyuUrl: "",
@@ -152,6 +154,7 @@ export function AccountForm({
           images: account.images,
           attributes: account.attributes,
           price: account.price,
+          costPrice: account.costPrice,
           title: account.title,
           description: account.description,
           xianyuUrl: account.xianyuUrl,
@@ -361,7 +364,7 @@ export function AccountForm({
               />
             </label>
             <label className="block space-y-1.5">
-              <span className="text-sm font-medium">价格</span>
+              <span className="text-sm font-medium">标价</span>
               <Input
                 min={0}
                 required
@@ -370,6 +373,19 @@ export function AccountForm({
                 value={form.price}
                 onChange={(event) =>
                   updateForm({ price: Number(event.target.value) })
+                }
+              />
+            </label>
+            <label className="block space-y-1.5">
+              <span className="text-sm font-medium">成本价</span>
+              <Input
+                min={0}
+                required
+                step="0.01"
+                type="number"
+                value={form.costPrice}
+                onChange={(event) =>
+                  updateForm({ costPrice: Number(event.target.value) })
                 }
               />
             </label>
