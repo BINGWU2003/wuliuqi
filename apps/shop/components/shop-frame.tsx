@@ -16,6 +16,7 @@ const titleMap: Record<string, string> = {
   "/codm-account-info": "CODM 账号详情",
   "/sanguosha-account-page": "三国杀账号列表",
   "/sanguosha-account-info": "三国杀账号详情",
+  "/recharge-section": "充值专区",
   "/guide": "指南",
 };
 
@@ -24,13 +25,15 @@ const accountTabPaths = [
   "/codm-account-page",
   "/sanguosha-account-page",
 ];
-const tabPaths = ["/", ...accountTabPaths, "/guide"];
+const rechargeTabPaths = ["/recharge-section"];
+const tabPaths = ["/", ...accountTabPaths, ...rechargeTabPaths, "/guide"];
 
 export function ShopFrame({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const title = titleMap[pathname] ?? "567手游店";
   const accountTabActive = accountTabPaths.includes(pathname);
+  const rechargeTabActive = rechargeTabPaths.includes(pathname);
   const showBack = !tabPaths.includes(pathname);
   const showTabs = tabPaths.includes(pathname);
 
@@ -72,6 +75,9 @@ export function ShopFrame({ children }: { children: ReactNode }) {
             <TopLink active={accountTabActive} href="/account-section">
               账号专区
             </TopLink>
+            <TopLink active={rechargeTabActive} href="/recharge-section">
+              充值专区
+            </TopLink>
             <TopLink active={pathname === "/guide"} href="/guide">
               指南
             </TopLink>
@@ -94,7 +100,7 @@ export function ShopFrame({ children }: { children: ReactNode }) {
       <ContactOptionsButton avoidBottomTabs={showTabs} variant="floating" />
       {showTabs ? (
         <nav
-          className="fixed inset-x-0 bottom-0 z-30 grid h-16 grid-cols-3 border-t border-border bg-card/95 shadow-[0_-8px_24px_rgba(0,0,0,0.06)] backdrop-blur sm:hidden"
+          className="fixed inset-x-0 bottom-0 z-30 grid h-16 grid-cols-4 border-t border-border bg-card/95 shadow-[0_-8px_24px_rgba(0,0,0,0.06)] backdrop-blur sm:hidden"
           aria-label="底部导航"
         >
           <TabLink active={pathname === "/"} href="/" icon={<Home size={21} />}>
@@ -106,6 +112,13 @@ export function ShopFrame({ children }: { children: ReactNode }) {
             icon={<Gamepad2 size={21} />}
           >
             账号专区
+          </TabLink>
+          <TabLink
+            active={rechargeTabActive}
+            href="/recharge-section"
+            icon={<Gamepad2 size={21} />}
+          >
+            充值专区
           </TabLink>
           <TabLink
             active={pathname === "/guide"}
