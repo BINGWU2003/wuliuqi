@@ -608,7 +608,7 @@ export function AccountsPage() {
                     </Badge>
                     {account.images.length} 图
                   </div>
-                  <AccountAttributeBadges account={account} />
+                  <MobileAccountAttributeBadges account={account} />
                   <div className="mt-2 font-mono text-sm font-semibold text-price">
                     {formatPrice(account.price)}
                   </div>
@@ -735,14 +735,26 @@ export function AccountsPage() {
       <Card className="hidden overflow-hidden rounded-md shadow-none sm:block">
         <div>
           <div className="h-[calc(100dvh-22rem)] min-h-[420px] max-h-[620px] overflow-auto">
-            <Table className="min-w-[1040px]">
+            <Table className="min-w-[1320px]">
               <TableHeader className="sticky top-0 z-10 bg-card shadow-[0_1px_0_var(--border)]">
                 <TableRow>
                   <TableHead className="min-w-80 whitespace-nowrap">
                     账号
                   </TableHead>
+                  <TableHead className="min-w-56 whitespace-nowrap">
+                    属性
+                  </TableHead>
                   <TableHead className="min-w-28 whitespace-nowrap">
-                    金额
+                    售价
+                  </TableHead>
+                  <TableHead className="min-w-28 whitespace-nowrap">
+                    成本
+                  </TableHead>
+                  <TableHead className="min-w-28 whitespace-nowrap">
+                    成交价
+                  </TableHead>
+                  <TableHead className="min-w-28 whitespace-nowrap">
+                    利润
                   </TableHead>
                   <TableHead className="min-w-64 whitespace-nowrap">
                     邮箱
@@ -797,30 +809,43 @@ export function AccountsPage() {
                                 </Badge>
                                 {account.images.length} 图
                               </div>
-                              <AccountAttributeBadges account={account} />
                             </div>
                           </div>
                         </TableCell>
+                        <TableCell>
+                          <AccountAttributeBadges account={account} />
+                        </TableCell>
                         <TableCell className="font-mono">
-                          <CellTooltip
-                            content={`标价 ${formatPrice(account.price)} / 成本 ${formatPrice(account.costPrice)}`}
-                          >
+                          <CellTooltip content={formatPrice(account.price)}>
                             <span className="font-semibold text-price">
                               {formatPrice(account.price)}
                             </span>
                           </CellTooltip>
-                          <div className="mt-1 text-xs text-muted-foreground">
-                            成本 {formatPrice(account.costPrice)}
-                          </div>
+                        </TableCell>
+                        <TableCell className="font-mono text-muted-foreground">
+                          <CellTooltip content={formatPrice(account.costPrice)}>
+                            {formatPrice(account.costPrice)}
+                          </CellTooltip>
+                        </TableCell>
+                        <TableCell className="font-mono text-muted-foreground">
                           {isSold ? (
-                            <div className="mt-1 text-xs text-muted-foreground">
-                              成交{" "}
+                            <CellTooltip
+                              content={formatPrice(account.soldPrice ?? 0)}
+                            >
                               {formatPrice(account.soldPrice ?? 0)}
-                              {account.profit !== undefined
-                                ? ` / 利润 ${formatPrice(account.profit)}`
-                                : ""}
-                            </div>
-                          ) : null}
+                            </CellTooltip>
+                          ) : (
+                            "-"
+                          )}
+                        </TableCell>
+                        <TableCell className="font-mono text-muted-foreground">
+                          {isSold && account.profit !== undefined ? (
+                            <CellTooltip content={formatPrice(account.profit)}>
+                              {formatPrice(account.profit)}
+                            </CellTooltip>
+                          ) : (
+                            "-"
+                          )}
                         </TableCell>
                         <TableCell className="max-w-64 text-muted-foreground">
                           <CellTooltip content={account.email || "-"}>
@@ -880,7 +905,7 @@ export function AccountsPage() {
                                 size="sm"
                                 type="button"
                                 variant="outline"
-                                  onClick={() => openSellDialog(account)}
+                                onClick={() => openSellDialog(account)}
                               >
                                 {sellActionId === account.id ? (
                                   <Spinner />
@@ -915,7 +940,7 @@ export function AccountsPage() {
                   <TableRow>
                     <TableCell
                       className="py-10 text-center text-muted-foreground"
-                      colSpan={6}
+                      colSpan={10}
                     >
                       暂无账号
                     </TableCell>
@@ -1087,7 +1112,7 @@ function GameCreateLink({
   );
 }
 
-function AccountAttributeBadges({ account }: { account: AdminAccount }) {
+function MobileAccountAttributeBadges({ account }: { account: AdminAccount }) {
   if (account.attributeValues.length === 0) {
     return null;
   }
@@ -1106,6 +1131,49 @@ function AccountAttributeBadges({ account }: { account: AdminAccount }) {
       ))}
     </div>
   );
+}
+
+function AccountAttributeBadges({ account }: { account: AdminAccount }) {
+  if (account.attributeValues.length === 0) {
+    return <span className="text-muted-foreground">-</span>;
+  }
+
+  const visibleAttributes = account.attributeValues.slice(0, 3);
+  const hiddenCount = account.attributeValues.length - visibleAttributes.length;
+  const tooltipContent = account.attributeValues
+    .map(formatAccountAttribute)
+    .join("；");
+
+  return (
+    <CellTooltip asChild content={tooltipContent}>
+      <div className="flex max-w-56 flex-wrap gap-1">
+        {visibleAttributes.map((attribute) => (
+          <Badge
+            className="max-w-full rounded-sm font-normal"
+            key={attribute.key}
+            variant="outline"
+          >
+            <span className="truncate">
+              {formatAccountAttribute(attribute)}
+            </span>
+          </Badge>
+        ))}
+        {hiddenCount > 0 ? (
+          <Badge className="rounded-sm font-normal" variant="secondary">
+            +{hiddenCount}
+          </Badge>
+        ) : null}
+      </div>
+    </CellTooltip>
+  );
+}
+
+function formatAccountAttribute(
+  attribute: AdminAccount["attributeValues"][number],
+) {
+  return `${attribute.label}${attribute.enabled ? "" : "（停用）"}：${
+    attribute.displayValue
+  }`;
 }
 
 function LoadingLine({ label }: { label: string }) {
@@ -1149,6 +1217,18 @@ function AccountTableSkeletonRows() {
             <Skeleton className="h-3 w-28" />
           </div>
         </div>
+      </TableCell>
+      <TableCell>
+        <Skeleton className="h-4 w-20" />
+      </TableCell>
+      <TableCell>
+        <Skeleton className="h-4 w-20" />
+      </TableCell>
+      <TableCell>
+        <Skeleton className="h-4 w-20" />
+      </TableCell>
+      <TableCell>
+        <Skeleton className="h-4 w-20" />
       </TableCell>
       <TableCell>
         <Skeleton className="h-4 w-20" />
