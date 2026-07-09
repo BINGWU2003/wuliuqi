@@ -7,6 +7,7 @@ import { ArrowLeft, BookOpen, Gamepad2, Home, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import type { ReactNode } from "react";
+import { ContactOptionsButton } from "@/components/contact-options-button";
 
 const titleMap: Record<string, string> = {
   "/": "567手游店",
@@ -90,6 +91,7 @@ export function ShopFrame({ children }: { children: ReactNode }) {
       <div className="min-h-screen px-3 pb-20 pt-[68px] sm:px-6 sm:pt-20">
         {children}
       </div>
+      <ContactOptionsButton avoidBottomTabs={showTabs} variant="floating" />
       {showTabs ? (
         <nav
           className="fixed inset-x-0 bottom-0 z-30 grid h-16 grid-cols-3 border-t border-border bg-card/95 shadow-[0_-8px_24px_rgba(0,0,0,0.06)] backdrop-blur sm:hidden"

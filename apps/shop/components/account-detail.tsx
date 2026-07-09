@@ -37,6 +37,7 @@ import {
   getStatusLabel,
 } from "@/lib/account-display";
 import { fetchAccount } from "@/lib/client-api";
+import { SHOP_WECHAT_ID } from "@/lib/contact";
 
 type AccountDetailPresentation = "page" | "modal";
 
@@ -188,7 +189,7 @@ export function AccountDetail({
           <CardContent className="space-y-2 p-4 text-sm leading-7 text-amber-950/85 dark:text-amber-100/80">
             <p>
               购买可点击链接跳入闲鱼 app
-              联系，认准店铺：567手游店。私下购买认准微信号：wlq16680802181。
+              联系，认准店铺：567手游店。私下购买认准微信号：{SHOP_WECHAT_ID}。
             </p>
             <p>购买账号支持分期、预定服务等。</p>
             <p>国家法律规定，未成年人不能参与虚拟物品交易。</p>

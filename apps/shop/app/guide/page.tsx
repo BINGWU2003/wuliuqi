@@ -1,7 +1,6 @@
 import { Card, CardContent } from "@wuliuqi/ui/components/card";
-import { GuideContactButton } from "@/components/guide-contact-button";
-
-const WECHAT_ID = "wlq16680802181";
+import { ContactOptionsButton } from "@/components/contact-options-button";
+import { SHOP_WECHAT_ID } from "@/lib/contact";
 
 export default function GuidePage() {
   return (
@@ -24,7 +23,7 @@ export default function GuidePage() {
               <li>神话角色只升满级：12000 CP 左右</li>
             </ol>
             <p className="rounded-md border-l-4 border-primary bg-accent p-3 text-sm font-medium leading-6 text-accent-foreground">
-              需要充值可以联系微信：{WECHAT_ID}
+              需要充值可以联系微信：{SHOP_WECHAT_ID}
             </p>
           </section>
 
@@ -68,10 +67,10 @@ export default function GuidePage() {
             <div>
               <h2 className="text-lg font-bold">联系我</h2>
               <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                微信号：{WECHAT_ID}
+                微信号：{SHOP_WECHAT_ID}
               </p>
             </div>
-            <GuideContactButton wechatId={WECHAT_ID} />
+            <ContactOptionsButton />
           </section>
         </CardContent>
       </Card>
