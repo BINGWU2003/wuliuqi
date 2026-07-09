@@ -24,6 +24,13 @@ import { Badge } from "@wuliuqi/ui/components/badge";
 import { Button } from "@wuliuqi/ui/components/button";
 import { Card } from "@wuliuqi/ui/components/card";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@wuliuqi/ui/components/dropdown-menu";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -45,15 +52,19 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  CheckCircle2,
   CircleDollarSign,
+  Download,
   Edit,
   Eye,
   Gamepad2,
+  MoreHorizontal,
   Plus,
   RotateCcw,
   Search,
   Swords,
   Trash2,
+  Upload,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -468,11 +479,31 @@ export function AccountsPage() {
 
   function renderAccountActions(account: AdminAccount) {
     const isSold = account.status === ACCOUNT_STATUS.sold;
+    const statusIcon =
+      statusActionId === account.id ? (
+        <Spinner />
+      ) : isSold ? (
+        <CheckCircle2 size={15} />
+      ) : account.status === ACCOUNT_STATUS.listed ? (
+        <Download size={15} />
+      ) : (
+        <Upload size={15} />
+      );
+    const statusLabel = isSold
+      ? ACCOUNT_STATUS_LABELS[ACCOUNT_STATUS.sold]
+      : account.status === ACCOUNT_STATUS.listed
+        ? "下架"
+        : "上架";
 
     return (
       <div className="flex justify-end gap-1">
         {isSold ? (
-          <Button asChild size="sm" variant="ghost">
+          <Button
+            asChild
+            className="h-8 gap-1 px-1.5 !text-foreground hover:!text-foreground"
+            size="sm"
+            variant="ghost"
+          >
             <Link
               href={`/accounts/${account.id}/edit?game_key=${account.gameKey}&mode=view`}
               scroll={false}
@@ -482,7 +513,12 @@ export function AccountsPage() {
             </Link>
           </Button>
         ) : (
-          <Button asChild size="sm" variant="ghost">
+          <Button
+            asChild
+            className="h-8 gap-1 px-1.5 !text-foreground hover:!text-foreground"
+            size="sm"
+            variant="ghost"
+          >
             <Link
               href={`/accounts/${account.id}/edit?game_key=${account.gameKey}`}
               scroll={false}
@@ -492,47 +528,52 @@ export function AccountsPage() {
             </Link>
           </Button>
         )}
-        <Button
-          disabled={isMutating || isSold}
-          size="sm"
-          type="button"
-          variant="outline"
-          onClick={() => toggleStatus(account)}
-        >
-          {statusActionId === account.id ? <Spinner /> : null}
-          {isSold
-            ? ACCOUNT_STATUS_LABELS[ACCOUNT_STATUS.sold]
-            : account.status === ACCOUNT_STATUS.listed
-              ? "下架"
-              : "上架"}
-        </Button>
-        {!isSold ? (
-          <Button
-            disabled={isMutating}
-            size="sm"
-            type="button"
-            variant="outline"
-            onClick={() => openSellDialog(account)}
-          >
-            {sellActionId === account.id ? (
-              <Spinner />
-            ) : (
-              <CircleDollarSign size={15} />
-            )}
-            出售
-          </Button>
-        ) : null}
-        <Button
-          aria-label={`删除账号 ${account.serialNumber}`}
-          disabled={isMutating}
-          size="sm"
-          title={`删除账号 ${account.serialNumber}`}
-          type="button"
-          variant="ghost"
-          onClick={() => setDeleteTarget(account)}
-        >
-          {deletingId === account.id ? <Spinner /> : <Trash2 size={15} />}
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              className="h-8 gap-1 px-1.5"
+              size="sm"
+              type="button"
+              variant="ghost"
+            >
+              <MoreHorizontal size={15} />
+              更多
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-36">
+            <DropdownMenuItem
+              disabled={isMutating || isSold}
+              onSelect={() => {
+                void toggleStatus(account);
+              }}
+            >
+              {statusIcon}
+              {statusLabel}
+            </DropdownMenuItem>
+            {!isSold ? (
+              <DropdownMenuItem
+                disabled={isMutating}
+                onSelect={() => openSellDialog(account)}
+              >
+                {sellActionId === account.id ? (
+                  <Spinner />
+                ) : (
+                  <CircleDollarSign size={15} />
+                )}
+                出售
+              </DropdownMenuItem>
+            ) : null}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              disabled={isMutating}
+              variant="destructive"
+              onSelect={() => setDeleteTarget(account)}
+            >
+              {deletingId === account.id ? <Spinner /> : <Trash2 size={15} />}
+              删除
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     );
   }
@@ -675,7 +716,7 @@ export function AccountsPage() {
       fixed: "right",
       key: "actions",
       title: "操作",
-      width: 288,
+      width: 144,
       render: (_value, account) => renderAccountActions(account),
     },
   ];
