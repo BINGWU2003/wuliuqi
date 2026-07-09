@@ -7,6 +7,8 @@ import {
   GAME_KEY,
 } from "@wuliuqi/types";
 import type { AdminEmail, EmailBindStatus, GameKey } from "@wuliuqi/types";
+import { ConfigProvider, Table as AntTable } from "antd";
+import type { TableProps as AntTableProps } from "antd";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,6 +21,13 @@ import {
 } from "@wuliuqi/ui/components/alert-dialog";
 import { Button } from "@wuliuqi/ui/components/button";
 import { Card } from "@wuliuqi/ui/components/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@wuliuqi/ui/components/dropdown-menu";
 import { Input } from "@wuliuqi/ui/components/input";
 import {
   Select,
@@ -31,19 +40,12 @@ import { Skeleton } from "@wuliuqi/ui/components/skeleton";
 import { Spinner } from "@wuliuqi/ui/components/spinner";
 import { toast } from "@wuliuqi/ui/components/sonner";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@wuliuqi/ui/components/table";
-import {
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
   Edit,
+  MoreHorizontal,
   Plus,
   RotateCcw,
   Search,
@@ -52,11 +54,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  CellTooltip,
-  TABLE_ACTION_CELL_CLASS,
-  TABLE_ACTION_HEAD_CLASS,
-} from "@/components/cell-tooltip";
+import { CellTooltip } from "@/components/cell-tooltip";
 import { EmailBindStatusBadge } from "@/components/status-badge";
 import { deleteEmail, fetchEmails } from "@/lib/client-api";
 import { ADMIN_EMAILS_CHANGED_EVENT } from "@/lib/events";
@@ -65,12 +63,15 @@ import { formatDate } from "@/lib/format";
 
 const EMAIL_PAGE_SIZE = 50;
 const MOBILE_VIEWPORT_QUERY = "(max-width: 639px)";
+const EMAIL_TABLE_SCROLL_X = 920;
+const EMAIL_TABLE_SCROLL_Y = 520;
 const gameOptions: Array<{ label: string; value: GameKey }> = [
   { label: "CODM", value: GAME_KEY.codm },
   { label: "三国杀", value: GAME_KEY.sanguosha },
 ];
 
 type LoadMode = "append" | "replace";
+type EmailTableColumns = NonNullable<AntTableProps<AdminEmail>["columns"]>;
 type EmailPendingAction = { emailId: number; name: "delete" } | null;
 
 function isMobileViewport() {
@@ -365,6 +366,107 @@ export function EmailsPage() {
     pendingAction?.name === "delete" ? pendingAction.emailId : null;
   const isMutating = pendingAction !== null;
 
+  function renderEmailActions(email: AdminEmail) {
+    const linked = isEmailLinked(email);
+
+    return (
+      <div className="flex justify-end gap-1">
+        <Button
+          asChild
+          className="h-8 gap-1 px-1.5 !text-foreground hover:!text-foreground"
+          size="sm"
+          variant="ghost"
+        >
+          <Link
+            href={`/emails/${email.id}/edit?game_key=${email.gameKey}`}
+            scroll={false}
+          >
+            <Edit size={15} />
+            编辑
+          </Link>
+        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              className="h-8 gap-1 px-1.5"
+              size="sm"
+              type="button"
+              variant="ghost"
+            >
+              <MoreHorizontal size={15} />
+              更多
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-36">
+            <DropdownMenuItem
+              disabled={isMutating || linked}
+              variant="destructive"
+              onSelect={() => setDeleteTarget(email)}
+            >
+              {deletingId === email.id ? <Spinner /> : <Trash2 size={15} />}
+              删除
+            </DropdownMenuItem>
+            {linked ? (
+              <>
+                <DropdownMenuSeparator />
+                <div className="px-2 py-1.5 text-xs leading-5 text-muted-foreground">
+                  已关联账号，无法删除
+                </div>
+              </>
+            ) : null}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    );
+  }
+
+  const emailTableColumns: EmailTableColumns = [
+    {
+      dataIndex: "email",
+      key: "email",
+      title: "邮箱",
+      width: 360,
+      render: (_value, email) => <EmailAddress email={email} truncate />,
+    },
+    {
+      dataIndex: "bindStatus",
+      key: "bindStatus",
+      title: "状态",
+      width: 112,
+      render: (_value, email) => (
+        <EmailBindStatusBadge bindStatus={email.bindStatus} />
+      ),
+    },
+    {
+      dataIndex: "boundAccountId",
+      key: "boundAccountId",
+      title: "关联账号",
+      width: 128,
+      render: (_value, email) => <LinkedAccountBadge email={email} showEmpty />,
+    },
+    {
+      dataIndex: "updatedAt",
+      key: "updatedAt",
+      title: "更新",
+      width: 144,
+      render: (_value, email) => (
+        <CellTooltip content={formatDate(email.updatedAt)}>
+          <span className="text-muted-foreground">
+            {formatDate(email.updatedAt)}
+          </span>
+        </CellTooltip>
+      ),
+    },
+    {
+      align: "right",
+      fixed: "right",
+      key: "actions",
+      title: "操作",
+      width: 144,
+      render: (_value, email) => renderEmailActions(email),
+    },
+  ];
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -532,97 +634,47 @@ export function EmailsPage() {
       </div>
 
       <Card className="hidden overflow-hidden rounded-md shadow-none sm:block">
-        <div>
-          <div className="h-[calc(100dvh-22rem)] min-h-[420px] max-h-[620px] overflow-auto">
-            <Table className="min-w-[880px]">
-              <TableHeader className="sticky top-0 z-10 bg-card shadow-[0_1px_0_var(--border)]">
-                <TableRow>
-                  <TableHead className="min-w-96 whitespace-nowrap">
-                    邮箱
-                  </TableHead>
-                  <TableHead className="min-w-28 whitespace-nowrap">
-                    状态
-                  </TableHead>
-                  <TableHead className="min-w-28 whitespace-nowrap">
-                    关联账号
-                  </TableHead>
-                  <TableHead className="min-w-36 whitespace-nowrap">
-                    更新
-                  </TableHead>
-                  <TableHead className={TABLE_ACTION_HEAD_CLASS}>
-                    操作
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading ? (
-                  <EmailTableSkeletonRows />
-                ) : (
-                  emails.map((email) => (
-                    <TableRow key={email.id}>
-                      <TableCell>
-                        <EmailAddress email={email} truncate />
-                      </TableCell>
-                      <TableCell>
-                        <EmailBindStatusBadge bindStatus={email.bindStatus} />
-                      </TableCell>
-                      <TableCell>
-                        <LinkedAccountBadge email={email} showEmpty />
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        <CellTooltip content={formatDate(email.updatedAt)}>
-                          {formatDate(email.updatedAt)}
-                        </CellTooltip>
-                      </TableCell>
-                      <TableCell className={TABLE_ACTION_CELL_CLASS}>
-                        <div className="flex justify-end gap-1">
-                          <Button asChild size="sm" variant="ghost">
-                            <Link
-                              href={`/emails/${email.id}/edit?game_key=${email.gameKey}`}
-                              scroll={false}
-                            >
-                              <Edit size={15} />
-                              编辑
-                            </Link>
-                          </Button>
-                          <Button
-                            aria-label={`删除邮箱 ${email.email}`}
-                            disabled={isMutating || isEmailLinked(email)}
-                            size="sm"
-                            title={
-                              isEmailLinked(email)
-                                ? "已关联账号，无法删除"
-                                : `删除邮箱 ${email.email}`
-                            }
-                            type="button"
-                            variant="ghost"
-                            onClick={() => setDeleteTarget(email)}
-                          >
-                            {deletingId === email.id ? (
-                              <Spinner />
-                            ) : (
-                              <Trash2 size={15} />
-                            )}
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-                {!loading && emails.length === 0 ? (
-                  <TableRow>
-                    <TableCell
-                      className="py-10 text-center text-muted-foreground"
-                      colSpan={5}
-                    >
-                      暂无邮箱
-                    </TableCell>
-                  </TableRow>
-                ) : null}
-              </TableBody>
-            </Table>
-          </div>
-        </div>
+        <ConfigProvider
+          theme={{
+            components: {
+              Table: {
+                borderColor: "var(--border)",
+                cellPaddingBlock: 12,
+                cellPaddingInline: 12,
+                fixedHeaderSortActiveBg: "var(--card)",
+                headerBg: "var(--card)",
+                headerColor: "var(--muted-foreground)",
+                rowHoverBg: "var(--accent)",
+              },
+            },
+            token: {
+              borderRadius: 6,
+              colorBgContainer: "var(--card)",
+              colorBorder: "var(--border)",
+              colorFillAlter: "var(--muted)",
+              colorPrimary: "var(--primary)",
+              colorSplit: "var(--border)",
+              colorText: "var(--card-foreground)",
+              colorTextSecondary: "var(--muted-foreground)",
+              fontFamily: "var(--font-geist-sans), system-ui, sans-serif",
+            },
+          }}
+        >
+          <AntTable<AdminEmail>
+            className="admin-accounts-table admin-emails-table"
+            columns={emailTableColumns}
+            dataSource={emails}
+            loading={loading}
+            locale={{ emptyText: "暂无邮箱" }}
+            pagination={false}
+            rowKey="id"
+            scroll={{
+              x: EMAIL_TABLE_SCROLL_X,
+              y: EMAIL_TABLE_SCROLL_Y,
+            }}
+            size="middle"
+          />
+        </ConfigProvider>
         {total > 0 ? (
           <EmailsPagination
             loading={loading}
@@ -694,31 +746,6 @@ function MobileEmailSkeletons() {
         <Skeleton className="h-8 w-8" />
       </div>
     </div>
-  ));
-}
-
-function EmailTableSkeletonRows() {
-  return Array.from({ length: 6 }).map((_, index) => (
-    <TableRow key={index}>
-      <TableCell>
-        <Skeleton className="h-4 w-56" />
-      </TableCell>
-      <TableCell>
-        <Skeleton className="h-5 w-16" />
-      </TableCell>
-      <TableCell>
-        <Skeleton className="h-5 w-20" />
-      </TableCell>
-      <TableCell>
-        <Skeleton className="h-4 w-24" />
-      </TableCell>
-      <TableCell className={TABLE_ACTION_CELL_CLASS}>
-        <div className="flex justify-end gap-1">
-          <Skeleton className="h-8 w-16" />
-          <Skeleton className="h-8 w-8" />
-        </div>
-      </TableCell>
-    </TableRow>
   ));
 }
 
@@ -868,7 +895,7 @@ function LinkedAccountBadge({
 
   return (
     <Link
-      className="inline-flex h-6 items-center rounded-sm border border-sky-200 bg-sky-50 px-2 text-xs font-medium text-sky-700 transition-colors hover:border-sky-300 hover:bg-sky-100 dark:border-sky-900/70 dark:bg-sky-950/50 dark:text-sky-300 dark:hover:bg-sky-950"
+      className="inline-flex h-6 items-center rounded-sm border border-sky-200 bg-sky-50 px-2 text-xs font-medium !text-sky-700 transition-colors hover:border-sky-300 hover:bg-sky-100 dark:border-sky-900/70 dark:bg-sky-950/50 dark:!text-sky-300 dark:hover:bg-sky-950"
       href={`/accounts/${email.boundAccountId}/edit?game_key=${email.gameKey}`}
       scroll={false}
       title={`查看账号 #${email.boundAccountId}`}
