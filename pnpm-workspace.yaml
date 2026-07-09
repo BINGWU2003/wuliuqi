@@ -1,6 +1,12 @@
 packages:
   - "apps/*"
   - "packages/*"
+allowBuilds:
+  "@prisma/client": true
+  "@prisma/engines": true
+  cos-js-sdk-v5: false
+  prisma: true
+  sharp: true
 catalog:
   "@ai-sdk/google": "^4.0.8"
   "@base-ui/react": "^1.6.0"
@@ -53,8 +59,3 @@ catalog:
   "typescript-eslint": "^8.50.0"
   "vitest": "^4.1.6"
   "zod": "^4.1.13"
-allowBuilds:
-  "@prisma/client": true
-  "@prisma/engines": true
-  prisma: true
-  sharp: true
