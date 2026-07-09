@@ -1,6 +1,6 @@
 "use client";
 
-import type { ShopAccount } from "@wuliuqi/types";
+import type { PublicShopAccount } from "@wuliuqi/types";
 import { Badge } from "@wuliuqi/ui/components/badge";
 import { Button } from "@wuliuqi/ui/components/button";
 import { Card, CardContent } from "@wuliuqi/ui/components/card";
@@ -72,7 +72,7 @@ export function AccountList({
   const [sort, setSort] = useState<SortValue>("latest");
   const [searchValue, setSearchValue] = useState("");
   const [keyword, setKeyword] = useState("");
-  const [accounts, setAccounts] = useState<ShopAccount[]>([]);
+  const [accounts, setAccounts] = useState<PublicShopAccount[]>([]);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(0);

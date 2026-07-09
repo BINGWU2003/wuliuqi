@@ -107,6 +107,7 @@ describe("商城账号", () => {
     prismaMock.codmAccount.findMany.mockResolvedValue([
       accountRecord({
         id: 11n,
+        email: "codm11@example.com",
         serialNumber: "#CODM-11",
         createdAt: new Date("2026-07-06T00:00:00.000Z"),
       }),
@@ -119,6 +120,7 @@ describe("商城账号", () => {
     prismaMock.sanguoshaAccount.findMany.mockResolvedValue([
       accountRecord({
         id: 62n,
+        email: "sgs62@example.com",
         serialNumber: "#SGS-62",
         createdAt: new Date("2026-07-07T00:00:00.000Z"),
       }),
@@ -157,6 +159,7 @@ describe("商城账号", () => {
       "#CODM-11",
       "#SGS-61",
     ]);
+    expect(result.list[0]).not.toHaveProperty("email");
     expect(result.nextCursor).toBeTruthy();
   });
 
@@ -326,6 +329,7 @@ describe("商城账号", () => {
       accountRecord({
         id: 61n,
         serialNumber: "#SGS-61",
+        email: "sgs61@example.com",
         attributes: { generals: 120 },
         title: "三国杀账号",
       }),
@@ -374,12 +378,14 @@ describe("商城账号", () => {
         }),
       ],
     });
+    expect(result.list[0]).not.toHaveProperty("email");
   });
 
   it("首页分区只查询最近三个月的已上架账号", async () => {
     prismaMock.sanguoshaAccount.findMany.mockResolvedValue([
       accountRecord({
         id: 62n,
+        email: "sgs62@example.com",
         serialNumber: "#SGS-62",
         createdAt: new Date("2026-06-18T00:00:00.000Z"),
       }),
@@ -404,5 +410,6 @@ describe("商城账号", () => {
     expect(accounts[0]).toMatchObject({
       serialNumber: "#SGS-62",
     });
+    expect(accounts[0]).not.toHaveProperty("email");
   });
 });

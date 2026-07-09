@@ -35,8 +35,10 @@ export interface ShopAccount {
   updatedAt?: string;
 }
 
+export type PublicShopAccount = Omit<ShopAccount, "email">;
+
 export interface ShopAccountListResult {
-  list: ShopAccount[];
+  list: PublicShopAccount[];
   pagination: Pagination;
   gameKey: GameKey;
   keyword?: string;
@@ -47,7 +49,7 @@ export interface ShopAccountListResult {
 }
 
 export interface ShopHomeAccountListResult {
-  list: ShopAccount[];
+  list: PublicShopAccount[];
   nextCursor?: string;
 }
 

@@ -1,6 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import type {
   GameKey,
+  PublicShopAccount,
   ShopAccount,
   ShopAccountListResult,
   ShopHomeAccountListResult,
@@ -39,6 +40,14 @@ type HomeAccountRecord = {
   account: AccountRecord;
   gameKey: GameKey;
 };
+
+function stripShopAccountEmail(account: ShopAccount): PublicShopAccount {
+  const { email, ...publicAccount } = account;
+
+  void email;
+
+  return publicAccount;
+}
 
 async function listAttributeDefinitions(gameKey: GameKey) {
   const definitions = await prisma.gameAttributeDefinition.findMany({
@@ -89,7 +98,7 @@ function decodeHomeCursor(cursor?: string): HomeCursor | null {
   return null;
 }
 
-function encodeHomeCursor(account: ShopAccount, sort: HomeSort) {
+function encodeHomeCursor(account: PublicShopAccount, sort: HomeSort) {
   if (!account.createdAt) {
     return undefined;
   }
@@ -302,7 +311,9 @@ export async function listShopHomeAccounts(
   const pageAccounts = merged.slice(0, limit);
   const hasMore = merged.length > limit;
   const list = pageAccounts.map(({ account, gameKey }) =>
-    serializeAccount(account, definitionsByGame.get(gameKey) ?? [], gameKey),
+    stripShopAccountEmail(
+      serializeAccount(account, definitionsByGame.get(gameKey) ?? [], gameKey),
+    ),
   );
   const lastAccount = list.at(-1);
 
@@ -361,7 +372,9 @@ export async function listShopAccounts(
 
   return {
     list: (accounts as AccountRecord[]).map((account) =>
-      serializeAccount(account, attributeDefinitions, gameKey),
+      stripShopAccountEmail(
+        serializeAccount(account, attributeDefinitions, gameKey),
+      ),
     ),
     pagination: {
       page,
@@ -401,7 +414,7 @@ export async function getShopAccountById(
 export async function listShopRecentAccountsByGame(
   gameKeyInput: GameKey,
   options: { limit?: number; months?: number } = {},
-): Promise<ShopAccount[]> {
+): Promise<PublicShopAccount[]> {
   const gameKey = normalizeGameKey(gameKeyInput);
   const limit = options.limit ?? 6;
   const months = options.months ?? 3;
@@ -424,6 +437,8 @@ export async function listShopRecentAccountsByGame(
   ]);
 
   return (accounts as AccountRecord[]).map((account) =>
-    serializeAccount(account, attributeDefinitions, gameKey),
+    stripShopAccountEmail(
+      serializeAccount(account, attributeDefinitions, gameKey),
+    ),
   );
 }

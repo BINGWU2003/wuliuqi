@@ -1,6 +1,6 @@
 "use client";
 
-import type { GameKey, ShopAccount } from "@wuliuqi/types";
+import type { GameKey, PublicShopAccount } from "@wuliuqi/types";
 import { Button } from "@wuliuqi/ui/components/button";
 import {
   Select,
@@ -46,7 +46,7 @@ type HomeSortValue = (typeof sortOptions)[number]["value"];
 type LoadingMode = "initial" | "append" | "filter";
 
 export function HomeAccountFeed() {
-  const [accounts, setAccounts] = useState<ShopAccount[]>([]);
+  const [accounts, setAccounts] = useState<PublicShopAccount[]>([]);
   const [gameKeyValue, setGameKeyValue] = useState<HomeGameFilter>("all");
   const [gameKey, setGameKey] = useState<HomeGameFilter>("all");
   const [priceRangeValue, setPriceRangeValue] =

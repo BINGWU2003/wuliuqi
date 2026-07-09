@@ -1,4 +1,4 @@
-import type { ShopAccount } from "@wuliuqi/types";
+import type { PublicShopAccount } from "@wuliuqi/types";
 
 export function formatPrice(price: number) {
   return new Intl.NumberFormat("zh-CN", {
@@ -21,11 +21,11 @@ export function formatDate(date?: string) {
   });
 }
 
-export function getAccountName(account: ShopAccount) {
+export function getAccountName(account: PublicShopAccount) {
   return `[${account.serialNumber}]${account.title}`;
 }
 
-export function getAccountBadges(account: ShopAccount) {
+export function getAccountBadges(account: PublicShopAccount) {
   if (account.gameKey === "sanguosha") {
     return getGenericAttributeBadgesWithImages(account);
   }
@@ -39,13 +39,13 @@ export function getAccountBadges(account: ShopAccount) {
   return badges.slice(0, 3);
 }
 
-export function getAccountCardBadges(account: ShopAccount) {
+export function getAccountCardBadges(account: PublicShopAccount) {
   const gameLabel = account.gameKey === "sanguosha" ? "三国杀" : "CODM";
 
   return [gameLabel, ...getGenericAttributeBadges(account)].slice(0, 3);
 }
 
-function getCodmAttributeBadges(account: ShopAccount) {
+function getCodmAttributeBadges(account: PublicShopAccount) {
   const badges: string[] = [];
   const mythic = account.attributes.mythic_skins;
   const legendary = account.attributes.legendary_skins;
@@ -61,14 +61,14 @@ function getCodmAttributeBadges(account: ShopAccount) {
   return badges;
 }
 
-function getGenericAttributeBadges(account: ShopAccount) {
+function getGenericAttributeBadges(account: PublicShopAccount) {
   return account.attributeValues
     .filter((attribute) => attribute.displayValue)
     .slice(0, 2)
     .map((attribute) => `${attribute.label} ${attribute.displayValue}`);
 }
 
-function getGenericAttributeBadgesWithImages(account: ShopAccount) {
+function getGenericAttributeBadgesWithImages(account: PublicShopAccount) {
   const badges = getGenericAttributeBadges(account);
   if (account.images.length > 0) {
     badges.push(`${account.images.length} 图`);

@@ -1,4 +1,4 @@
-import type { ShopAccount } from "@wuliuqi/types";
+import type { PublicShopAccount } from "@wuliuqi/types";
 import { Badge } from "@wuliuqi/ui/components/badge";
 import { Card, CardContent } from "@wuliuqi/ui/components/card";
 import { cn } from "@wuliuqi/ui/lib/utils";
@@ -15,7 +15,7 @@ import {
 export function ProductCard({
   account,
 }: {
-  account: ShopAccount;
+  account: PublicShopAccount;
 }) {
   const name = getAccountName(account);
   const badges = getAccountCardBadges(account);
