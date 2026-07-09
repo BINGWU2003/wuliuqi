@@ -1,8 +1,10 @@
 import type { Prisma } from "@prisma/client";
+import { DEFAULT_GAME_KEY } from "@wuliuqi/types";
 import type {
   AccountAttributePrimitive,
   AccountAttributeValue,
   AccountAttributes,
+  AccountStatus,
   AdminAccount,
   AdminEmail,
   AdminEmailPostfix,
@@ -13,6 +15,7 @@ import type {
   GameAttributeOption,
   GameAttributeType,
   GameKey,
+  EmailBindStatus,
   SequenceCounter,
   ShopAccount,
 } from "@wuliuqi/types";
@@ -280,7 +283,7 @@ export function serializeAccount(
 export function serializeAccount(
   account: AccountRecord,
   definitions: GameAttributeDefinition[] = [],
-  gameKey: GameKey = "codm",
+  gameKey: GameKey = DEFAULT_GAME_KEY,
   options: SerializeAccountOptions = {},
 ): ShopAccount | AdminAccount {
   const attributes = normalizeAccountAttributes(account.attributes);
@@ -304,7 +307,7 @@ export function serializeAccount(
     description: account.describe ?? "",
     xianyuUrl: account.xianyuUrl ?? "",
     email: account.email ?? "",
-    status: account.status,
+    status: account.status as AccountStatus,
     createdAt: toIsoString(account.createdAt),
     updatedAt: toIsoString(account.updatedAt),
   };
@@ -334,7 +337,7 @@ export function serializeCarousel(carousel: CarouselRecord): Carousel {
 
 export function serializeEmail(
   email: EmailRecord,
-  gameKey: GameKey = "codm",
+  gameKey: GameKey = DEFAULT_GAME_KEY,
 ): AdminEmail {
   const boundAccountId =
     typeof email.boundAccountId === "bigint"
@@ -349,7 +352,7 @@ export function serializeEmail(
     prefix: email.prefix,
     postfix: email.postfix,
     email: `${email.prefix}${email.postfix}`,
-    bindStatus: email.bindStatus,
+    bindStatus: email.bindStatus as EmailBindStatus,
     ...(boundAccountId === undefined ? {} : { boundAccountId }),
     createdAt: toIsoString(email.createdAt),
     updatedAt: toIsoString(email.updatedAt),

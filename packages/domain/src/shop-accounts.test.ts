@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ACCOUNT_SORT } from "@wuliuqi/types";
 
 const { prismaMock } = vi.hoisted(() => {
   const mock = {
@@ -286,7 +287,7 @@ describe("商城账号", () => {
       max_price: 2000,
       min_price: 500,
       months: 3,
-      sort: "price_asc",
+      sort: ACCOUNT_SORT.priceAsc,
     });
 
     expect(prismaMock.codmAccount.findMany).toHaveBeenCalledWith({
@@ -348,7 +349,7 @@ describe("商城账号", () => {
       page: 1,
       limit: 12,
       status: 1,
-      sort: "latest",
+      sort: ACCOUNT_SORT.latest,
     });
 
     expect(prismaMock.sanguoshaAccount.count).toHaveBeenCalledWith({

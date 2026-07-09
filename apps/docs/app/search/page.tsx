@@ -3,6 +3,7 @@ import {
   listKnowledgeCategories,
   searchPublishedKnowledge,
 } from "@wuliuqi/rag-db";
+import { KNOWLEDGE_SOURCE_TYPE } from "@wuliuqi/types";
 import { Button } from "@wuliuqi/ui/components/button";
 import { Card } from "@wuliuqi/ui/components/card";
 import { Input } from "@wuliuqi/ui/components/input";
@@ -75,7 +76,9 @@ export default async function SearchPage({
               key={`${result.type}-${result.id}`}
             >
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <span>{result.type === "faq" ? "FAQ" : "文章"}</span>
+                <span>
+                  {result.type === KNOWLEDGE_SOURCE_TYPE.faq ? "FAQ" : "文章"}
+                </span>
                 {result.categoryName ? <span>{result.categoryName}</span> : null}
               </div>
               <div className="mt-2 font-medium">{result.title}</div>

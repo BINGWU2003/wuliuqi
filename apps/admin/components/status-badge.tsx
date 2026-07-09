@@ -1,7 +1,14 @@
+import {
+  ACCOUNT_STATUS,
+  ACCOUNT_STATUS_LABELS,
+  EMAIL_BIND_STATUS,
+  EMAIL_BIND_STATUS_LABELS,
+} from "@wuliuqi/types";
+import type { AccountStatus, EmailBindStatus } from "@wuliuqi/types";
 import { Badge } from "@wuliuqi/ui/components/badge";
 
-export function AccountStatusBadge({ status }: { status: number }) {
-  if (status === 1) {
+export function AccountStatusBadge({ status }: { status: AccountStatus }) {
+  if (status === ACCOUNT_STATUS.listed) {
     return (
       <Badge
         className="rounded-sm border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/70 dark:bg-emerald-950/50 dark:text-emerald-300"
@@ -12,13 +19,13 @@ export function AccountStatusBadge({ status }: { status: number }) {
     );
   }
 
-  if (status === 3) {
+  if (status === ACCOUNT_STATUS.sold) {
     return (
       <Badge
         className="rounded-sm border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/70 dark:bg-amber-950/50 dark:text-amber-300"
         variant="outline"
       >
-        已出售
+        {ACCOUNT_STATUS_LABELS[ACCOUNT_STATUS.sold]}
       </Badge>
     );
   }
@@ -30,17 +37,21 @@ export function AccountStatusBadge({ status }: { status: number }) {
   );
 }
 
-export function EmailBindStatusBadge({ bindStatus }: { bindStatus: number }) {
-  return bindStatus === 1 ? (
+export function EmailBindStatusBadge({
+  bindStatus,
+}: {
+  bindStatus: EmailBindStatus;
+}) {
+  return bindStatus === EMAIL_BIND_STATUS.bound ? (
     <Badge
       className="rounded-sm border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900/70 dark:bg-sky-950/50 dark:text-sky-300"
       variant="outline"
     >
-      已绑定
+      {EMAIL_BIND_STATUS_LABELS[EMAIL_BIND_STATUS.bound]}
     </Badge>
   ) : (
     <Badge className="rounded-sm" variant="secondary">
-      未绑定
+      {EMAIL_BIND_STATUS_LABELS[EMAIL_BIND_STATUS.unbound]}
     </Badge>
   );
 }

@@ -2,6 +2,7 @@ import {
   createAdminGameAttributeDefinition,
   listAdminGameAttributeDefinitions,
 } from "@wuliuqi/domain";
+import { DEFAULT_GAME_KEY } from "@wuliuqi/types";
 import { gameAttributeDefinitionCreateSchema } from "@wuliuqi/validators";
 import { type NextRequest } from "next/server";
 import { handleError, ok } from "@/lib/api-response";
@@ -10,7 +11,8 @@ import { requireAdminSession } from "@/lib/session";
 export async function GET(request: NextRequest) {
   try {
     await requireAdminSession();
-    const gameKey = request.nextUrl.searchParams.get("game_key") ?? "codm";
+    const gameKey =
+      request.nextUrl.searchParams.get("game_key") ?? DEFAULT_GAME_KEY;
     const definitions = await listAdminGameAttributeDefinitions(gameKey);
 
     return ok(definitions);

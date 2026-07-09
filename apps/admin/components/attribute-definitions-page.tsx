@@ -1,5 +1,6 @@
 "use client";
 
+import { DEFAULT_GAME_KEY, GAME_KEY } from "@wuliuqi/types";
 import type {
   GameAttributeDefinition,
   GameAttributeOption,
@@ -106,12 +107,12 @@ const emptyForm: AttributeFormState = {
   options: [],
 };
 const gameOptions: Array<{ label: string; value: GameKey }> = [
-  { label: "CODM", value: "codm" },
-  { label: "三国杀", value: "sanguosha" },
+  { label: "CODM", value: GAME_KEY.codm },
+  { label: "三国杀", value: GAME_KEY.sanguosha },
 ];
 
 export function AttributeDefinitionsPage() {
-  const [gameKey, setGameKey] = useState<GameKey>("codm");
+  const [gameKey, setGameKey] = useState<GameKey>(DEFAULT_GAME_KEY);
   const [definitions, setDefinitions] = useState<GameAttributeDefinition[]>([]);
   const [form, setForm] = useState<AttributeFormState>(emptyForm);
   const [loading, setLoading] = useState(true);

@@ -1,6 +1,12 @@
 "use client";
 
-import type { AdminEmail, GameKey } from "@wuliuqi/types";
+import {
+  DEFAULT_GAME_KEY,
+  EMAIL_BIND_STATUS,
+  EMAIL_BIND_STATUS_LABELS,
+  GAME_KEY,
+} from "@wuliuqi/types";
+import type { AdminEmail, EmailBindStatus, GameKey } from "@wuliuqi/types";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -60,8 +66,8 @@ import { formatDate } from "@/lib/format";
 const EMAIL_PAGE_SIZE = 50;
 const MOBILE_VIEWPORT_QUERY = "(max-width: 639px)";
 const gameOptions: Array<{ label: string; value: GameKey }> = [
-  { label: "CODM", value: "codm" },
-  { label: "三国杀", value: "sanguosha" },
+  { label: "CODM", value: GAME_KEY.codm },
+  { label: "三国杀", value: GAME_KEY.sanguosha },
 ];
 
 type LoadMode = "append" | "replace";
@@ -76,8 +82,8 @@ function isMobileViewport() {
 
 export function EmailsPage() {
   const [emails, setEmails] = useState<AdminEmail[]>([]);
-  const [gameKeyValue, setGameKeyValue] = useState<GameKey>("codm");
-  const [gameKey, setGameKey] = useState<GameKey>("codm");
+  const [gameKeyValue, setGameKeyValue] = useState<GameKey>(DEFAULT_GAME_KEY);
+  const [gameKey, setGameKey] = useState<GameKey>(DEFAULT_GAME_KEY);
   const [searchValue, setSearchValue] = useState("");
   const [keyword, setKeyword] = useState("");
   const [bindStatusValue, setBindStatusValue] = useState("all");
@@ -100,7 +106,10 @@ export function EmailsPage() {
     (nextPage: number) =>
       fetchEmails({
         game_key: gameKey,
-        bind_status: bindStatus === "all" ? undefined : Number(bindStatus),
+        bind_status:
+          bindStatus === "all"
+            ? undefined
+            : (Number(bindStatus) as EmailBindStatus),
         keyword: keyword || undefined,
         limit: EMAIL_PAGE_SIZE,
         page: nextPage,
@@ -306,16 +315,20 @@ export function EmailsPage() {
     }
 
     setSearchValue("");
-    setGameKeyValue("codm");
+    setGameKeyValue(DEFAULT_GAME_KEY);
     setBindStatusValue("all");
 
-    if (keyword === "" && gameKey === "codm" && bindStatus === "all") {
+    if (
+      keyword === "" &&
+      gameKey === DEFAULT_GAME_KEY &&
+      bindStatus === "all"
+    ) {
       void loadPage(1, "replace");
       return;
     }
 
     setKeyword("");
-    setGameKey("codm");
+    setGameKey(DEFAULT_GAME_KEY);
     setBindStatus("all");
   }
 
@@ -417,8 +430,12 @@ export function EmailsPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">全部状态</SelectItem>
-              <SelectItem value="1">已绑定</SelectItem>
-              <SelectItem value="2">未绑定</SelectItem>
+              <SelectItem value={String(EMAIL_BIND_STATUS.bound)}>
+                {EMAIL_BIND_STATUS_LABELS[EMAIL_BIND_STATUS.bound]}
+              </SelectItem>
+              <SelectItem value={String(EMAIL_BIND_STATUS.unbound)}>
+                {EMAIL_BIND_STATUS_LABELS[EMAIL_BIND_STATUS.unbound]}
+              </SelectItem>
             </SelectContent>
           </Select>
           <div className="grid grid-cols-2 gap-2">

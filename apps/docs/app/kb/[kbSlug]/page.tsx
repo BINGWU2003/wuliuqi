@@ -4,6 +4,7 @@ import {
   listKnowledgeArticles,
   listKnowledgeCategories,
 } from "@wuliuqi/rag-db";
+import { KNOWLEDGE_STATUS } from "@wuliuqi/types";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@wuliuqi/ui/components/accordion";
 import { Badge } from "@wuliuqi/ui/components/badge";
 import { Button } from "@wuliuqi/ui/components/button";
@@ -34,8 +35,12 @@ export default async function KnowledgeHome({
     listKnowledgeArticles(base.id),
     listFaqItems(base.id),
   ]);
-  const publishedArticles = articles.filter((article) => article.status === "published");
-  const publishedFaqs = faqs.filter((faq) => faq.status === "published");
+  const publishedArticles = articles.filter(
+    (article) => article.status === KNOWLEDGE_STATUS.published,
+  );
+  const publishedFaqs = faqs.filter(
+    (faq) => faq.status === KNOWLEDGE_STATUS.published,
+  );
 
   return (
     <DocsShell

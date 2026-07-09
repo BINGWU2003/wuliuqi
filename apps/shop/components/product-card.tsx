@@ -1,3 +1,4 @@
+import { GAME_KEY } from "@wuliuqi/types";
 import type { PublicShopAccount } from "@wuliuqi/types";
 import { Badge } from "@wuliuqi/ui/components/badge";
 import { Card, CardContent } from "@wuliuqi/ui/components/card";
@@ -21,11 +22,11 @@ export function ProductCard({
   const badges = getAccountCardBadges(account);
   const badgeSlots = [...badges, ...Array<string>(3 - badges.length).fill("")];
   const gameBadgeClassName =
-    account.gameKey === "sanguosha"
+    account.gameKey === GAME_KEY.sanguosha
       ? "border-red-200 bg-red-50 text-red-700 dark:border-red-900/70 dark:bg-red-950/50 dark:text-red-300"
       : "border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-900/70 dark:bg-orange-950/50 dark:text-orange-300";
   const detailPath =
-    account.gameKey === "sanguosha"
+    account.gameKey === GAME_KEY.sanguosha
       ? "/sanguosha-account-info"
       : "/codm-account-info";
 

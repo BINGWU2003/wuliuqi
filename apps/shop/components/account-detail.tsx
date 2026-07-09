@@ -1,6 +1,7 @@
 "use client";
 
-import type { ShopAccount } from "@wuliuqi/types";
+import { DEFAULT_GAME_KEY } from "@wuliuqi/types";
+import type { GameKey, ShopAccount } from "@wuliuqi/types";
 import { Badge } from "@wuliuqi/ui/components/badge";
 import { Button } from "@wuliuqi/ui/components/button";
 import {
@@ -40,11 +41,11 @@ import { fetchAccount } from "@/lib/client-api";
 type AccountDetailPresentation = "page" | "modal";
 
 export function AccountDetail({
-  gameKey = "codm",
+  gameKey = DEFAULT_GAME_KEY,
   id,
   presentation = "page",
 }: {
-  gameKey?: string;
+  gameKey?: GameKey;
   id: number | null;
   presentation?: AccountDetailPresentation;
 }) {

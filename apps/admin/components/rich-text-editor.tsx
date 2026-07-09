@@ -6,9 +6,11 @@ import { Bold, ListOrdered, Pilcrow } from "lucide-react";
 import { useEffect, useRef } from "react";
 
 export function RichTextEditor({
+  readOnly = false,
   value,
   onChange,
 }: {
+  readOnly?: boolean;
   value: string;
   onChange: (value: string) => void;
 }) {
@@ -23,12 +25,17 @@ export function RichTextEditor({
   }, [value]);
 
   function command(name: string) {
+    if (readOnly) {
+      return;
+    }
+
     document.execCommand(name);
     onChange(editorRef.current?.innerHTML ?? "");
   }
 
   return (
     <div className="overflow-hidden rounded-md border border-input bg-background">
+      {!readOnly ? (
       <div className="flex flex-wrap items-center gap-1 border-b border-border p-1">
         <Button
           aria-label="加粗"
@@ -61,17 +68,26 @@ export function RichTextEditor({
           <Pilcrow size={16} />
         </Button>
       </div>
+      ) : null}
       <div
         ref={editorRef}
         className={cn(
           "min-h-36 break-words px-3 py-2 text-sm leading-7 outline-none",
           "empty:before:text-muted-foreground empty:before:content-['请输入账号描述']",
         )}
-        contentEditable
+        contentEditable={!readOnly}
         role="textbox"
         suppressContentEditableWarning
-        onBlur={() => onChange(editorRef.current?.innerHTML ?? "")}
-        onInput={() => onChange(editorRef.current?.innerHTML ?? "")}
+        onBlur={() => {
+          if (!readOnly) {
+            onChange(editorRef.current?.innerHTML ?? "");
+          }
+        }}
+        onInput={() => {
+          if (!readOnly) {
+            onChange(editorRef.current?.innerHTML ?? "");
+          }
+        }}
       />
     </div>
   );

@@ -1,3 +1,4 @@
+import { DEFAULT_GAME_KEY, GAME_KEY } from "@wuliuqi/types";
 import type { GameKey, GameOption } from "@wuliuqi/types";
 
 type Delegate = {
@@ -25,19 +26,17 @@ type GameConfig = GameOption & {
   serialPrefix: string;
 };
 
-export const DEFAULT_GAME_KEY: GameKey = "codm";
-
 export const GAME_CONFIGS: Record<GameKey, GameConfig> = {
-  codm: {
-    key: "codm",
+  [GAME_KEY.codm]: {
+    key: GAME_KEY.codm,
     label: "CODM",
     shortLabel: "CODM",
     accountListPath: "/codm-account-page",
     accountCounterName: "CODM_ACCOUNT",
     serialPrefix: "#CODM-",
   },
-  sanguosha: {
-    key: "sanguosha",
+  [GAME_KEY.sanguosha]: {
+    key: GAME_KEY.sanguosha,
     label: "三国杀",
     shortLabel: "三国杀",
     accountListPath: "/sanguosha-account-page",
@@ -49,7 +48,7 @@ export const GAME_CONFIGS: Record<GameKey, GameConfig> = {
 export const GAME_OPTIONS = Object.values(GAME_CONFIGS);
 
 export function normalizeGameKey(gameKey?: string | null): GameKey {
-  return gameKey === "sanguosha" ? "sanguosha" : DEFAULT_GAME_KEY;
+  return gameKey === GAME_KEY.sanguosha ? GAME_KEY.sanguosha : DEFAULT_GAME_KEY;
 }
 
 export function gameConfig(gameKey?: string | null): GameConfig {
@@ -59,7 +58,7 @@ export function gameConfig(gameKey?: string | null): GameConfig {
 export function accountDelegate(client: unknown, gameKey?: string | null) {
   const gameClient = client as GameClient;
 
-  return normalizeGameKey(gameKey) === "sanguosha"
+  return normalizeGameKey(gameKey) === GAME_KEY.sanguosha
     ? gameClient.sanguoshaAccount
     : gameClient.codmAccount;
 }
@@ -67,7 +66,7 @@ export function accountDelegate(client: unknown, gameKey?: string | null) {
 export function emailDelegate(client: unknown, gameKey?: string | null) {
   const gameClient = client as GameClient;
 
-  return normalizeGameKey(gameKey) === "sanguosha"
+  return normalizeGameKey(gameKey) === GAME_KEY.sanguosha
     ? gameClient.sanguoshaEmail
     : gameClient.codmEmail;
 }

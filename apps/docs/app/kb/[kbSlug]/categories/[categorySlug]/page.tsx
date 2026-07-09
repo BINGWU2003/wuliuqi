@@ -4,6 +4,7 @@ import {
   listKnowledgeCategories,
   listPublishedArticlesByCategory,
 } from "@wuliuqi/rag-db";
+import { KNOWLEDGE_STATUS } from "@wuliuqi/types";
 import { Badge } from "@wuliuqi/ui/components/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@wuliuqi/ui/components/card";
 import { FileText } from "lucide-react";
@@ -35,7 +36,9 @@ export default async function CategoryPage({ params }: { params: Params }) {
     listFaqItems(base.id),
   ]);
   const categoryFaqs = faqs.filter(
-    (faq) => faq.status === "published" && faq.categoryId === category.id,
+    (faq) =>
+      faq.status === KNOWLEDGE_STATUS.published &&
+      faq.categoryId === category.id,
   );
 
   return (

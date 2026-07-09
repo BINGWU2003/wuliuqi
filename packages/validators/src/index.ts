@@ -1,24 +1,42 @@
 import { z } from "zod";
+import {
+  ACCOUNT_SORT,
+  ACCOUNT_SORT_VALUES,
+  ACCOUNT_STATUS,
+  CHAT_ROLES,
+  DEFAULT_GAME_KEY,
+  EMAIL_BIND_STATUS,
+  GAME_ATTRIBUTE_TYPES,
+  GAME_KEYS,
+  HOME_GAME_FILTER,
+  HOME_GAME_FILTERS,
+  KNOWLEDGE_SOURCE_TYPE_VALUES,
+  KNOWLEDGE_STATUS,
+  KNOWLEDGE_STATUS_VALUES,
+  KNOWLEDGE_VISIBILITY,
+  KNOWLEDGE_VISIBILITY_VALUES,
+} from "@wuliuqi/types";
 
-export const ACCOUNT_STATUS = {
-  listed: 1,
-  unlisted: 2,
-  sold: 3,
-} as const;
-
-export const EMAIL_BIND_STATUS = {
-  bound: 1,
-  unbound: 2,
-} as const;
-
-export const GAME_KEYS = ["codm", "sanguosha"] as const;
-const HOME_GAME_KEYS = [...GAME_KEYS, "all"] as const;
+export { ACCOUNT_STATUS, EMAIL_BIND_STATUS, GAME_KEYS } from "@wuliuqi/types";
 
 const gameKeyQueryField = z
   .enum(GAME_KEYS)
   .optional();
 
 const gameKeyBodyField = z.enum(GAME_KEYS).optional();
+const accountStatusFieldSchema = z.union([
+  z.literal(ACCOUNT_STATUS.listed),
+  z.literal(ACCOUNT_STATUS.unlisted),
+  z.literal(ACCOUNT_STATUS.sold),
+]);
+const writableAccountStatusFieldSchema = z.union([
+  z.literal(ACCOUNT_STATUS.listed),
+  z.literal(ACCOUNT_STATUS.unlisted),
+]);
+const emailBindStatusFieldSchema = z.union([
+  z.literal(EMAIL_BIND_STATUS.bound),
+  z.literal(EMAIL_BIND_STATUS.unbound),
+]);
 
 const optionalNumberFromQuery = z
   .string()
@@ -70,14 +88,14 @@ export const accountListQuerySchema = z
       .optional()
       .transform((value) => (value ? value : undefined)),
     status: optionalNumberFromQuery.pipe(
-      z.number().int().min(1).max(3).optional(),
+      accountStatusFieldSchema.optional(),
     ),
     min_price: optionalNumberFromQuery.pipe(z.number().min(0).optional()),
     max_price: optionalNumberFromQuery.pipe(z.number().min(0).optional()),
     sort: z
-      .enum(["latest", "price_asc", "price_desc"])
+      .enum(ACCOUNT_SORT_VALUES)
       .optional()
-      .default("latest"),
+      .default(ACCOUNT_SORT.latest),
   })
   .refine(
     (query) =>
@@ -94,7 +112,7 @@ export type AccountListQuery = z.infer<typeof accountListQuerySchema>;
 
 export const shopHomeAccountListQuerySchema = z.object({
   cursor: optionalString,
-  game_key: z.enum(HOME_GAME_KEYS).optional().default("all"),
+  game_key: z.enum(HOME_GAME_FILTERS).optional().default(HOME_GAME_FILTER.all),
   limit: z
     .string()
     .trim()
@@ -104,9 +122,9 @@ export const shopHomeAccountListQuerySchema = z.object({
   min_price: optionalNumberFromQuery.pipe(z.number().min(0).optional()),
   max_price: optionalNumberFromQuery.pipe(z.number().min(0).optional()),
   sort: z
-    .enum(["latest", "price_asc", "price_desc"])
+    .enum(ACCOUNT_SORT_VALUES)
     .optional()
-    .default("latest"),
+    .default(ACCOUNT_SORT.latest),
 }).refine(
   (query) =>
     query.min_price === undefined ||
@@ -135,7 +153,7 @@ export const adminAccountCreateSchema = z.object({
   description: z.string().trim().min(1, "描述为必填项"),
   xianyuUrl: optionalString,
   email: optionalString,
-  status: z.union([z.literal(1), z.literal(2)]).default(1),
+  status: writableAccountStatusFieldSchema.default(ACCOUNT_STATUS.listed),
 });
 
 export const adminAccountUpdateSchema = z
@@ -152,14 +170,14 @@ export const adminAccountUpdateSchema = z
     description: z.string().trim().min(1, "描述为必填项").optional(),
     xianyuUrl: optionalString,
     email: optionalString,
-    status: z.union([z.literal(1), z.literal(2)]).optional(),
+    status: writableAccountStatusFieldSchema.optional(),
   })
   .refine((data) => Object.keys(data).length > 0, {
     message: "请至少提供一个要更新的字段",
   });
 
 export const accountStatusSchema = z.object({
-  status: z.union([z.literal(1), z.literal(2)]),
+  status: writableAccountStatusFieldSchema,
 });
 
 export const adminAccountSellSchema = z.object({
@@ -171,7 +189,7 @@ export const adminEmailListQuerySchema = z.object({
   game_key: gameKeyQueryField,
   keyword: optionalString,
   bind_status: optionalNumberFromQuery.pipe(
-    z.number().int().min(1).max(2).optional(),
+    emailBindStatusFieldSchema.optional(),
   ),
 });
 
@@ -192,13 +210,11 @@ const emailPostfixBodySchema = emailPostfixSchema.transform((value) =>
   value.startsWith("@") ? value : `@${value}`,
 );
 
-const emailBindStatusFieldSchema = z.union([z.literal(1), z.literal(2)]);
-
 export const adminEmailCreateSchema = z.object({
   gameKey: gameKeyBodyField,
   prefix: newEmailPrefixSchema,
   postfix: emailPostfixBodySchema,
-  bindStatus: emailBindStatusFieldSchema.default(2),
+  bindStatus: emailBindStatusFieldSchema.default(EMAIL_BIND_STATUS.unbound),
 });
 
 export const adminEmailUpdateSchema = z
@@ -256,7 +272,7 @@ export const gameAttributeOptionSchema = z.object({
 });
 
 const gameAttributeDefinitionBaseSchema = z.object({
-  gameKey: z.string().trim().min(1).max(50).default("codm"),
+  gameKey: z.string().trim().min(1).max(50).default(DEFAULT_GAME_KEY),
   attrKey: z
     .string()
     .trim()
@@ -264,7 +280,7 @@ const gameAttributeDefinitionBaseSchema = z.object({
     .max(80)
     .regex(/^[a-z][a-z0-9_]*$/, "属性标识只能包含小写字母、数字和下划线"),
   label: z.string().trim().min(1, "属性名称为必填项").max(80),
-  type: z.enum(["number", "select"]),
+  type: z.enum(GAME_ATTRIBUTE_TYPES),
   unit: optionalShortString.pipe(z.string().max(20).optional()),
   options: z.array(gameAttributeOptionSchema).default([]),
   enabled: z.boolean().default(true),
@@ -273,7 +289,7 @@ const gameAttributeDefinitionBaseSchema = z.object({
 
 function validateAttributeDefinitionOptions(
   definition: {
-    type?: "number" | "select";
+    type?: (typeof GAME_ATTRIBUTE_TYPES)[number];
     options?: Array<{ value: string }>;
   },
   context: z.RefinementCtx,
@@ -349,15 +365,17 @@ const stringListSchema = z
   .default([]);
 
 export const knowledgeStatusSchema = z
-  .enum(["draft", "published", "archived"])
-  .default("draft");
+  .enum(KNOWLEDGE_STATUS_VALUES)
+  .default(KNOWLEDGE_STATUS.draft);
 
 export const knowledgeBaseCreateSchema = z.object({
   name: z.string().trim().min(1, "知识库名称为必填项").max(100),
   slug: slugSchema,
   description: optionalString,
-  visibility: z.enum(["public", "private"]).default("public"),
-  status: z.enum(["draft", "published", "archived"]).default("published"),
+  visibility: z
+    .enum(KNOWLEDGE_VISIBILITY_VALUES)
+    .default(KNOWLEDGE_VISIBILITY.public),
+  status: z.enum(KNOWLEDGE_STATUS_VALUES).default(KNOWLEDGE_STATUS.published),
 });
 
 export const knowledgeBaseUpdateSchema = knowledgeBaseCreateSchema.partial();
@@ -399,7 +417,7 @@ export const faqItemCreateSchema = z.object({
 export const faqItemUpdateSchema = faqItemCreateSchema.partial();
 
 export const sourceIndexSchema = z.object({
-  sourceType: z.enum(["article", "faq"]),
+  sourceType: z.enum(KNOWLEDGE_SOURCE_TYPE_VALUES),
   sourceId: z.string().uuid("索引对象 ID 无效"),
 });
 
@@ -409,7 +427,7 @@ export const publicSearchQuerySchema = z.object({
 });
 
 export const chatMessageSchema = z.object({
-  role: z.enum(["user", "assistant", "system"]),
+  role: z.enum(CHAT_ROLES),
   content: z.string().trim().min(1).max(4000),
 });
 

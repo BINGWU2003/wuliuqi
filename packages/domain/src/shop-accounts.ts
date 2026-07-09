@@ -1,5 +1,12 @@
 import type { Prisma } from "@prisma/client";
+import {
+  ACCOUNT_SORT,
+  ACCOUNT_STATUS,
+  DEFAULT_GAME_KEY,
+  GAME_KEY,
+} from "@wuliuqi/types";
 import type {
+  AccountSort,
   GameKey,
   PublicShopAccount,
   ShopAccount,
@@ -18,15 +25,15 @@ import {
 } from "./serializers";
 import type { AccountRecord } from "./serializers";
 
-const CODM_GAME_KEY: GameKey = "codm";
-const ACCOUNT_LISTED_STATUS = 1;
+const CODM_GAME_KEY: GameKey = DEFAULT_GAME_KEY;
+const ACCOUNT_LISTED_STATUS = ACCOUNT_STATUS.listed;
 const HOME_RECENT_MONTHS = 3;
 const gameOrder = new Map<GameKey, number>([
-  ["codm", 0],
-  ["sanguosha", 1],
+  [GAME_KEY.codm, 0],
+  [GAME_KEY.sanguosha, 1],
 ]);
 
-type HomeSort = "latest" | "price_asc" | "price_desc";
+type HomeSort = AccountSort;
 
 type HomeCursor = {
   createdAt: string;
@@ -81,7 +88,8 @@ function decodeHomeCursor(cursor?: string): HomeCursor | null {
 
     if (
       typeof parsed.createdAt === "string" &&
-      (parsed.gameKey === "codm" || parsed.gameKey === "sanguosha") &&
+      (parsed.gameKey === GAME_KEY.codm ||
+        parsed.gameKey === GAME_KEY.sanguosha) &&
       typeof parsed.id === "number" &&
       Number.isSafeInteger(parsed.id)
     ) {
@@ -132,7 +140,7 @@ function homeCursorWhere(
   const currentGameOrder = gameOrder.get(gameKey) ?? 0;
   const cursorGameOrder = gameOrder.get(cursor.gameKey) ?? 0;
   const conditions: Prisma.CodmAccountWhereInput[] =
-    sort === "price_asc" || sort === "price_desc"
+    sort === ACCOUNT_SORT.priceAsc || sort === ACCOUNT_SORT.priceDesc
       ? homePriceCursorConditions({
           currentGameOrder,
           cursor,
@@ -142,7 +150,7 @@ function homeCursorWhere(
         })
       : [{ createdAt: { lt: cursorDate } }];
 
-  if (sort !== "latest") {
+  if (sort !== ACCOUNT_SORT.latest) {
     return conditions.length > 0 ? { OR: conditions } : {};
   }
 
@@ -169,14 +177,14 @@ function homePriceCursorConditions({
   cursor: HomeCursor;
   cursorDate: Date;
   cursorGameOrder: number;
-  sort: Extract<HomeSort, "price_asc" | "price_desc">;
+  sort: Extract<HomeSort, typeof ACCOUNT_SORT.priceAsc | typeof ACCOUNT_SORT.priceDesc>;
 }) {
   if (typeof cursor.price !== "number" || !Number.isFinite(cursor.price)) {
     return [];
   }
 
   const priceCondition =
-    sort === "price_asc"
+    sort === ACCOUNT_SORT.priceAsc
       ? { price: { gt: cursor.price } }
       : { price: { lt: cursor.price } };
   const conditions: Prisma.CodmAccountWhereInput[] = [
@@ -204,11 +212,11 @@ function homePriceCursorConditions({
 }
 
 function homeOrderBy(sort: HomeSort): Prisma.CodmAccountOrderByWithRelationInput[] {
-  if (sort === "price_asc") {
+  if (sort === ACCOUNT_SORT.priceAsc) {
     return [{ price: "asc" }, { createdAt: "desc" }, { id: "desc" }];
   }
 
-  if (sort === "price_desc") {
+  if (sort === ACCOUNT_SORT.priceDesc) {
     return [{ price: "desc" }, { createdAt: "desc" }, { id: "desc" }];
   }
 
@@ -226,9 +234,9 @@ function sortHomeAccounts(
   second: HomeAccountRecord,
   sort: HomeSort,
 ) {
-  if (sort === "price_asc" || sort === "price_desc") {
+  if (sort === ACCOUNT_SORT.priceAsc || sort === ACCOUNT_SORT.priceDesc) {
     const priceDelta =
-      sort === "price_asc"
+      sort === ACCOUNT_SORT.priceAsc
         ? accountPrice(first.account) - accountPrice(second.account)
         : accountPrice(second.account) - accountPrice(first.account);
 
@@ -260,9 +268,9 @@ export async function listShopHomeAccounts(
   const limit = query.limit;
   const cursor = decodeHomeCursor(query.cursor);
   const createdAfter = recentCreatedAfter(query.months);
-  const sort = query.sort ?? "latest";
+  const sort = query.sort ?? ACCOUNT_SORT.latest;
   const games =
-    query.game_key === "codm" || query.game_key === "sanguosha"
+    query.game_key === GAME_KEY.codm || query.game_key === GAME_KEY.sanguosha
       ? GAME_OPTIONS.filter((game) => game.key === query.game_key)
       : GAME_OPTIONS;
   const priceWhere =
@@ -353,9 +361,9 @@ export async function listShopAccounts(
   }
 
   const orderBy: Prisma.CodmAccountOrderByWithRelationInput =
-    query.sort === "price_asc"
+    query.sort === ACCOUNT_SORT.priceAsc
       ? { price: "asc" }
-      : query.sort === "price_desc"
+      : query.sort === ACCOUNT_SORT.priceDesc
         ? { price: "desc" }
         : { updatedAt: "desc" };
 

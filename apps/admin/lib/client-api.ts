@@ -1,3 +1,4 @@
+import { DEFAULT_GAME_KEY } from "@wuliuqi/types";
 import type {
   AdminAccount,
   AdminAccountListResult,
@@ -8,12 +9,16 @@ import type {
   AdminUser,
   ApiResponse,
   AccountAttributes,
+  AccountSort,
+  AccountStatus,
+  AccountWritableStatus,
   Carousel,
   CarouselItem,
   GameAttributeDefinition,
   GameAttributeOption,
   GameAttributeType,
   GameKey,
+  EmailBindStatus,
   SequenceCounter,
   UploadCredential,
   UploadResult,
@@ -32,14 +37,14 @@ type AccountPayload = {
   description: string;
   xianyuUrl?: string;
   email?: string;
-  status: 1 | 2;
+  status: AccountWritableStatus;
 };
 
 type EmailPayload = {
   gameKey?: GameKey;
   prefix: string;
   postfix: string;
-  bindStatus?: 1 | 2;
+  bindStatus?: EmailBindStatus;
 };
 
 type EmailPostfixPayload = {
@@ -114,21 +119,21 @@ export async function fetchAccounts(values: {
   page?: number;
   limit?: number;
   keyword?: string;
-  status?: number;
-  sort?: string;
+  status?: AccountStatus;
+  sort?: AccountSort;
 }) {
   const params = paramsFrom(values);
   return requestJson<AdminAccountListResult>(`/api/accounts?${params}`);
 }
 
-export async function fetchAccountStatistics(gameKey: GameKey = "codm") {
+export async function fetchAccountStatistics(gameKey: GameKey = DEFAULT_GAME_KEY) {
   const params = paramsFrom({ game_key: gameKey });
   return requestJson<AdminAccountStatistics>(
     `/api/statistics/accounts?${params}`,
   );
 }
 
-export async function fetchAccount(id: number, gameKey: GameKey = "codm") {
+export async function fetchAccount(id: number, gameKey: GameKey = DEFAULT_GAME_KEY) {
   const params = paramsFrom({ game_key: gameKey });
   return requestJson<AdminAccount>(`/api/accounts/${id}?${params}`);
 }
@@ -151,8 +156,8 @@ export async function updateAccount(id: number, payload: AccountPayload) {
 
 export async function updateAccountStatus(
   id: number,
-  status: 1 | 2,
-  gameKey: GameKey = "codm",
+  status: AccountWritableStatus,
+  gameKey: GameKey = DEFAULT_GAME_KEY,
 ) {
   const params = paramsFrom({ game_key: gameKey });
 
@@ -165,7 +170,7 @@ export async function updateAccountStatus(
 export async function sellAccount(
   id: number,
   soldPrice: number,
-  gameKey: GameKey = "codm",
+  gameKey: GameKey = DEFAULT_GAME_KEY,
 ) {
   const params = paramsFrom({ game_key: gameKey });
 
@@ -175,7 +180,10 @@ export async function sellAccount(
   });
 }
 
-export async function deleteAccount(id: number, gameKey: GameKey = "codm") {
+export async function deleteAccount(
+  id: number,
+  gameKey: GameKey = DEFAULT_GAME_KEY,
+) {
   const params = paramsFrom({ game_key: gameKey });
 
   return requestJson<{ deleted: boolean }>(`/api/accounts/${id}?${params}`, {
@@ -183,7 +191,7 @@ export async function deleteAccount(id: number, gameKey: GameKey = "codm") {
   });
 }
 
-export async function fetchAttributeDefinitions(gameKey = "codm") {
+export async function fetchAttributeDefinitions(gameKey = DEFAULT_GAME_KEY) {
   const params = paramsFrom({ game_key: gameKey });
   return requestJson<GameAttributeDefinition[]>(
     `/api/attribute-definitions?${params}`,
@@ -235,13 +243,13 @@ export async function fetchEmails(values: {
   page?: number;
   limit?: number;
   keyword?: string;
-  bind_status?: number;
+  bind_status?: EmailBindStatus;
 }) {
   const params = paramsFrom(values);
   return requestJson<AdminEmailListResult>(`/api/emails?${params}`);
 }
 
-export async function fetchEmail(id: number, gameKey: GameKey = "codm") {
+export async function fetchEmail(id: number, gameKey: GameKey = DEFAULT_GAME_KEY) {
   const params = paramsFrom({ game_key: gameKey });
   return requestJson<AdminEmail>(`/api/emails/${id}?${params}`);
 }
@@ -262,7 +270,7 @@ export async function updateEmail(id: number, payload: EmailPayload) {
   });
 }
 
-export async function deleteEmail(id: number, gameKey: GameKey = "codm") {
+export async function deleteEmail(id: number, gameKey: GameKey = DEFAULT_GAME_KEY) {
   const params = paramsFrom({ game_key: gameKey });
 
   return requestJson<{ deleted: boolean }>(`/api/emails/${id}?${params}`, {

@@ -1,8 +1,17 @@
 "use client";
 
+import {
+  ACCOUNT_STATUS,
+  ACCOUNT_STATUS_LABELS,
+  DEFAULT_GAME_KEY,
+  EMAIL_BIND_STATUS,
+  GAME_KEY,
+} from "@wuliuqi/types";
 import type {
   AccountAttributePrimitive,
   AccountAttributes,
+  AccountStatus,
+  AccountWritableStatus,
   AdminEmail,
   GameAttributeDefinition,
   GameKey,
@@ -42,6 +51,7 @@ import {
 } from "@/lib/client-api";
 import { ADMIN_ACCOUNTS_CHANGED_EVENT } from "@/lib/events";
 import { errorMessage } from "@/lib/feedback";
+import { formatDate, formatPrice } from "@/lib/format";
 
 type AccountFormState = {
   serialNumber: string;
@@ -49,11 +59,13 @@ type AccountFormState = {
   attributes: AccountAttributes;
   price: number;
   costPrice: number;
+  soldPrice: number;
+  soldAt: string;
   title: string;
   description: string;
   xianyuUrl: string;
   email: string;
-  status: 1 | 2;
+  status: AccountStatus;
 };
 
 const emptyForm: AccountFormState = {
@@ -62,39 +74,46 @@ const emptyForm: AccountFormState = {
   attributes: {},
   price: 0,
   costPrice: 0,
+  soldPrice: 0,
+  soldAt: "",
   title: "",
   description: "",
   xianyuUrl: "",
   email: "",
-  status: 1,
+  status: ACCOUNT_STATUS.listed,
 };
 
 type AccountFormPresentation = "page" | "modal";
+type AccountFormMode = "edit" | "view";
 const EMPTY_SELECT_VALUE = "__empty";
 const gameOptions: Array<{ label: string; value: GameKey }> = [
-  { label: "CODM", value: "codm" },
-  { label: "三国杀", value: "sanguosha" },
+  { label: "CODM", value: GAME_KEY.codm },
+  { label: "三国杀", value: GAME_KEY.sanguosha },
 ];
 
 export function AccountForm({
   accountId,
-  initialGameKey = "codm",
+  initialGameKey = DEFAULT_GAME_KEY,
   lockGame = false,
+  mode = "edit",
   onBusyChange,
   presentation = "page",
 }: {
   accountId?: number;
   initialGameKey?: GameKey;
   lockGame?: boolean;
+  mode?: AccountFormMode;
   onBusyChange?: (busy: boolean) => void;
   presentation?: AccountFormPresentation;
 }) {
   const router = useRouter();
   const isModal = presentation === "modal";
   const [gameKey, setGameKey] = useState<GameKey>(initialGameKey);
-  const gameLabel = gameKey === "sanguosha" ? "三国杀" : "CODM";
-  const formTitle = `${accountId ? "编辑" : "新建"}${lockGame ? ` ${gameLabel}` : ""}账号`;
+  const gameLabel = gameKey === GAME_KEY.sanguosha ? "三国杀" : "CODM";
   const [form, setForm] = useState<AccountFormState>(emptyForm);
+  const isSoldAccount = form.status === ACCOUNT_STATUS.sold;
+  const isReadOnly = mode === "view" || isSoldAccount;
+  const formTitle = `${isReadOnly ? "查看" : accountId ? "编辑" : "新建"}${lockGame ? ` ${gameLabel}` : ""}账号`;
   const [attributeDefinitions, setAttributeDefinitions] = useState<
     GameAttributeDefinition[]
   >([]);
@@ -155,11 +174,13 @@ export function AccountForm({
           attributes: account.attributes,
           price: account.price,
           costPrice: account.costPrice,
+          soldPrice: account.soldPrice ?? 0,
+          soldAt: account.soldAt ?? "",
           title: account.title,
           description: account.description,
           xianyuUrl: account.xianyuUrl,
           email: account.email,
-          status: account.status === 2 ? 2 : 1,
+          status: account.status,
         }),
       )
       .then(() => setLoadFailed(false))
@@ -216,18 +237,27 @@ export function AccountForm({
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (saving || imageUploading || loadFailed) {
+    if (isReadOnly || saving || imageUploading || loadFailed) {
       return;
     }
 
     setSaving(true);
 
     try {
+      const writableStatus: AccountWritableStatus =
+        form.status === ACCOUNT_STATUS.unlisted
+          ? ACCOUNT_STATUS.unlisted
+          : ACCOUNT_STATUS.listed;
       const payload = {
-        ...form,
-        attributes: form.attributes,
-        email: form.email.trim() || undefined,
         serialNumber: form.serialNumber.trim() || undefined,
+        images: form.images,
+        attributes: form.attributes,
+        price: form.price,
+        costPrice: form.costPrice,
+        title: form.title,
+        description: form.description,
+        email: form.email.trim() || undefined,
+        status: writableStatus,
         xianyuUrl: form.xianyuUrl.trim() || undefined,
       };
 
@@ -277,14 +307,20 @@ export function AccountForm({
             {formTitle}
           </h1>
         </div>
-        <Button
-          className="w-full sm:w-auto"
-          disabled={saving || imageUploading || loadFailed}
-          type="submit"
-        >
-          {saving ? <Spinner /> : <Save size={16} />}
-          {saving ? "保存中..." : "保存账号"}
-        </Button>
+        {isReadOnly ? (
+          <Badge className="rounded-sm" variant="secondary">
+            只读
+          </Badge>
+        ) : (
+          <Button
+            className="w-full sm:w-auto"
+            disabled={saving || imageUploading || loadFailed}
+            type="submit"
+          >
+            {saving ? <Spinner /> : <Save size={16} />}
+            {saving ? "保存中..." : "保存账号"}
+          </Button>
+        )}
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
@@ -295,6 +331,7 @@ export function AccountForm({
             </CardHeader>
             <CardContent className="pt-4">
               <ImageUploader
+                disabled={isReadOnly}
                 folder={`${gameKey}-accounts/`}
                 images={form.images}
                 maxCount={10}
@@ -310,6 +347,7 @@ export function AccountForm({
             </CardHeader>
             <CardContent className="pt-4">
               <RichTextEditor
+                readOnly={isReadOnly}
                 value={form.description}
                 onChange={(description) => updateForm({ description })}
               />
@@ -325,7 +363,7 @@ export function AccountForm({
             <label className="block space-y-1.5">
               <span className="text-sm font-medium">游戏</span>
               <Select
-                disabled={Boolean(accountId) || lockGame}
+                disabled={Boolean(accountId) || lockGame || isReadOnly}
                 value={gameKey}
                 onValueChange={(value) => {
                   setGameKey(value as GameKey);
@@ -348,6 +386,7 @@ export function AccountForm({
             <label className="block space-y-1.5">
               <span className="text-sm font-medium">序列号</span>
               <Input
+                disabled={isReadOnly}
                 placeholder="留空自动生成"
                 value={form.serialNumber}
                 onChange={(event) =>
@@ -358,6 +397,7 @@ export function AccountForm({
             <label className="block space-y-1.5">
               <span className="text-sm font-medium">标题</span>
               <Input
+                disabled={isReadOnly}
                 required
                 value={form.title}
                 onChange={(event) => updateForm({ title: event.target.value })}
@@ -366,6 +406,7 @@ export function AccountForm({
             <label className="block space-y-1.5">
               <span className="text-sm font-medium">标价</span>
               <Input
+                disabled={isReadOnly}
                 min={0}
                 required
                 step="0.01"
@@ -379,6 +420,7 @@ export function AccountForm({
             <label className="block space-y-1.5">
               <span className="text-sm font-medium">成本价</span>
               <Input
+                disabled={isReadOnly}
                 min={0}
                 required
                 step="0.01"
@@ -392,20 +434,55 @@ export function AccountForm({
             <label className="block space-y-1.5">
               <span className="text-sm font-medium">状态</span>
               <Select
+                disabled={isReadOnly}
                 value={String(form.status)}
                 onValueChange={(value) =>
-                  updateForm({ status: value === "2" ? 2 : 1 })
+                  updateForm({
+                    status:
+                      value === String(ACCOUNT_STATUS.unlisted)
+                        ? ACCOUNT_STATUS.unlisted
+                        : ACCOUNT_STATUS.listed,
+                  })
                 }
               >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="1">上架</SelectItem>
-                  <SelectItem value="2">下架</SelectItem>
+                  <SelectItem value={String(ACCOUNT_STATUS.listed)}>
+                    上架
+                  </SelectItem>
+                  <SelectItem value={String(ACCOUNT_STATUS.unlisted)}>
+                    下架
+                  </SelectItem>
+                  <SelectItem value={String(ACCOUNT_STATUS.sold)}>
+                    {ACCOUNT_STATUS_LABELS[ACCOUNT_STATUS.sold]}
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </label>
+            {isSoldAccount ? (
+              <div className="grid gap-3 border-t border-border pt-3 sm:grid-cols-2">
+                <label className="block space-y-1.5">
+                  <span className="text-sm font-medium">成交价</span>
+                  <Input disabled value={formatPrice(form.soldPrice)} />
+                </label>
+                <label className="block space-y-1.5">
+                  <span className="text-sm font-medium">利润</span>
+                  <Input
+                    disabled
+                    value={formatPrice(form.soldPrice - form.costPrice)}
+                  />
+                </label>
+                <label className="block space-y-1.5 sm:col-span-2">
+                  <span className="text-sm font-medium">售出时间</span>
+                  <Input
+                    disabled
+                    value={form.soldAt ? formatDate(form.soldAt) : "-"}
+                  />
+                </label>
+              </div>
+            ) : null}
             {attributesLoading ? (
               <div className="space-y-2 border-t border-border pt-3">
                 <Skeleton className="h-4 w-20" />
@@ -420,6 +497,7 @@ export function AccountForm({
                     definition={definition}
                     key={definition.attrKey}
                     value={form.attributes[definition.attrKey]}
+                    disabled={isReadOnly}
                     onChange={(value) =>
                       updateAttribute(definition.attrKey, value)
                     }
@@ -430,6 +508,7 @@ export function AccountForm({
             <label className="block space-y-1.5">
               <span className="text-sm font-medium">闲鱼链接</span>
               <Input
+                disabled={isReadOnly}
                 placeholder="https://..."
                 value={form.xianyuUrl}
                 onChange={(event) =>
@@ -441,6 +520,7 @@ export function AccountForm({
               <label className="block space-y-1.5">
                 <span className="text-sm font-medium">绑定邮箱</span>
                 <Input
+                  disabled={isReadOnly}
                   required
                   value={form.email}
                   onChange={(event) =>
@@ -448,6 +528,7 @@ export function AccountForm({
                   }
                 />
               </label>
+              {!isReadOnly ? (
               <div className="flex gap-2">
                 <Input
                   className="min-w-0"
@@ -466,13 +547,14 @@ export function AccountForm({
                   {searchingEmails ? <Spinner /> : <Search size={16} />}
                 </Button>
               </div>
-              {emailOptions.length > 0 ? (
+              ) : null}
+              {!isReadOnly && emailOptions.length > 0 ? (
                 <div className="max-h-56 overflow-y-auto rounded-md border border-border">
                   {emailOptions.map((email) => (
                     <button
                       key={email.id}
                       className="flex w-full items-center justify-between gap-2 border-b border-border px-3 py-2 text-left text-sm last:border-b-0 hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
-                      disabled={email.bindStatus === 1}
+                      disabled={email.bindStatus === EMAIL_BIND_STATUS.bound}
                       type="button"
                       onClick={() => updateForm({ email: email.email })}
                     >
@@ -481,11 +563,11 @@ export function AccountForm({
                     </button>
                   ))}
                 </div>
-              ) : (
+              ) : !isReadOnly ? (
                 <Badge className="rounded-sm font-normal" variant="secondary">
                   可直接输入邮箱，也可搜索后选择未绑定邮箱
                 </Badge>
-              )}
+              ) : null}
             </div>
           </CardContent>
         </Card>
@@ -496,18 +578,21 @@ export function AccountForm({
 
 export function CodmAccountForm({
   accountId,
+  mode,
   onBusyChange,
   presentation,
 }: {
   accountId?: number;
+  mode?: AccountFormMode;
   onBusyChange?: (busy: boolean) => void;
   presentation?: AccountFormPresentation;
 }) {
   return (
     <AccountForm
       accountId={accountId}
-      initialGameKey="codm"
+      initialGameKey={GAME_KEY.codm}
       lockGame
+      mode={mode}
       presentation={presentation}
       onBusyChange={onBusyChange}
     />
@@ -516,18 +601,21 @@ export function CodmAccountForm({
 
 export function SanguoshaAccountForm({
   accountId,
+  mode,
   onBusyChange,
   presentation,
 }: {
   accountId?: number;
+  mode?: AccountFormMode;
   onBusyChange?: (busy: boolean) => void;
   presentation?: AccountFormPresentation;
 }) {
   return (
     <AccountForm
       accountId={accountId}
-      initialGameKey="sanguosha"
+      initialGameKey={GAME_KEY.sanguosha}
       lockGame
+      mode={mode}
       presentation={presentation}
       onBusyChange={onBusyChange}
     />
@@ -535,10 +623,12 @@ export function SanguoshaAccountForm({
 }
 
 function AttributeField({
+  disabled = false,
   definition,
   onChange,
   value,
 }: {
+  disabled?: boolean;
   definition: GameAttributeDefinition;
   onChange: (value: AccountAttributePrimitive | undefined) => void;
   value: AccountAttributePrimitive | undefined;
@@ -563,6 +653,7 @@ function AttributeField({
           ) : null}
         </span>
         <Select
+          disabled={disabled}
           value={selectValue}
           onValueChange={(nextValue) =>
             onChange(nextValue === EMPTY_SELECT_VALUE ? undefined : nextValue)
@@ -603,6 +694,7 @@ function AttributeField({
         ) : null}
       </span>
       <Input
+        disabled={disabled}
         min={0}
         step={1}
         type="number"

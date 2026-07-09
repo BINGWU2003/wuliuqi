@@ -15,12 +15,14 @@ import { errorMessage } from "@/lib/feedback";
 const UPLOAD_PARALLEL_LIMIT = 3;
 
 export function ImageUploader({
+  disabled = false,
   folder,
   images,
   maxCount = 10,
   onChange,
   onUploadingChange,
 }: {
+  disabled?: boolean;
   folder: string;
   images: string[];
   maxCount?: number;
@@ -33,7 +35,7 @@ export function ImageUploader({
   const [previewOpen, setPreviewOpen] = useState(false);
 
   async function handleFiles(files: FileList | null) {
-    if (!files?.length) {
+    if (disabled || !files?.length) {
       return;
     }
 
@@ -96,6 +98,7 @@ export function ImageUploader({
             <Button
               aria-label="删除图片"
               className="absolute right-1 top-1 size-8 bg-background/90 sm:opacity-0 sm:group-hover:opacity-100"
+              disabled={disabled}
               size="icon"
               title="删除图片"
               type="button"
@@ -109,11 +112,11 @@ export function ImageUploader({
             </Button>
           </div>
         ))}
-        {images.length < maxCount ? (
+        {!disabled && images.length < maxCount ? (
           <button
             aria-label="添加图片"
             className="flex aspect-square flex-col items-center justify-center gap-2 rounded-md border border-dashed border-input bg-background text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-            disabled={uploading}
+            disabled={uploading || disabled}
             title="添加图片"
             type="button"
             onClick={() => inputRef.current?.click()}

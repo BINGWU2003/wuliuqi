@@ -1,6 +1,7 @@
 "use client";
 
-import type { PublicShopAccount } from "@wuliuqi/types";
+import { ACCOUNT_SORT, DEFAULT_GAME_KEY } from "@wuliuqi/types";
+import type { AccountSort, PublicShopAccount } from "@wuliuqi/types";
 import { Badge } from "@wuliuqi/ui/components/badge";
 import { Button } from "@wuliuqi/ui/components/button";
 import { Card, CardContent } from "@wuliuqi/ui/components/card";
@@ -33,12 +34,12 @@ const priceRanges = [
 ] as const;
 
 const sortOptions = [
-  { label: "最新上架", value: "latest" },
-  { label: "价格从低到高", value: "price_asc" },
-  { label: "价格从高到低", value: "price_desc" },
+  { label: "最新上架", value: ACCOUNT_SORT.latest },
+  { label: "价格从低到高", value: ACCOUNT_SORT.priceAsc },
+  { label: "价格从高到低", value: ACCOUNT_SORT.priceDesc },
 ] as const;
 
-type SortValue = (typeof sortOptions)[number]["value"];
+type SortValue = AccountSort;
 type LoadingMode =
   | "initial"
   | "replace"
@@ -63,13 +64,13 @@ type AccountListProps = {
 export function AccountList({
   compactHeader = false,
   eyebrow = "CODM Marketplace",
-  gameKey = "codm",
+  gameKey = DEFAULT_GAME_KEY,
   heading = "精选账号",
 }: AccountListProps) {
   const [rangeValue, setRangeValue] = useState(0);
   const [activeRange, setActiveRange] = useState(0);
-  const [sortValue, setSortValue] = useState<SortValue>("latest");
-  const [sort, setSort] = useState<SortValue>("latest");
+  const [sortValue, setSortValue] = useState<SortValue>(ACCOUNT_SORT.latest);
+  const [sort, setSort] = useState<SortValue>(ACCOUNT_SORT.latest);
   const [searchValue, setSearchValue] = useState("");
   const [keyword, setKeyword] = useState("");
   const [accounts, setAccounts] = useState<PublicShopAccount[]>([]);
@@ -267,16 +268,20 @@ export function AccountList({
 
     setSearchValue("");
     setRangeValue(0);
-    setSortValue("latest");
+    setSortValue(ACCOUNT_SORT.latest);
 
-    if (activeRange === 0 && sort === "latest" && keyword === "") {
+    if (
+      activeRange === 0 &&
+      sort === ACCOUNT_SORT.latest &&
+      keyword === ""
+    ) {
       void loadPage(1, "reset", true);
       return;
     }
 
     nextReplaceModeRef.current = "reset";
     setActiveRange(0);
-    setSort("latest");
+    setSort(ACCOUNT_SORT.latest);
     setKeyword("");
   }
 

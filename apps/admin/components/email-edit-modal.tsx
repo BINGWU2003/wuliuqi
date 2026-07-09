@@ -1,5 +1,7 @@
 "use client";
 
+import { DEFAULT_GAME_KEY } from "@wuliuqi/types";
+import type { GameKey } from "@wuliuqi/types";
 import { Button } from "@wuliuqi/ui/components/button";
 import {
   Dialog,
@@ -15,10 +17,10 @@ import { EmailForm } from "@/components/email-form";
 
 export function EmailEditModal({
   emailId,
-  initialGameKey = "codm",
+  initialGameKey = DEFAULT_GAME_KEY,
 }: {
   emailId: number | null;
-  initialGameKey?: "codm" | "sanguosha";
+  initialGameKey?: GameKey;
 }) {
   const router = useRouter();
   const [formBusy, setFormBusy] = useState(false);

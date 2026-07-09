@@ -1,5 +1,7 @@
 "use client";
 
+import { DEFAULT_GAME_KEY } from "@wuliuqi/types";
+import type { GameKey } from "@wuliuqi/types";
 import { Button } from "@wuliuqi/ui/components/button";
 import {
   Dialog,
@@ -13,10 +15,10 @@ import { useRouter } from "next/navigation";
 import { AccountDetail } from "@/components/account-detail";
 
 export function AccountDetailModal({
-  gameKey = "codm",
+  gameKey = DEFAULT_GAME_KEY,
   id,
 }: {
-  gameKey?: string;
+  gameKey?: GameKey;
   id: number | null;
 }) {
   const router = useRouter();

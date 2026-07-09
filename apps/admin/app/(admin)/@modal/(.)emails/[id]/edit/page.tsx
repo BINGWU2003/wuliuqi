@@ -1,3 +1,4 @@
+import { DEFAULT_GAME_KEY, GAME_KEY } from "@wuliuqi/types";
 import { EmailEditModal } from "@/components/email-edit-modal";
 
 type Params = Promise<{ id: string }>;
@@ -15,7 +16,8 @@ export default async function Page({
   const rawGameKey = Array.isArray(resolvedSearchParams.game_key)
     ? resolvedSearchParams.game_key[0]
     : resolvedSearchParams.game_key;
-  const gameKey = rawGameKey === "sanguosha" ? "sanguosha" : "codm";
+  const gameKey =
+    rawGameKey === GAME_KEY.sanguosha ? GAME_KEY.sanguosha : DEFAULT_GAME_KEY;
   const emailId = Number(id);
 
   return (

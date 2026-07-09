@@ -714,6 +714,9 @@ importers:
 
   packages/validators:
     dependencies:
+      '@wuliuqi/types':
+        specifier: workspace:*
+        version: link:../types
       zod:
         specifier: 'catalog:'
         version: 4.4.3

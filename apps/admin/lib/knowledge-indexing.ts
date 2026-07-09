@@ -1,9 +1,8 @@
 import { indexKnowledgeSource } from "@wuliuqi/rag";
-
-type SourceType = "article" | "faq";
+import type { KnowledgeSourceType } from "@wuliuqi/types";
 
 export async function indexKnowledgeSourceAfterSave(
-  sourceType: SourceType,
+  sourceType: KnowledgeSourceType,
   sourceId: string,
 ) {
   try {

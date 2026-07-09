@@ -1,6 +1,12 @@
 "use client";
 
-import type { AdminEmailPostfix, GameKey } from "@wuliuqi/types";
+import {
+  DEFAULT_GAME_KEY,
+  EMAIL_BIND_STATUS,
+  EMAIL_BIND_STATUS_LABELS,
+  GAME_KEY,
+} from "@wuliuqi/types";
+import type { AdminEmailPostfix, EmailBindStatus, GameKey } from "@wuliuqi/types";
 import { Button } from "@wuliuqi/ui/components/button";
 import {
   Card,
@@ -34,13 +40,13 @@ import { errorMessage } from "@/lib/feedback";
 
 type EmailFormPresentation = "page" | "modal";
 const gameOptions: Array<{ label: string; value: GameKey }> = [
-  { label: "CODM", value: "codm" },
-  { label: "三国杀", value: "sanguosha" },
+  { label: "CODM", value: GAME_KEY.codm },
+  { label: "三国杀", value: GAME_KEY.sanguosha },
 ];
 
 export function EmailForm({
   emailId,
-  initialGameKey = "codm",
+  initialGameKey = DEFAULT_GAME_KEY,
   onBusyChange,
   presentation = "page",
 }: {
@@ -57,7 +63,9 @@ export function EmailForm({
   const [postfixOptions, setPostfixOptions] = useState<AdminEmailPostfix[]>(
     [],
   );
-  const [bindStatus, setBindStatus] = useState<1 | 2>(2);
+  const [bindStatus, setBindStatus] = useState<EmailBindStatus>(
+    EMAIL_BIND_STATUS.unbound,
+  );
   const [boundAccountId, setBoundAccountId] = useState<number | null>(null);
   const [loading, setLoading] = useState(Boolean(emailId));
   const [postfixLoading, setPostfixLoading] = useState(true);
@@ -111,7 +119,7 @@ export function EmailForm({
       .then((email) => {
         setPrefix(email.prefix);
         setPostfix(email.postfix);
-        setBindStatus(email.bindStatus === 1 ? 1 : 2);
+        setBindStatus(email.bindStatus);
         setBoundAccountId(email.boundAccountId ?? null);
         setLoadFailed(false);
       })
@@ -269,14 +277,24 @@ export function EmailForm({
             <Select
               disabled={isLinkedToAccount}
               value={String(bindStatus)}
-              onValueChange={(value) => setBindStatus(value === "1" ? 1 : 2)}
+              onValueChange={(value) =>
+                setBindStatus(
+                  value === String(EMAIL_BIND_STATUS.bound)
+                    ? EMAIL_BIND_STATUS.bound
+                    : EMAIL_BIND_STATUS.unbound,
+                )
+              }
             >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="1">已绑定</SelectItem>
-                <SelectItem value="2">未绑定</SelectItem>
+                <SelectItem value={String(EMAIL_BIND_STATUS.bound)}>
+                  {EMAIL_BIND_STATUS_LABELS[EMAIL_BIND_STATUS.bound]}
+                </SelectItem>
+                <SelectItem value={String(EMAIL_BIND_STATUS.unbound)}>
+                  {EMAIL_BIND_STATUS_LABELS[EMAIL_BIND_STATUS.unbound]}
+                </SelectItem>
               </SelectContent>
             </Select>
           </label>

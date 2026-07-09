@@ -9,7 +9,136 @@ export interface Pagination {
   totalPages: number;
 }
 
-export type GameKey = "codm" | "sanguosha";
+type ConstValue<T extends Record<string, string | number>> = T[keyof T];
+
+export const GAME_KEY = {
+  codm: "codm",
+  sanguosha: "sanguosha",
+} as const;
+export const GAME_KEYS = [GAME_KEY.codm, GAME_KEY.sanguosha] as const;
+export type GameKey = (typeof GAME_KEYS)[number];
+export const DEFAULT_GAME_KEY: GameKey = GAME_KEY.codm;
+export const HOME_GAME_FILTER = {
+  ...GAME_KEY,
+  all: "all",
+} as const;
+export const HOME_GAME_FILTERS = [
+  HOME_GAME_FILTER.codm,
+  HOME_GAME_FILTER.sanguosha,
+  HOME_GAME_FILTER.all,
+] as const;
+export type HomeGameFilter = (typeof HOME_GAME_FILTERS)[number];
+
+export const ACCOUNT_STATUS = {
+  listed: 1,
+  unlisted: 2,
+  sold: 3,
+} as const;
+export type AccountStatus = ConstValue<typeof ACCOUNT_STATUS>;
+export type AccountWritableStatus =
+  | typeof ACCOUNT_STATUS.listed
+  | typeof ACCOUNT_STATUS.unlisted;
+export const ACCOUNT_STATUS_VALUES = [
+  ACCOUNT_STATUS.listed,
+  ACCOUNT_STATUS.unlisted,
+  ACCOUNT_STATUS.sold,
+] as const;
+export const ACCOUNT_WRITABLE_STATUS_VALUES = [
+  ACCOUNT_STATUS.listed,
+  ACCOUNT_STATUS.unlisted,
+] as const;
+export const ACCOUNT_STATUS_LABELS: Record<AccountStatus, string> = {
+  [ACCOUNT_STATUS.listed]: "已上架",
+  [ACCOUNT_STATUS.unlisted]: "已下架",
+  [ACCOUNT_STATUS.sold]: "已出售",
+};
+
+export const EMAIL_BIND_STATUS = {
+  bound: 1,
+  unbound: 2,
+} as const;
+export type EmailBindStatus = ConstValue<typeof EMAIL_BIND_STATUS>;
+export const EMAIL_BIND_STATUS_VALUES = [
+  EMAIL_BIND_STATUS.bound,
+  EMAIL_BIND_STATUS.unbound,
+] as const;
+export const EMAIL_BIND_STATUS_LABELS: Record<EmailBindStatus, string> = {
+  [EMAIL_BIND_STATUS.bound]: "已绑定",
+  [EMAIL_BIND_STATUS.unbound]: "未绑定",
+};
+
+export const ACCOUNT_SORT = {
+  latest: "latest",
+  priceAsc: "price_asc",
+  priceDesc: "price_desc",
+} as const;
+export const ACCOUNT_SORT_VALUES = [
+  ACCOUNT_SORT.latest,
+  ACCOUNT_SORT.priceAsc,
+  ACCOUNT_SORT.priceDesc,
+] as const;
+export type AccountSort = (typeof ACCOUNT_SORT_VALUES)[number];
+
+export const GAME_ATTRIBUTE_TYPES = ["number", "select"] as const;
+export type GameAttributeType = (typeof GAME_ATTRIBUTE_TYPES)[number];
+
+export const KNOWLEDGE_STATUS = {
+  draft: "draft",
+  published: "published",
+  archived: "archived",
+} as const;
+export type KnowledgeStatus = ConstValue<typeof KNOWLEDGE_STATUS>;
+export const KNOWLEDGE_STATUS_VALUES = [
+  KNOWLEDGE_STATUS.draft,
+  KNOWLEDGE_STATUS.published,
+  KNOWLEDGE_STATUS.archived,
+] as const;
+
+export const KNOWLEDGE_VISIBILITY = {
+  public: "public",
+  private: "private",
+} as const;
+export type KnowledgeVisibility = ConstValue<typeof KNOWLEDGE_VISIBILITY>;
+export const KNOWLEDGE_VISIBILITY_VALUES = [
+  KNOWLEDGE_VISIBILITY.public,
+  KNOWLEDGE_VISIBILITY.private,
+] as const;
+
+export const KNOWLEDGE_INDEX_STATUS = {
+  pending: "pending",
+  indexing: "indexing",
+  indexed: "indexed",
+  failed: "failed",
+} as const;
+export type KnowledgeIndexStatus = ConstValue<typeof KNOWLEDGE_INDEX_STATUS>;
+export const KNOWLEDGE_INDEX_STATUS_VALUES = [
+  KNOWLEDGE_INDEX_STATUS.pending,
+  KNOWLEDGE_INDEX_STATUS.indexing,
+  KNOWLEDGE_INDEX_STATUS.indexed,
+  KNOWLEDGE_INDEX_STATUS.failed,
+] as const;
+
+export const KNOWLEDGE_SOURCE_TYPE = {
+  article: "article",
+  faq: "faq",
+} as const;
+export type KnowledgeSourceType = ConstValue<typeof KNOWLEDGE_SOURCE_TYPE>;
+export const KNOWLEDGE_SOURCE_TYPE_VALUES = [
+  KNOWLEDGE_SOURCE_TYPE.article,
+  KNOWLEDGE_SOURCE_TYPE.faq,
+] as const;
+
+export const CHAT_ROLE = {
+  user: "user",
+  assistant: "assistant",
+  system: "system",
+} as const;
+export const CHAT_ROLES = [
+  CHAT_ROLE.user,
+  CHAT_ROLE.assistant,
+  CHAT_ROLE.system,
+] as const;
+export type ChatRole = (typeof CHAT_ROLES)[number];
 
 export interface GameOption {
   key: GameKey;
@@ -30,7 +159,7 @@ export interface ShopAccount {
   description: string;
   xianyuUrl: string;
   email: string;
-  status: number;
+  status: AccountStatus;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -86,7 +215,7 @@ export interface AdminAccountListResult {
 }
 
 export interface AdminAccountStatisticsStatus {
-  status: number;
+  status: AccountStatus;
   label: string;
   count: number;
   totalValue: number;
@@ -126,7 +255,7 @@ export interface AdminEmail {
   prefix: string;
   postfix: string;
   email: string;
-  bindStatus: number;
+  bindStatus: EmailBindStatus;
   boundAccountId?: number;
   createdAt?: string;
   updatedAt?: string;
@@ -159,8 +288,6 @@ export interface SequenceCounter {
   displayName?: string;
   updatedAt?: string;
 }
-
-export type GameAttributeType = "number" | "select";
 
 export type AccountAttributePrimitive = number | string;
 
@@ -229,11 +356,6 @@ export interface UploadCredential {
   };
 }
 
-export type KnowledgeStatus = "draft" | "published" | "archived";
-export type KnowledgeVisibility = "public" | "private";
-export type KnowledgeIndexStatus =
-  "pending" | "indexing" | "indexed" | "failed";
-
 export interface KnowledgeBase {
   id: string;
   slug: string;
@@ -294,7 +416,7 @@ export interface FaqItem {
 export interface KnowledgeChunk {
   id: string;
   knowledgeBaseId: string;
-  sourceType: "article" | "faq";
+  sourceType: KnowledgeSourceType;
   sourceId: string;
   title: string;
   content: string;
@@ -305,7 +427,7 @@ export interface KnowledgeChunk {
 
 export interface KnowledgeSearchResult {
   id: string;
-  type: "article" | "faq";
+  type: KnowledgeSourceType;
   title: string;
   excerpt?: string;
   categoryName?: string;
@@ -315,7 +437,7 @@ export interface KnowledgeSearchResult {
 export interface RagMessageSource {
   title: string;
   href: string;
-  sourceType: "article" | "faq";
+  sourceType: KnowledgeSourceType;
   sourceId: string;
   score?: number;
 }
@@ -331,13 +453,13 @@ export interface RagConversation {
 export interface RagMessage {
   id: string;
   conversationId: string;
-  role: "user" | "assistant" | "system";
+  role: ChatRole;
   content: string;
   sources: RagMessageSource[];
   createdAt?: string;
 }
 
 export interface ChatMessageInput {
-  role: "user" | "assistant" | "system";
+  role: ChatRole;
   content: string;
 }

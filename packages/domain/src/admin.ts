@@ -1,5 +1,14 @@
 import { Prisma } from "@prisma/client";
+import {
+  ACCOUNT_SORT,
+  ACCOUNT_STATUS,
+  ACCOUNT_STATUS_LABELS,
+  DEFAULT_GAME_KEY,
+  EMAIL_BIND_STATUS,
+  GAME_KEY,
+} from "@wuliuqi/types";
 import type {
+  AccountWritableStatus,
   AccountAttributes,
   AdminAccount,
   AdminAccountListResult,
@@ -7,6 +16,7 @@ import type {
   AdminEmail,
   AdminEmailPostfix,
   AdminEmailListResult,
+  EmailBindStatus,
   Carousel,
   GameAttributeDefinition,
   GameAttributeOption,
@@ -75,20 +85,29 @@ type EmailPostfixRecord = {
   updatedAt: Date;
 };
 
-const CODM_GAME_KEY: GameKey = "codm";
-const ACCOUNT_LISTED_STATUS = 1;
-const ACCOUNT_UNLISTED_STATUS = 2;
-const ACCOUNT_SOLD_STATUS = 3;
-const EMAIL_BOUND_STATUS = 1;
-const EMAIL_UNBOUND_STATUS = 2;
+const CODM_GAME_KEY: GameKey = DEFAULT_GAME_KEY;
+const ACCOUNT_LISTED_STATUS = ACCOUNT_STATUS.listed;
+const ACCOUNT_UNLISTED_STATUS = ACCOUNT_STATUS.unlisted;
+const ACCOUNT_SOLD_STATUS = ACCOUNT_STATUS.sold;
+const EMAIL_BOUND_STATUS = EMAIL_BIND_STATUS.bound;
+const EMAIL_UNBOUND_STATUS = EMAIL_BIND_STATUS.unbound;
 const TRANSACTION_OPTIONS = {
   maxWait: 10_000,
   timeout: 20_000,
 } as const;
 const ACCOUNT_STATUSES = [
-  { status: ACCOUNT_LISTED_STATUS, label: "已上架" },
-  { status: ACCOUNT_UNLISTED_STATUS, label: "已下架" },
-  { status: ACCOUNT_SOLD_STATUS, label: "已出售" },
+  {
+    status: ACCOUNT_LISTED_STATUS,
+    label: ACCOUNT_STATUS_LABELS[ACCOUNT_LISTED_STATUS],
+  },
+  {
+    status: ACCOUNT_UNLISTED_STATUS,
+    label: ACCOUNT_STATUS_LABELS[ACCOUNT_UNLISTED_STATUS],
+  },
+  {
+    status: ACCOUNT_SOLD_STATUS,
+    label: ACCOUNT_STATUS_LABELS[ACCOUNT_SOLD_STATUS],
+  },
 ] as const;
 
 function serializeAdminAccount(
@@ -162,8 +181,8 @@ async function getEmailPostfixUsageCount(
   postfix: string,
 ): Promise<number> {
   const [codmUsageCount, sanguoshaUsageCount] = await Promise.all([
-    emailDelegate(client, "codm").count({ where: { postfix } }),
-    emailDelegate(client, "sanguosha").count({ where: { postfix } }),
+    emailDelegate(client, GAME_KEY.codm).count({ where: { postfix } }),
+    emailDelegate(client, GAME_KEY.sanguosha).count({ where: { postfix } }),
   ]);
 
   return Number(codmUsageCount ?? 0) + Number(sanguoshaUsageCount ?? 0);
@@ -260,7 +279,7 @@ async function countGameAttributeUsage(
   gameKey: string | null = CODM_GAME_KEY,
 ) {
   const accountTable = Prisma.raw(
-    normalizeGameKey(gameKey) === "sanguosha"
+    normalizeGameKey(gameKey) === GAME_KEY.sanguosha
       ? '"sanguosha_accounts"'
       : '"codm_accounts"',
   );
@@ -277,7 +296,7 @@ async function countGameAttributeUsage(
 async function listGameAttributeUsageCounts(gameKey: string) {
   const normalizedGameKey = normalizeGameKey(gameKey);
   const accountTable = Prisma.raw(
-    normalizedGameKey === "sanguosha"
+    normalizedGameKey === GAME_KEY.sanguosha
       ? '"sanguosha_accounts"'
       : '"codm_accounts"',
   );
@@ -374,7 +393,7 @@ async function getExpectedEmailBindStatus(
   tx: TransactionClient,
   email?: string | null,
   gameKey: GameKey = CODM_GAME_KEY,
-): Promise<1 | 2> {
+): Promise<EmailBindStatus> {
   if (!email) {
     return EMAIL_UNBOUND_STATUS;
   }
@@ -536,7 +555,7 @@ async function assertAccountEmailForWrite(
 async function markEmailBindStatus(
   tx: TransactionClient,
   emailRecord: Pick<EmailRecord, "id">,
-  bindStatus: 1 | 2,
+  bindStatus: EmailBindStatus,
   gameKey: GameKey = CODM_GAME_KEY,
 ) {
   await emailDelegate(tx, gameKey).update({
@@ -635,9 +654,9 @@ export async function listAdminAccounts(
   }
 
   const orderBy: Prisma.CodmAccountOrderByWithRelationInput =
-    query.sort === "price_asc"
+    query.sort === ACCOUNT_SORT.priceAsc
       ? { price: "asc" }
-      : query.sort === "price_desc"
+      : query.sort === ACCOUNT_SORT.priceDesc
         ? { price: "desc" }
         : { updatedAt: "desc" };
 
@@ -740,7 +759,7 @@ export async function getAdminAccountStatistics(
     (item) => item.status === ACCOUNT_LISTED_STATUS,
   ) ?? {
     count: 0,
-    label: "已上架",
+    label: ACCOUNT_STATUS_LABELS[ACCOUNT_LISTED_STATUS],
     status: ACCOUNT_LISTED_STATUS,
     totalCost: 0,
     totalRevenue: 0,
@@ -750,7 +769,7 @@ export async function getAdminAccountStatistics(
     (item) => item.status === ACCOUNT_UNLISTED_STATUS,
   ) ?? {
     count: 0,
-    label: "已下架",
+    label: ACCOUNT_STATUS_LABELS[ACCOUNT_UNLISTED_STATUS],
     status: ACCOUNT_UNLISTED_STATUS,
     totalCost: 0,
     totalRevenue: 0,
@@ -760,7 +779,7 @@ export async function getAdminAccountStatistics(
     (item) => item.status === ACCOUNT_SOLD_STATUS,
   ) ?? {
     count: 0,
-    label: "已出售",
+    label: ACCOUNT_STATUS_LABELS[ACCOUNT_SOLD_STATUS],
     status: ACCOUNT_SOLD_STATUS,
     totalCost: 0,
     totalRevenue: 0,
@@ -1009,7 +1028,7 @@ export async function deleteAdminAccount(
 
 export async function updateAdminAccountStatus(
   id: number,
-  status: 1 | 2,
+  status: AccountWritableStatus,
   gameKeyInput: string | null = CODM_GAME_KEY,
 ): Promise<AdminAccount> {
   const gameKey = normalizeGameKey(gameKeyInput);
@@ -1456,7 +1475,7 @@ export async function deleteAdminEmail(
 
 export async function updateAdminEmailBindStatus(
   id: number,
-  bindStatus: 1 | 2,
+  bindStatus: EmailBindStatus,
   gameKeyInput: string | null = CODM_GAME_KEY,
 ): Promise<AdminEmail> {
   const gameKey = normalizeGameKey(gameKeyInput);
@@ -1686,7 +1705,7 @@ export async function clearAdminGameAttributeDefinitionValues(
 
   const clearedCount = await prisma.$executeRaw`
     UPDATE ${Prisma.raw(
-      normalizeGameKey(existing.gameKey) === "sanguosha"
+      normalizeGameKey(existing.gameKey) === GAME_KEY.sanguosha
         ? '"sanguosha_accounts"'
         : '"codm_accounts"',
     )}

@@ -1,6 +1,11 @@
 "use client";
 
-import type { GameKey, PublicShopAccount } from "@wuliuqi/types";
+import { ACCOUNT_SORT, HOME_GAME_FILTER } from "@wuliuqi/types";
+import type {
+  AccountSort,
+  HomeGameFilter,
+  PublicShopAccount,
+} from "@wuliuqi/types";
 import { Button } from "@wuliuqi/ui/components/button";
 import {
   Select,
@@ -20,9 +25,9 @@ import { fetchHomeAccounts } from "@/lib/client-api";
 const HOME_PAGE_SIZE = 12;
 
 const gameOptions: Array<{ label: string; value: HomeGameFilter }> = [
-  { label: "全部游戏", value: "all" },
-  { label: "CODM", value: "codm" },
-  { label: "三国杀", value: "sanguosha" },
+  { label: "全部游戏", value: HOME_GAME_FILTER.all },
+  { label: "CODM", value: HOME_GAME_FILTER.codm },
+  { label: "三国杀", value: HOME_GAME_FILTER.sanguosha },
 ];
 
 const priceRanges = [
@@ -35,25 +40,30 @@ const priceRanges = [
 ] as const;
 
 const sortOptions = [
-  { label: "最新上架", value: "latest" },
-  { label: "价格从低到高", value: "price_asc" },
-  { label: "价格从高到低", value: "price_desc" },
+  { label: "最新上架", value: ACCOUNT_SORT.latest },
+  { label: "价格从低到高", value: ACCOUNT_SORT.priceAsc },
+  { label: "价格从高到低", value: ACCOUNT_SORT.priceDesc },
 ] as const;
 
-type HomeGameFilter = GameKey | "all";
 type HomePriceRangeValue = (typeof priceRanges)[number]["value"];
-type HomeSortValue = (typeof sortOptions)[number]["value"];
+type HomeSortValue = AccountSort;
 type LoadingMode = "initial" | "append" | "filter";
 
 export function HomeAccountFeed() {
   const [accounts, setAccounts] = useState<PublicShopAccount[]>([]);
-  const [gameKeyValue, setGameKeyValue] = useState<HomeGameFilter>("all");
-  const [gameKey, setGameKey] = useState<HomeGameFilter>("all");
+  const [gameKeyValue, setGameKeyValue] = useState<HomeGameFilter>(
+    HOME_GAME_FILTER.all,
+  );
+  const [gameKey, setGameKey] = useState<HomeGameFilter>(
+    HOME_GAME_FILTER.all,
+  );
   const [priceRangeValue, setPriceRangeValue] =
     useState<HomePriceRangeValue>("all");
   const [priceRange, setPriceRange] = useState<HomePriceRangeValue>("all");
-  const [sortValue, setSortValue] = useState<HomeSortValue>("latest");
-  const [sort, setSort] = useState<HomeSortValue>("latest");
+  const [sortValue, setSortValue] = useState<HomeSortValue>(
+    ACCOUNT_SORT.latest,
+  );
+  const [sort, setSort] = useState<HomeSortValue>(ACCOUNT_SORT.latest);
   const [nextCursor, setNextCursor] = useState<string | undefined>();
   const [loadingMode, setLoadingMode] = useState<LoadingMode | null>("initial");
   const [error, setError] = useState("");
@@ -158,18 +168,22 @@ export function HomeAccountFeed() {
       return;
     }
 
-    setGameKeyValue("all");
+    setGameKeyValue(HOME_GAME_FILTER.all);
     setPriceRangeValue("all");
-    setSortValue("latest");
+    setSortValue(ACCOUNT_SORT.latest);
 
-    if (gameKey === "all" && priceRange === "all" && sort === "latest") {
+    if (
+      gameKey === HOME_GAME_FILTER.all &&
+      priceRange === "all" &&
+      sort === ACCOUNT_SORT.latest
+    ) {
       void loadAccounts("filter");
       return;
     }
 
-    setGameKey("all");
+    setGameKey(HOME_GAME_FILTER.all);
     setPriceRange("all");
-    setSort("latest");
+    setSort(ACCOUNT_SORT.latest);
   }
 
   function searchAccounts() {

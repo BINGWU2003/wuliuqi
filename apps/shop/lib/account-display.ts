@@ -1,4 +1,9 @@
-import type { PublicShopAccount } from "@wuliuqi/types";
+import {
+  ACCOUNT_STATUS,
+  ACCOUNT_STATUS_LABELS,
+  GAME_KEY,
+} from "@wuliuqi/types";
+import type { AccountStatus, PublicShopAccount } from "@wuliuqi/types";
 
 export function formatPrice(price: number) {
   return new Intl.NumberFormat("zh-CN", {
@@ -26,7 +31,7 @@ export function getAccountName(account: PublicShopAccount) {
 }
 
 export function getAccountBadges(account: PublicShopAccount) {
-  if (account.gameKey === "sanguosha") {
+  if (account.gameKey === GAME_KEY.sanguosha) {
     return getGenericAttributeBadgesWithImages(account);
   }
 
@@ -40,7 +45,8 @@ export function getAccountBadges(account: PublicShopAccount) {
 }
 
 export function getAccountCardBadges(account: PublicShopAccount) {
-  const gameLabel = account.gameKey === "sanguosha" ? "三国杀" : "CODM";
+  const gameLabel =
+    account.gameKey === GAME_KEY.sanguosha ? "三国杀" : "CODM";
 
   return [gameLabel, ...getGenericAttributeBadges(account)].slice(0, 3);
 }
@@ -77,10 +83,12 @@ function getGenericAttributeBadgesWithImages(account: PublicShopAccount) {
   return badges.slice(0, 3);
 }
 
-export function getStatusLabel(status: number) {
-  if (status === 1) {
+export function getStatusLabel(status: AccountStatus) {
+  if (status === ACCOUNT_STATUS.listed) {
     return "可购买";
   }
 
-  return status === 3 ? "已出售" : "已下架";
+  return status === ACCOUNT_STATUS.sold
+    ? ACCOUNT_STATUS_LABELS[ACCOUNT_STATUS.sold]
+    : ACCOUNT_STATUS_LABELS[ACCOUNT_STATUS.unlisted];
 }

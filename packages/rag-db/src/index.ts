@@ -1,24 +1,32 @@
+import {
+  KNOWLEDGE_INDEX_STATUS,
+  KNOWLEDGE_SOURCE_TYPE,
+  KNOWLEDGE_STATUS,
+  KNOWLEDGE_VISIBILITY,
+} from "@wuliuqi/types";
 import type {
   FaqItem,
+  ChatRole,
   KnowledgeArticle,
   KnowledgeBase,
   KnowledgeCategory,
   KnowledgeChunk,
+  KnowledgeIndexStatus,
   KnowledgeSearchResult,
+  KnowledgeSourceType,
+  KnowledgeStatus,
+  KnowledgeVisibility,
   RagMessageSource,
 } from "@wuliuqi/types";
 import postgres from "postgres";
 
 type SqlClient = postgres.Sql<Record<string, unknown>>;
-type KnowledgeStatus = "draft" | "published" | "archived";
-type IndexStatus = "pending" | "indexing" | "indexed" | "failed";
-type SourceType = "article" | "faq";
 
 type BaseInput = {
   name: string;
   slug: string;
   description?: string;
-  visibility?: "public" | "private";
+  visibility?: KnowledgeVisibility;
   status?: KnowledgeStatus;
 };
 
@@ -55,7 +63,7 @@ type FaqInput = {
 
 type ChunkInput = {
   knowledgeBaseId: string;
-  sourceType: SourceType;
+  sourceType: KnowledgeSourceType;
   sourceId: string;
   title: string;
   content: string;
@@ -120,8 +128,8 @@ export async function getKnowledgeBaseBySlug(
     SELECT *
     FROM knowledge_bases
     WHERE slug = ${slug}
-      AND status = 'published'
-      AND visibility = 'public'
+      AND status = ${KNOWLEDGE_STATUS.published}
+      AND visibility = ${KNOWLEDGE_VISIBILITY.public}
   `;
 
   return row ? serializeBase(row) : null;
@@ -136,8 +144,8 @@ export async function createKnowledgeBase(
       ${input.name},
       ${input.slug},
       ${input.description ?? null},
-      ${input.visibility ?? "public"},
-      ${input.status ?? "published"}
+      ${input.visibility ?? KNOWLEDGE_VISIBILITY.public},
+      ${input.status ?? KNOWLEDGE_STATUS.published}
     )
     RETURNING *
   `;
@@ -287,10 +295,10 @@ export async function listPublishedArticlesByCategory(
     INNER JOIN knowledge_bases b ON b.id = a.knowledge_base_id
     INNER JOIN knowledge_categories c ON c.id = a.category_id
     WHERE b.slug = ${knowledgeBaseSlug}
-      AND b.status = 'published'
-      AND b.visibility = 'public'
+      AND b.status = ${KNOWLEDGE_STATUS.published}
+      AND b.visibility = ${KNOWLEDGE_VISIBILITY.public}
       AND c.slug = ${categorySlug}
-      AND a.status = 'published'
+      AND a.status = ${KNOWLEDGE_STATUS.published}
     ORDER BY a.sort_order ASC, a.updated_at DESC
   `;
 
@@ -318,10 +326,10 @@ export async function getPublishedArticleBySlug(
     FROM knowledge_articles a
     INNER JOIN knowledge_bases b ON b.id = a.knowledge_base_id
     WHERE b.slug = ${knowledgeBaseSlug}
-      AND b.status = 'published'
-      AND b.visibility = 'public'
+      AND b.status = ${KNOWLEDGE_STATUS.published}
+      AND b.visibility = ${KNOWLEDGE_VISIBILITY.public}
       AND a.slug = ${articleSlug}
-      AND a.status = 'published'
+      AND a.status = ${KNOWLEDGE_STATUS.published}
   `;
 
   return row ? serializeArticle(row) : null;
@@ -330,7 +338,7 @@ export async function getPublishedArticleBySlug(
 export async function createKnowledgeArticle(
   input: ArticleInput,
 ): Promise<KnowledgeArticle> {
-  const status = input.status ?? "draft";
+  const status = input.status ?? KNOWLEDGE_STATUS.draft;
   const [row] = await getRagSql()`
     INSERT INTO knowledge_articles (
       knowledge_base_id,
@@ -353,10 +361,10 @@ export async function createKnowledgeArticle(
       ${input.excerpt ?? null},
       ${input.content},
       ${status},
-      'pending',
+      ${KNOWLEDGE_INDEX_STATUS.pending},
       ${JSON.stringify(input.tags ?? [])}::jsonb,
       ${input.sortOrder ?? 0},
-      ${status === "published" ? new Date() : null}
+      ${status === KNOWLEDGE_STATUS.published ? new Date() : null}
     )
     RETURNING *
   `;
@@ -383,13 +391,13 @@ export async function updateKnowledgeArticle(
         excerpt = ${input.excerpt ?? existing.excerpt ?? null},
         content = ${input.content ?? existing.content},
         status = ${nextStatus},
-        index_status = 'pending',
+        index_status = ${KNOWLEDGE_INDEX_STATUS.pending},
         index_error = null,
         tags = ${JSON.stringify(input.tags ?? existing.tags)}::jsonb,
         sort_order = ${input.sortOrder ?? existing.sortOrder},
         published_at = CASE
-          WHEN ${nextStatus} = 'published' AND published_at IS NULL THEN now()
-          WHEN ${nextStatus} <> 'published' THEN NULL
+          WHEN ${nextStatus} = ${KNOWLEDGE_STATUS.published} AND published_at IS NULL THEN now()
+          WHEN ${nextStatus} <> ${KNOWLEDGE_STATUS.published} THEN NULL
           ELSE published_at
         END
     WHERE id = ${id}
@@ -418,7 +426,7 @@ export async function listFaqItems(knowledgeBaseId: string): Promise<FaqItem[]> 
 }
 
 export async function createFaqItem(input: FaqInput): Promise<FaqItem> {
-  const status = input.status ?? "draft";
+  const status = input.status ?? KNOWLEDGE_STATUS.draft;
   const [row] = await getRagSql()`
     INSERT INTO faq_items (
       knowledge_base_id,
@@ -439,10 +447,10 @@ export async function createFaqItem(input: FaqInput): Promise<FaqItem> {
       ${input.answer},
       ${JSON.stringify(input.aliases ?? [])}::jsonb,
       ${status},
-      'pending',
+      ${KNOWLEDGE_INDEX_STATUS.pending},
       ${JSON.stringify(input.tags ?? [])}::jsonb,
       ${input.sortOrder ?? 0},
-      ${status === "published" ? new Date() : null}
+      ${status === KNOWLEDGE_STATUS.published ? new Date() : null}
     )
     RETURNING *
   `;
@@ -468,13 +476,13 @@ export async function updateFaqItem(
         answer = ${input.answer ?? existing.answer},
         aliases = ${JSON.stringify(input.aliases ?? existing.aliases)}::jsonb,
         status = ${nextStatus},
-        index_status = 'pending',
+        index_status = ${KNOWLEDGE_INDEX_STATUS.pending},
         index_error = null,
         tags = ${JSON.stringify(input.tags ?? existing.tags)}::jsonb,
         sort_order = ${input.sortOrder ?? existing.sortOrder},
         published_at = CASE
-          WHEN ${nextStatus} = 'published' AND published_at IS NULL THEN now()
-          WHEN ${nextStatus} <> 'published' THEN NULL
+          WHEN ${nextStatus} = ${KNOWLEDGE_STATUS.published} AND published_at IS NULL THEN now()
+          WHEN ${nextStatus} <> ${KNOWLEDGE_STATUS.published} THEN NULL
           ELSE published_at
         END
     WHERE id = ${id}
@@ -502,23 +510,23 @@ export async function getFaqItemById(id: string): Promise<FaqItem | null> {
 }
 
 export async function getIndexableSource(
-  sourceType: SourceType,
+  sourceType: KnowledgeSourceType,
   sourceId: string,
 ): Promise<KnowledgeArticle | FaqItem | null> {
-  return sourceType === "article"
+  return sourceType === KNOWLEDGE_SOURCE_TYPE.article
     ? getKnowledgeArticleById(sourceId)
     : getFaqItemById(sourceId);
 }
 
 export async function setSourceIndexStatus(
-  sourceType: SourceType,
+  sourceType: KnowledgeSourceType,
   sourceId: string,
-  status: IndexStatus,
+  status: KnowledgeIndexStatus,
   error?: string,
 ): Promise<void> {
   const sql = getRagSql();
 
-  if (sourceType === "article") {
+  if (sourceType === KNOWLEDGE_SOURCE_TYPE.article) {
     await sql`
       UPDATE knowledge_articles
       SET index_status = ${status}, index_error = ${error ?? null}
@@ -535,7 +543,7 @@ export async function setSourceIndexStatus(
 }
 
 export async function replaceSourceChunks(
-  sourceType: SourceType,
+  sourceType: KnowledgeSourceType,
   sourceId: string,
   chunks: ChunkInput[],
 ): Promise<void> {
@@ -588,9 +596,9 @@ export async function findExactFaq(
     FROM faq_items f
     INNER JOIN knowledge_bases b ON b.id = f.knowledge_base_id
     WHERE b.slug = ${knowledgeBaseSlug}
-      AND b.status = 'published'
-      AND b.visibility = 'public'
-      AND f.status = 'published'
+      AND b.status = ${KNOWLEDGE_STATUS.published}
+      AND b.visibility = ${KNOWLEDGE_VISIBILITY.public}
+      AND f.status = ${KNOWLEDGE_STATUS.published}
       AND (
         lower(f.question) = ${normalized}
         OR EXISTS (
@@ -629,8 +637,8 @@ export async function searchChunksByEmbedding(input: {
     FROM knowledge_chunks c
     INNER JOIN knowledge_bases b ON b.id = c.knowledge_base_id
     WHERE b.slug = ${input.knowledgeBaseSlug}
-      AND b.status = 'published'
-      AND b.visibility = 'public'
+      AND b.status = ${KNOWLEDGE_STATUS.published}
+      AND b.visibility = ${KNOWLEDGE_VISIBILITY.public}
       AND 1 - (c.embedding <=> ${vector}::extensions.vector) >= ${input.minScore ?? 0}
     ORDER BY c.embedding <=> ${vector}::extensions.vector
     LIMIT ${input.topK ?? 6}
@@ -652,14 +660,14 @@ export async function searchPublishedKnowledge(input: {
   }
 
   const articleRows = await getRagSql()`
-    SELECT a.id, a.title, a.excerpt, a.slug, 'article' AS type, c.name AS category_name
+    SELECT a.id, a.title, a.excerpt, a.slug, ${KNOWLEDGE_SOURCE_TYPE.article} AS type, c.name AS category_name
     FROM knowledge_articles a
     INNER JOIN knowledge_bases b ON b.id = a.knowledge_base_id
     LEFT JOIN knowledge_categories c ON c.id = a.category_id
     WHERE b.slug = ${input.knowledgeBaseSlug}
-      AND b.status = 'published'
-      AND b.visibility = 'public'
-      AND a.status = 'published'
+      AND b.status = ${KNOWLEDGE_STATUS.published}
+      AND b.visibility = ${KNOWLEDGE_VISIBILITY.public}
+      AND a.status = ${KNOWLEDGE_STATUS.published}
       AND (a.title ILIKE ${keyword} OR a.excerpt ILIKE ${keyword} OR a.content ILIKE ${keyword})
     ORDER BY a.sort_order ASC, a.updated_at DESC
     LIMIT ${limit}
@@ -671,16 +679,16 @@ export async function searchPublishedKnowledge(input: {
       f.question AS title,
       f.answer AS excerpt,
       NULL AS slug,
-      'faq' AS type,
+      ${KNOWLEDGE_SOURCE_TYPE.faq} AS type,
       c.name AS category_name,
       c.slug AS category_slug
     FROM faq_items f
     INNER JOIN knowledge_bases b ON b.id = f.knowledge_base_id
     LEFT JOIN knowledge_categories c ON c.id = f.category_id
     WHERE b.slug = ${input.knowledgeBaseSlug}
-      AND b.status = 'published'
-      AND b.visibility = 'public'
-      AND f.status = 'published'
+      AND b.status = ${KNOWLEDGE_STATUS.published}
+      AND b.visibility = ${KNOWLEDGE_VISIBILITY.public}
+      AND f.status = ${KNOWLEDGE_STATUS.published}
       AND (f.question ILIKE ${keyword} OR f.answer ILIKE ${keyword})
     ORDER BY f.sort_order ASC, f.updated_at DESC
     LIMIT ${limit}
@@ -690,10 +698,13 @@ export async function searchPublishedKnowledge(input: {
     id: stringValue(row.id),
     title: stringValue(row.title),
     excerpt: nullableString(row.excerpt),
-    type: row.type === "faq" ? "faq" : "article",
+    type:
+      row.type === KNOWLEDGE_SOURCE_TYPE.faq
+        ? KNOWLEDGE_SOURCE_TYPE.faq
+        : KNOWLEDGE_SOURCE_TYPE.article,
     categoryName: nullableString(row.category_name),
     href:
-      row.type === "faq"
+      row.type === KNOWLEDGE_SOURCE_TYPE.faq
         ? faqHref(input.knowledgeBaseSlug, row)
         : `/kb/${input.knowledgeBaseSlug}/docs/${stringValue(row.slug)}`,
   }));
@@ -725,7 +736,7 @@ export async function createRagConversation(
 
 export async function addRagMessage(input: {
   conversationId: string;
-  role: "user" | "assistant" | "system";
+  role: ChatRole;
   content: string;
   sources?: RagMessageSource[];
 }): Promise<void> {
@@ -764,7 +775,10 @@ function serializeBase(row: postgres.Row): KnowledgeBase {
     slug: stringValue(row.slug),
     name: stringValue(row.name),
     description: nullableString(row.description),
-    visibility: row.visibility === "private" ? "private" : "public",
+    visibility:
+      row.visibility === KNOWLEDGE_VISIBILITY.private
+        ? KNOWLEDGE_VISIBILITY.private
+        : KNOWLEDGE_VISIBILITY.public,
     status: knowledgeStatus(row.status),
     createdAt: dateString(row.created_at),
     updatedAt: dateString(row.updated_at),
@@ -827,7 +841,10 @@ function serializeChunk(row: postgres.Row): KnowledgeChunk {
   return {
     id: stringValue(row.id),
     knowledgeBaseId: stringValue(row.knowledge_base_id),
-    sourceType: row.source_type === "faq" ? "faq" : "article",
+    sourceType:
+      row.source_type === KNOWLEDGE_SOURCE_TYPE.faq
+        ? KNOWLEDGE_SOURCE_TYPE.faq
+        : KNOWLEDGE_SOURCE_TYPE.article,
     sourceId: stringValue(row.source_id),
     title: stringValue(row.title),
     content: stringValue(row.content),
@@ -872,15 +889,21 @@ function recordValue(value: unknown): Record<string, unknown> {
 }
 
 function knowledgeStatus(value: unknown): KnowledgeStatus {
-  return value === "draft" || value === "archived" ? value : "published";
+  return value === KNOWLEDGE_STATUS.draft || value === KNOWLEDGE_STATUS.archived
+    ? value
+    : KNOWLEDGE_STATUS.published;
 }
 
-function indexStatus(value: unknown): IndexStatus {
-  if (value === "indexing" || value === "indexed" || value === "failed") {
+function indexStatus(value: unknown): KnowledgeIndexStatus {
+  if (
+    value === KNOWLEDGE_INDEX_STATUS.indexing ||
+    value === KNOWLEDGE_INDEX_STATUS.indexed ||
+    value === KNOWLEDGE_INDEX_STATUS.failed
+  ) {
     return value;
   }
 
-  return "pending";
+  return KNOWLEDGE_INDEX_STATUS.pending;
 }
 
 function formatVector(values: number[]) {

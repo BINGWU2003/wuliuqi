@@ -1,5 +1,7 @@
 "use client";
 
+import { DEFAULT_GAME_KEY, GAME_KEY } from "@wuliuqi/types";
+import type { GameKey } from "@wuliuqi/types";
 import { Button } from "@wuliuqi/ui/components/button";
 import {
   Dialog,
@@ -15,15 +17,18 @@ import { CodmAccountForm, SanguoshaAccountForm } from "@/components/account-form
 
 export function AccountEditModal({
   accountId,
-  initialGameKey = "codm",
+  initialGameKey = DEFAULT_GAME_KEY,
+  mode = "edit",
 }: {
   accountId?: number | null;
-  initialGameKey?: "codm" | "sanguosha";
+  initialGameKey?: GameKey;
+  mode?: "edit" | "view";
 }) {
   const router = useRouter();
   const [formBusy, setFormBusy] = useState(false);
   const isInvalidAccountId = accountId === null;
-  const title = accountId === undefined ? "新建账号" : "编辑账号";
+  const title =
+    mode === "view" ? "查看账号" : accountId === undefined ? "新建账号" : "编辑账号";
 
   function closeModal() {
     if (formBusy) {
@@ -52,7 +57,9 @@ export function AccountEditModal({
         <DialogDescription className="sr-only">
           {accountId === undefined
             ? "新建账号图片、价格、状态、邮箱和描述。"
-            : "编辑账号图片、价格、状态、邮箱和描述。"}
+            : mode === "view"
+              ? "查看账号图片、价格、状态、邮箱和描述。"
+              : "编辑账号图片、价格、状态、邮箱和描述。"}
         </DialogDescription>
         <div className="flex h-12 shrink-0 items-center justify-end border-b border-border bg-background/95 px-3 backdrop-blur">
           <Button
@@ -73,15 +80,17 @@ export function AccountEditModal({
             <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
               无效的账号ID
             </div>
-          ) : initialGameKey === "sanguosha" ? (
+          ) : initialGameKey === GAME_KEY.sanguosha ? (
             <SanguoshaAccountForm
               accountId={accountId}
+              mode={mode}
               presentation="modal"
               onBusyChange={setFormBusy}
             />
           ) : (
             <CodmAccountForm
               accountId={accountId}
+              mode={mode}
               presentation="modal"
               onBusyChange={setFormBusy}
             />

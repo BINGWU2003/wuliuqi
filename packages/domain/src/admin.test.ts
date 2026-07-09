@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ACCOUNT_SORT } from "@wuliuqi/types";
 
 const { prismaMock } = vi.hoisted(() => {
   const mock = {
@@ -436,7 +437,7 @@ describe("后台账号", () => {
       keyword: undefined,
       page: 1,
       limit: 10,
-      sort: "latest",
+      sort: ACCOUNT_SORT.latest,
     });
 
     expect(prismaMock.sanguoshaAccount.count).toHaveBeenCalledWith({

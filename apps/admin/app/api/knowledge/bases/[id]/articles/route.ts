@@ -2,6 +2,7 @@ import {
   createKnowledgeArticle,
   listKnowledgeArticles,
 } from "@wuliuqi/rag-db";
+import { KNOWLEDGE_SOURCE_TYPE, KNOWLEDGE_STATUS } from "@wuliuqi/types";
 import { knowledgeArticleCreateSchema } from "@wuliuqi/validators";
 import { type NextRequest } from "next/server";
 import { handleError, ok } from "@/lib/api-response";
@@ -40,8 +41,11 @@ export async function POST(
       knowledgeBaseId: id,
     });
 
-    if (article.status === "published") {
-      await indexKnowledgeSourceAfterSave("article", article.id);
+    if (article.status === KNOWLEDGE_STATUS.published) {
+      await indexKnowledgeSourceAfterSave(
+        KNOWLEDGE_SOURCE_TYPE.article,
+        article.id,
+      );
     }
 
     return ok(article, { status: 201 });

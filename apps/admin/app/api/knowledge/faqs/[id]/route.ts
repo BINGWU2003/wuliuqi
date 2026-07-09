@@ -3,6 +3,7 @@ import {
   getFaqItemById,
   updateFaqItem,
 } from "@wuliuqi/rag-db";
+import { KNOWLEDGE_SOURCE_TYPE, KNOWLEDGE_STATUS } from "@wuliuqi/types";
 import { faqItemUpdateSchema } from "@wuliuqi/validators";
 import { type NextRequest } from "next/server";
 import { fail, handleError, ok } from "@/lib/api-response";
@@ -42,8 +43,8 @@ export async function PATCH(
     const input = faqItemUpdateSchema.parse(await request.json());
     const faq = await updateFaqItem(id, input);
 
-    if (faq.status === "published") {
-      await indexKnowledgeSourceAfterSave("faq", faq.id);
+    if (faq.status === KNOWLEDGE_STATUS.published) {
+      await indexKnowledgeSourceAfterSave(KNOWLEDGE_SOURCE_TYPE.faq, faq.id);
     }
 
     return ok(faq);

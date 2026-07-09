@@ -1,11 +1,16 @@
 "use client";
 
+import {
+  KNOWLEDGE_SOURCE_TYPE,
+  KNOWLEDGE_STATUS,
+} from "@wuliuqi/types";
 import type {
   ApiResponse,
   FaqItem,
   KnowledgeArticle,
   KnowledgeBase,
   KnowledgeCategory,
+  KnowledgeSourceType,
   KnowledgeStatus,
 } from "@wuliuqi/types";
 import {
@@ -75,7 +80,7 @@ type KnowledgeState = {
   faqs: FaqItem[];
 };
 
-type ContentType = "article" | "faq";
+type ContentType = KnowledgeSourceType;
 type KnowledgeContentItem = KnowledgeArticle | FaqItem;
 type ContentTarget = {
   type: ContentType;
@@ -140,7 +145,7 @@ async function requestJson<T>(
 }
 
 function contentTypeLabel(type: ContentType) {
-  return type === "article" ? "文章" : "FAQ";
+  return type === KNOWLEDGE_SOURCE_TYPE.article ? "文章" : "FAQ";
 }
 
 function isPendingAction(
@@ -251,7 +256,7 @@ export function KnowledgePage() {
             name: String(formData.get("name") ?? ""),
             slug: String(formData.get("slug") ?? ""),
             description: String(formData.get("description") ?? ""),
-            status: "published",
+            status: KNOWLEDGE_STATUS.published,
             visibility: "public",
           }),
         });
@@ -305,7 +310,7 @@ export function KnowledgePage() {
               slug: String(formData.get("slug") ?? ""),
               excerpt: String(formData.get("excerpt") ?? ""),
               content: String(formData.get("content") ?? ""),
-              status: String(formData.get("status") ?? "draft"),
+              status: String(formData.get("status") ?? KNOWLEDGE_STATUS.draft),
               tags: String(formData.get("tags") ?? ""),
               sortOrder: Number(formData.get("sortOrder") || 0),
             }),
@@ -332,7 +337,7 @@ export function KnowledgePage() {
             question: String(formData.get("question") ?? ""),
             answer: String(formData.get("answer") ?? ""),
             aliases: String(formData.get("aliases") ?? ""),
-            status: String(formData.get("status") ?? "draft"),
+            status: String(formData.get("status") ?? KNOWLEDGE_STATUS.draft),
             tags: String(formData.get("tags") ?? ""),
             sortOrder: Number(formData.get("sortOrder") || 0),
           }),
@@ -375,7 +380,7 @@ export function KnowledgePage() {
       async () => {
         await requestJson<KnowledgeContentItem>(contentUrl(sourceType, sourceId), {
           method: "PATCH",
-          body: JSON.stringify({ status: "published" }),
+          body: JSON.stringify({ status: KNOWLEDGE_STATUS.published }),
         });
         await loadBaseChildren(selectedBaseId);
       },
@@ -733,7 +738,7 @@ export function KnowledgePage() {
                     state.articles.length === 0 ? "暂无内容" : "没有匹配内容"
                   }
                   items={filteredArticles}
-                  type="article"
+                  type={KNOWLEDGE_SOURCE_TYPE.article}
                   onDelete={(type, item) => setDeleteTarget({ type, item })}
                   onEdit={(type, item) => setEditing({ type, item })}
                   onPublish={publishContent}
@@ -790,7 +795,7 @@ export function KnowledgePage() {
                     state.faqs.length === 0 ? "暂无内容" : "没有匹配内容"
                   }
                   items={filteredFaqs}
-                  type="faq"
+                  type={KNOWLEDGE_SOURCE_TYPE.faq}
                   onDelete={(type, item) => setDeleteTarget({ type, item })}
                   onEdit={(type, item) => setEditing({ type, item })}
                   onPublish={publishContent}
@@ -878,13 +883,13 @@ export function KnowledgePage() {
 }
 
 function contentUrl(type: ContentType, id: string) {
-  return type === "article"
+  return type === KNOWLEDGE_SOURCE_TYPE.article
     ? `/api/knowledge/articles/${id}`
     : `/api/knowledge/faqs/${id}`;
 }
 
 function contentPayload(type: ContentType, formData: FormData) {
-  if (type === "article") {
+  if (type === KNOWLEDGE_SOURCE_TYPE.article) {
     return {
       categoryId: cleanCategoryId(formData.get("categoryId")),
       title: formValue(formData, "title"),
@@ -1087,16 +1092,20 @@ function ContentFilterToolbar({
   );
 }
 
-function StatusSelect({ defaultValue = "draft" }: { defaultValue?: KnowledgeStatus }) {
+function StatusSelect({
+  defaultValue = KNOWLEDGE_STATUS.draft,
+}: {
+  defaultValue?: KnowledgeStatus;
+}) {
   return (
     <Select defaultValue={defaultValue} name="status">
       <SelectTrigger>
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
-        <SelectItem value="draft">草稿</SelectItem>
-        <SelectItem value="published">发布并索引</SelectItem>
-        <SelectItem value="archived">归档</SelectItem>
+        <SelectItem value={KNOWLEDGE_STATUS.draft}>草稿</SelectItem>
+        <SelectItem value={KNOWLEDGE_STATUS.published}>发布并索引</SelectItem>
+        <SelectItem value={KNOWLEDGE_STATUS.archived}>归档</SelectItem>
       </SelectContent>
     </Select>
   );
@@ -1172,7 +1181,7 @@ function ContentList({
                 >
                   <Pencil size={15} />
                 </Button>
-                {item.status === "draft" ? (
+                {item.status === KNOWLEDGE_STATUS.draft ? (
                   <Button
                     aria-label={`发布${typeLabel}`}
                     disabled={isMutating}
@@ -1249,7 +1258,8 @@ function KnowledgeEditDialog({
   }
 
   const activeEditing = editing;
-  const typeLabel = activeEditing.type === "article" ? "文章" : "FAQ";
+  const typeLabel =
+    activeEditing.type === KNOWLEDGE_SOURCE_TYPE.article ? "文章" : "FAQ";
   const submitting = saving || localSaving;
 
   async function submit(formData: FormData) {
@@ -1304,7 +1314,7 @@ function KnowledgeEditDialog({
             </DialogDescription>
           </DialogHeader>
           <div className="grid flex-1 gap-3 overflow-y-auto p-4 sm:grid-cols-2">
-            {activeEditing.type === "article" ? (
+            {activeEditing.type === KNOWLEDGE_SOURCE_TYPE.article ? (
               <ArticleEditFields
                 article={activeEditing.item as KnowledgeArticle}
                 categories={categories}

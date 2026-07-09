@@ -1,4 +1,5 @@
 import { createFaqItem, listFaqItems } from "@wuliuqi/rag-db";
+import { KNOWLEDGE_SOURCE_TYPE, KNOWLEDGE_STATUS } from "@wuliuqi/types";
 import { faqItemCreateSchema } from "@wuliuqi/validators";
 import { type NextRequest } from "next/server";
 import { handleError, ok } from "@/lib/api-response";
@@ -34,8 +35,8 @@ export async function POST(
     const input = faqItemCreateSchema.parse(await request.json());
     const faq = await createFaqItem({ ...input, knowledgeBaseId: id });
 
-    if (faq.status === "published") {
-      await indexKnowledgeSourceAfterSave("faq", faq.id);
+    if (faq.status === KNOWLEDGE_STATUS.published) {
+      await indexKnowledgeSourceAfterSave(KNOWLEDGE_SOURCE_TYPE.faq, faq.id);
     }
 
     return ok(faq, { status: 201 });

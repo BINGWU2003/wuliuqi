@@ -6,6 +6,12 @@ import type {
   AdminAccountStatisticsStatus,
   GameKey,
 } from "@wuliuqi/types";
+import {
+  ACCOUNT_STATUS,
+  ACCOUNT_STATUS_LABELS,
+  DEFAULT_GAME_KEY,
+  GAME_KEY,
+} from "@wuliuqi/types";
 import { Badge } from "@wuliuqi/ui/components/badge";
 import { Button } from "@wuliuqi/ui/components/button";
 import {
@@ -48,12 +54,12 @@ type Metric = {
   icon: typeof PackageSearch;
 };
 const gameOptions: Array<{ label: string; value: GameKey }> = [
-  { label: "CODM", value: "codm" },
-  { label: "三国杀", value: "sanguosha" },
+  { label: "CODM", value: GAME_KEY.codm },
+  { label: "三国杀", value: GAME_KEY.sanguosha },
 ];
 
 export function StatisticsPage() {
-  const [gameKey, setGameKey] = useState<GameKey>("codm");
+  const [gameKey, setGameKey] = useState<GameKey>(DEFAULT_GAME_KEY);
   const [statistics, setStatistics] = useState<AdminAccountStatistics | null>(
     null,
   );
@@ -154,19 +160,19 @@ function StatisticsContent({
       icon: PackageSearch,
     },
     {
-      label: "已上架",
+      label: ACCOUNT_STATUS_LABELS[ACCOUNT_STATUS.listed],
       value: String(statistics.summary.listedCount),
       detail: `标价 ${formatPrice(statistics.summary.listedValue)}`,
       icon: Store,
     },
     {
-      label: "已下架",
+      label: ACCOUNT_STATUS_LABELS[ACCOUNT_STATUS.unlisted],
       value: String(statistics.summary.unlistedCount),
       detail: `标价 ${formatPrice(statistics.summary.unlistedValue)}`,
       icon: PackageMinus,
     },
     {
-      label: "已出售",
+      label: ACCOUNT_STATUS_LABELS[ACCOUNT_STATUS.sold],
       value: String(statistics.summary.soldCount),
       detail: `成交额 ${formatPrice(statistics.summary.soldRevenue)}`,
       icon: PackageCheck,
@@ -354,12 +360,12 @@ function AccountListCard({
                 </div>
                 <div className="shrink-0 text-right font-mono text-sm font-semibold text-price">
                   {formatPrice(
-                    account.status === 3
-                      ? (account.soldPrice ?? account.price)
+                    account.status === ACCOUNT_STATUS.sold
+                      ? (account.soldPrice ?? 0)
                       : account.price,
                   )}
                   <div className="mt-1 text-[11px] font-normal text-muted-foreground">
-                    {account.status === 3
+                    {account.status === ACCOUNT_STATUS.sold
                       ? `利润 ${formatPrice(account.profit ?? 0)}`
                       : `成本 ${formatPrice(account.costPrice)}`}
                   </div>
@@ -367,8 +373,14 @@ function AccountListCard({
               </div>
               <div className="mt-2 flex items-center justify-between gap-3 text-xs text-muted-foreground">
                 <span>更新 {formatDate(account.updatedAt)}</span>
-                {account.status === 3 ? (
-                  <span>已出售</span>
+                {account.status === ACCOUNT_STATUS.sold ? (
+                  <Link
+                    className="font-medium text-foreground hover:underline"
+                    href={`/accounts/${account.id}/edit?game_key=${account.gameKey}&mode=view`}
+                    scroll={false}
+                  >
+                    查看
+                  </Link>
                 ) : (
                   <Link
                     className="font-medium text-foreground hover:underline"

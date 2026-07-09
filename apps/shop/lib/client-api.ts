@@ -1,3 +1,4 @@
+import { DEFAULT_GAME_KEY } from "@wuliuqi/types";
 import type {
   ApiResponse,
   Carousel,
@@ -44,7 +45,7 @@ export async function fetchHomeAccounts(
 
 export async function fetchAccount(
   id: number,
-  gameKey = "codm",
+  gameKey = DEFAULT_GAME_KEY,
   init?: RequestInit,
 ): Promise<ShopAccount> {
   const params = new URLSearchParams({ game_key: gameKey });

@@ -10,16 +10,21 @@ import {
   searchPublishedKnowledge,
   setSourceIndexStatus,
 } from "@wuliuqi/rag-db";
+import {
+  CHAT_ROLE,
+  KNOWLEDGE_INDEX_STATUS,
+  KNOWLEDGE_SOURCE_TYPE,
+  KNOWLEDGE_STATUS,
+} from "@wuliuqi/types";
 import type {
   ChatMessageInput,
   FaqItem,
   KnowledgeArticle,
   KnowledgeChunk,
+  KnowledgeSourceType,
   RagMessageSource,
 } from "@wuliuqi/types";
 import { streamText } from "ai";
-
-type SourceType = "article" | "faq";
 
 type ModelProvider = {
   streamAnswer: (input: {
@@ -47,10 +52,14 @@ export class RagError extends Error {
 }
 
 export async function indexKnowledgeSource(
-  sourceType: SourceType,
+  sourceType: KnowledgeSourceType,
   sourceId: string,
 ): Promise<{ indexed: boolean; chunks: number }> {
-  await setSourceIndexStatus(sourceType, sourceId, "indexing");
+  await setSourceIndexStatus(
+    sourceType,
+    sourceId,
+    KNOWLEDGE_INDEX_STATUS.indexing,
+  );
 
   try {
     const source = await getIndexableSource(sourceType, sourceId);
@@ -59,14 +68,18 @@ export async function indexKnowledgeSource(
       throw new RagError("NOT_FOUND", "索引内容不存在", 404);
     }
 
-    if (source.status !== "published") {
+    if (source.status !== KNOWLEDGE_STATUS.published) {
       await replaceSourceChunks(sourceType, sourceId, []);
-      await setSourceIndexStatus(sourceType, sourceId, "indexed");
+      await setSourceIndexStatus(
+        sourceType,
+        sourceId,
+        KNOWLEDGE_INDEX_STATUS.indexed,
+      );
       return { indexed: false, chunks: 0 };
     }
 
     const texts =
-      sourceType === "article"
+      sourceType === KNOWLEDGE_SOURCE_TYPE.article
         ? buildArticleChunks(source as KnowledgeArticle)
         : [faqToIndexText(source as FaqItem)];
 
@@ -76,7 +89,7 @@ export async function indexKnowledgeSource(
       sourceType,
       sourceId: source.id,
       title:
-        sourceType === "article"
+        sourceType === KNOWLEDGE_SOURCE_TYPE.article
           ? (source as KnowledgeArticle).title
           : (source as FaqItem).question,
       content,
@@ -85,14 +98,18 @@ export async function indexKnowledgeSource(
     }));
 
     await replaceSourceChunks(sourceType, sourceId, chunks);
-    await setSourceIndexStatus(sourceType, sourceId, "indexed");
+    await setSourceIndexStatus(
+      sourceType,
+      sourceId,
+      KNOWLEDGE_INDEX_STATUS.indexed,
+    );
 
     return { indexed: true, chunks: chunks.length };
   } catch (error) {
     await setSourceIndexStatus(
       sourceType,
       sourceId,
-      "failed",
+      KNOWLEDGE_INDEX_STATUS.failed,
       error instanceof Error ? error.message : "索引失败",
     );
     throw error;
@@ -124,7 +141,7 @@ export async function createChatStreamResponse(input: {
   if (conversationId) {
     await addRagMessage({
       conversationId,
-      role: "user",
+      role: CHAT_ROLE.user,
       content: question,
     }).catch(() => undefined);
   }
@@ -141,7 +158,7 @@ export async function createChatStreamResponse(input: {
       {
         title: exactFaq.question,
         href: `/kb/${input.kbSlug}#faq-${exactFaq.id}`,
-        sourceType: "faq",
+        sourceType: KNOWLEDGE_SOURCE_TYPE.faq,
         sourceId: exactFaq.id,
       },
     ]);
@@ -296,10 +313,10 @@ function faqToIndexText(faq: FaqItem) {
 }
 
 function sourceMetadata(
-  sourceType: SourceType,
+  sourceType: KnowledgeSourceType,
   source: KnowledgeArticle | FaqItem,
 ): Record<string, unknown> {
-  if (sourceType === "article") {
+  if (sourceType === KNOWLEDGE_SOURCE_TYPE.article) {
     const article = source as KnowledgeArticle;
     return {
       slug: article.slug,
@@ -318,7 +335,7 @@ function sourceMetadata(
 function latestUserMessage(messages: ChatMessageInput[]) {
   return [...messages]
     .reverse()
-    .find((message) => message.role === "user")
+    .find((message) => message.role === CHAT_ROLE.user)
     ?.content.trim();
 }
 
@@ -371,7 +388,7 @@ function chunksToSources(
 
   for (const chunk of chunks) {
     const href =
-      chunk.sourceType === "article"
+      chunk.sourceType === KNOWLEDGE_SOURCE_TYPE.article
         ? `/kb/${kbSlug}/docs/${String(chunk.metadata.slug ?? "")}`
         : `/kb/${kbSlug}#faq-${chunk.sourceId}`;
     const key = `${chunk.sourceType}:${chunk.sourceId}`;
@@ -408,7 +425,7 @@ function textStreamResponse(
   if (conversationId) {
     void addRagMessage({
       conversationId,
-      role: "assistant",
+      role: CHAT_ROLE.assistant,
       content: text,
       sources,
     }).catch(() => undefined);

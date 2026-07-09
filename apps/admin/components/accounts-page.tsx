@@ -1,6 +1,13 @@
 "use client";
 
-import type { AdminAccount, GameKey } from "@wuliuqi/types";
+import {
+  ACCOUNT_SORT,
+  ACCOUNT_STATUS,
+  ACCOUNT_STATUS_LABELS,
+  DEFAULT_GAME_KEY,
+  GAME_KEY,
+} from "@wuliuqi/types";
+import type { AccountSort, AdminAccount, GameKey } from "@wuliuqi/types";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -46,6 +53,7 @@ import {
   ChevronsRight,
   CircleDollarSign,
   Edit,
+  Eye,
   Gamepad2,
   Plus,
   RotateCcw,
@@ -75,8 +83,8 @@ import { formatDate, formatPrice } from "@/lib/format";
 const ACCOUNT_PAGE_SIZE = 50;
 const MOBILE_VIEWPORT_QUERY = "(max-width: 639px)";
 const gameOptions: Array<{ label: string; value: GameKey }> = [
-  { label: "CODM", value: "codm" },
-  { label: "三国杀", value: "sanguosha" },
+  { label: "CODM", value: GAME_KEY.codm },
+  { label: "三国杀", value: GAME_KEY.sanguosha },
 ];
 
 type LoadMode = "append" | "replace";
@@ -94,14 +102,14 @@ function isMobileViewport() {
 
 export function AccountsPage() {
   const [accounts, setAccounts] = useState<AdminAccount[]>([]);
-  const [gameKeyValue, setGameKeyValue] = useState<GameKey>("codm");
-  const [gameKey, setGameKey] = useState<GameKey>("codm");
+  const [gameKeyValue, setGameKeyValue] = useState<GameKey>(DEFAULT_GAME_KEY);
+  const [gameKey, setGameKey] = useState<GameKey>(DEFAULT_GAME_KEY);
   const [searchValue, setSearchValue] = useState("");
   const [keyword, setKeyword] = useState("");
   const [statusValue, setStatusValue] = useState("all");
   const [status, setStatus] = useState("all");
-  const [sortValue, setSortValue] = useState("latest");
-  const [sort, setSort] = useState("latest");
+  const [sortValue, setSortValue] = useState<AccountSort>(ACCOUNT_SORT.latest);
+  const [sort, setSort] = useState<AccountSort>(ACCOUNT_SORT.latest);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -128,7 +136,10 @@ export function AccountsPage() {
         limit: ACCOUNT_PAGE_SIZE,
         page: nextPage,
         sort,
-        status: status === "all" ? undefined : Number(status),
+        status:
+          status === "all"
+            ? undefined
+            : (Number(status) as AdminAccount["status"]),
       }),
     [gameKey, keyword, sort, status],
   );
@@ -337,28 +348,28 @@ export function AccountsPage() {
     }
 
     setSearchValue("");
-    setGameKeyValue("codm");
+    setGameKeyValue(DEFAULT_GAME_KEY);
     setStatusValue("all");
-    setSortValue("latest");
+    setSortValue(ACCOUNT_SORT.latest);
 
     if (
       keyword === "" &&
-      gameKey === "codm" &&
+      gameKey === DEFAULT_GAME_KEY &&
       status === "all" &&
-      sort === "latest"
+      sort === ACCOUNT_SORT.latest
     ) {
       void loadPage(1, "replace");
       return;
     }
 
     setKeyword("");
-    setGameKey("codm");
+    setGameKey(DEFAULT_GAME_KEY);
     setStatus("all");
-    setSort("latest");
+    setSort(ACCOUNT_SORT.latest);
   }
 
   async function toggleStatus(account: AdminAccount) {
-    if (pendingAction !== null || account.status === 3) {
+    if (pendingAction !== null || account.status === ACCOUNT_STATUS.sold) {
       return;
     }
 
@@ -368,11 +379,15 @@ export function AccountsPage() {
     try {
       await updateAccountStatus(
         account.id,
-        account.status === 1 ? 2 : 1,
+        account.status === ACCOUNT_STATUS.listed
+          ? ACCOUNT_STATUS.unlisted
+          : ACCOUNT_STATUS.listed,
         account.gameKey,
       );
       await reloadCurrentView();
-      toast.success(account.status === 1 ? "账号已下架" : "账号已上架");
+      toast.success(
+        account.status === ACCOUNT_STATUS.listed ? "账号已下架" : "账号已上架",
+      );
     } catch (toggleError) {
       const message = errorMessage(toggleError, "更新失败");
       setError(message);
@@ -511,19 +526,30 @@ export function AccountsPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">全部状态</SelectItem>
-              <SelectItem value="1">上架</SelectItem>
-              <SelectItem value="2">下架</SelectItem>
-              <SelectItem value="3">已出售</SelectItem>
+              <SelectItem value={String(ACCOUNT_STATUS.listed)}>上架</SelectItem>
+              <SelectItem value={String(ACCOUNT_STATUS.unlisted)}>
+                下架
+              </SelectItem>
+              <SelectItem value={String(ACCOUNT_STATUS.sold)}>
+                {ACCOUNT_STATUS_LABELS[ACCOUNT_STATUS.sold]}
+              </SelectItem>
             </SelectContent>
           </Select>
-          <Select value={sortValue} onValueChange={setSortValue}>
+          <Select
+            value={sortValue}
+            onValueChange={(value) => setSortValue(value as AccountSort)}
+          >
             <SelectTrigger className="h-9 rounded-md">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="latest">最近更新</SelectItem>
-              <SelectItem value="price_desc">价格从高到低</SelectItem>
-              <SelectItem value="price_asc">价格从低到高</SelectItem>
+              <SelectItem value={ACCOUNT_SORT.latest}>最近更新</SelectItem>
+              <SelectItem value={ACCOUNT_SORT.priceDesc}>
+                价格从高到低
+              </SelectItem>
+              <SelectItem value={ACCOUNT_SORT.priceAsc}>
+                价格从低到高
+              </SelectItem>
             </SelectContent>
           </Select>
           <div className="grid grid-cols-2 gap-2">
@@ -554,7 +580,7 @@ export function AccountsPage() {
       <div className="grid gap-3 sm:hidden">
         {isInitialLoading ? <MobileAccountSkeletons /> : null}
         {accounts.map((account) => {
-          const isSold = account.status === 3;
+          const isSold = account.status === ACCOUNT_STATUS.sold;
 
           return (
             <div
@@ -588,8 +614,8 @@ export function AccountsPage() {
                   </div>
                   <div className="mt-1 text-xs text-muted-foreground">
                     成本 {formatPrice(account.costPrice)}
-                    {account.status === 3
-                      ? ` / 成交 ${formatPrice(account.soldPrice ?? account.price)}`
+                    {account.status === ACCOUNT_STATUS.sold
+                      ? ` / 成交 ${formatPrice(account.soldPrice ?? 0)}`
                       : ""}
                   </div>
                   <div className="mt-2 truncate text-xs text-muted-foreground">
@@ -607,13 +633,18 @@ export function AccountsPage() {
               <div className="mt-3 flex flex-wrap gap-2">
                 {isSold ? (
                   <Button
+                    asChild
                     className="min-w-0 flex-1"
-                    disabled
                     size="sm"
                     variant="outline"
                   >
-                    <Edit size={15} />
-                    编辑
+                    <Link
+                      href={`/accounts/${account.id}/edit?game_key=${account.gameKey}&mode=view`}
+                      scroll={false}
+                    >
+                      <Eye size={15} />
+                      查看
+                    </Link>
                   </Button>
                 ) : (
                   <Button
@@ -640,7 +671,11 @@ export function AccountsPage() {
                   onClick={() => toggleStatus(account)}
                 >
                   {statusActionId === account.id ? <Spinner /> : null}
-                  {isSold ? "已出售" : account.status === 1 ? "下架" : "上架"}
+                  {isSold
+                    ? ACCOUNT_STATUS_LABELS[ACCOUNT_STATUS.sold]
+                    : account.status === ACCOUNT_STATUS.listed
+                      ? "下架"
+                      : "上架"}
                 </Button>
                 {!isSold ? (
                   <Button
@@ -728,7 +763,7 @@ export function AccountsPage() {
                   <AccountTableSkeletonRows />
                 ) : (
                   accounts.map((account) => {
-                    const isSold = account.status === 3;
+                    const isSold = account.status === ACCOUNT_STATUS.sold;
 
                     return (
                       <TableRow key={account.id}>
@@ -780,7 +815,7 @@ export function AccountsPage() {
                           {isSold ? (
                             <div className="mt-1 text-xs text-muted-foreground">
                               成交{" "}
-                              {formatPrice(account.soldPrice ?? account.price)}
+                              {formatPrice(account.soldPrice ?? 0)}
                               {account.profit !== undefined
                                 ? ` / 利润 ${formatPrice(account.profit)}`
                                 : ""}
@@ -803,9 +838,14 @@ export function AccountsPage() {
                         <TableCell className={TABLE_ACTION_CELL_CLASS}>
                           <div className="flex justify-end gap-1">
                             {isSold ? (
-                              <Button disabled size="sm" variant="ghost">
-                                <Edit size={15} />
-                                编辑
+                              <Button asChild size="sm" variant="ghost">
+                                <Link
+                                  href={`/accounts/${account.id}/edit?game_key=${account.gameKey}&mode=view`}
+                                  scroll={false}
+                                >
+                                  <Eye size={15} />
+                                  查看
+                                </Link>
                               </Button>
                             ) : (
                               <Button asChild size="sm" variant="ghost">
@@ -829,8 +869,8 @@ export function AccountsPage() {
                                 <Spinner />
                               ) : null}
                               {isSold
-                                ? "已出售"
-                                : account.status === 1
+                                ? ACCOUNT_STATUS_LABELS[ACCOUNT_STATUS.sold]
+                                : account.status === ACCOUNT_STATUS.listed
                                   ? "下架"
                                   : "上架"}
                             </Button>
