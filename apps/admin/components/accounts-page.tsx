@@ -8,6 +8,8 @@ import {
   GAME_KEY,
 } from "@wuliuqi/types";
 import type { AccountSort, AdminAccount, GameKey } from "@wuliuqi/types";
+import { ConfigProvider, Table as AntTable } from "antd";
+import type { TableProps as AntTableProps } from "antd";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -39,14 +41,6 @@ import { Skeleton } from "@wuliuqi/ui/components/skeleton";
 import { Spinner } from "@wuliuqi/ui/components/spinner";
 import { toast } from "@wuliuqi/ui/components/sonner";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@wuliuqi/ui/components/table";
-import {
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
@@ -70,11 +64,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import {
-  CellTooltip,
-  TABLE_ACTION_CELL_CLASS,
-  TABLE_ACTION_HEAD_CLASS,
-} from "@/components/cell-tooltip";
+import { CellTooltip } from "@/components/cell-tooltip";
 import { AccountStatusBadge } from "@/components/status-badge";
 import {
   deleteAccount,
@@ -88,12 +78,15 @@ import { formatDate, formatPrice } from "@/lib/format";
 
 const ACCOUNT_PAGE_SIZE = 50;
 const MOBILE_VIEWPORT_QUERY = "(max-width: 639px)";
+const ACCOUNT_TABLE_SCROLL_X = 1776;
+const ACCOUNT_TABLE_SCROLL_Y = 520;
 const gameOptions: Array<{ label: string; value: GameKey }> = [
   { label: "CODM", value: GAME_KEY.codm },
   { label: "三国杀", value: GAME_KEY.sanguosha },
 ];
 
 type LoadMode = "append" | "replace";
+type AccountTableColumns = NonNullable<AntTableProps<AdminAccount>["columns"]>;
 type AccountPendingAction = {
   accountId: number;
   name: "delete" | "sell" | "status";
@@ -473,6 +466,220 @@ export function AccountsPage() {
     pendingAction?.name === "delete" ? pendingAction.accountId : null;
   const isMutating = pendingAction !== null;
 
+  function renderAccountActions(account: AdminAccount) {
+    const isSold = account.status === ACCOUNT_STATUS.sold;
+
+    return (
+      <div className="flex justify-end gap-1">
+        {isSold ? (
+          <Button asChild size="sm" variant="ghost">
+            <Link
+              href={`/accounts/${account.id}/edit?game_key=${account.gameKey}&mode=view`}
+              scroll={false}
+            >
+              <Eye size={15} />
+              查看
+            </Link>
+          </Button>
+        ) : (
+          <Button asChild size="sm" variant="ghost">
+            <Link
+              href={`/accounts/${account.id}/edit?game_key=${account.gameKey}`}
+              scroll={false}
+            >
+              <Edit size={15} />
+              编辑
+            </Link>
+          </Button>
+        )}
+        <Button
+          disabled={isMutating || isSold}
+          size="sm"
+          type="button"
+          variant="outline"
+          onClick={() => toggleStatus(account)}
+        >
+          {statusActionId === account.id ? <Spinner /> : null}
+          {isSold
+            ? ACCOUNT_STATUS_LABELS[ACCOUNT_STATUS.sold]
+            : account.status === ACCOUNT_STATUS.listed
+              ? "下架"
+              : "上架"}
+        </Button>
+        {!isSold ? (
+          <Button
+            disabled={isMutating}
+            size="sm"
+            type="button"
+            variant="outline"
+            onClick={() => openSellDialog(account)}
+          >
+            {sellActionId === account.id ? (
+              <Spinner />
+            ) : (
+              <CircleDollarSign size={15} />
+            )}
+            出售
+          </Button>
+        ) : null}
+        <Button
+          aria-label={`删除账号 ${account.serialNumber}`}
+          disabled={isMutating}
+          size="sm"
+          title={`删除账号 ${account.serialNumber}`}
+          type="button"
+          variant="ghost"
+          onClick={() => setDeleteTarget(account)}
+        >
+          {deletingId === account.id ? <Spinner /> : <Trash2 size={15} />}
+        </Button>
+      </div>
+    );
+  }
+
+  const accountTableColumns: AccountTableColumns = [
+    {
+      dataIndex: "title",
+      key: "account",
+      title: "账号",
+      width: 320,
+      render: (_value, account) => (
+        <div className="flex min-w-72 items-center gap-3">
+          <div className="relative size-14 overflow-hidden rounded-md border border-border bg-muted">
+            {account.images[0] ? (
+              <Image
+                fill
+                alt={account.title}
+                className="object-cover"
+                sizes="56px"
+                src={account.images[0]}
+                unoptimized
+              />
+            ) : null}
+          </div>
+          <div className="min-w-0">
+            <CellTooltip className="font-medium" content={account.title}>
+              {account.title}
+            </CellTooltip>
+            <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+              <Badge className="rounded-sm" variant="secondary">
+                {account.serialNumber}
+              </Badge>
+              {account.images.length} 图
+            </div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      dataIndex: "attributeValues",
+      key: "attributes",
+      title: "属性",
+      width: 224,
+      render: (_value, account) => <AccountAttributeBadges account={account} />,
+    },
+    {
+      dataIndex: "price",
+      key: "price",
+      title: "售价",
+      width: 112,
+      render: (_value, account) => (
+        <CellTooltip content={formatPrice(account.price)}>
+          <span className="font-mono font-semibold text-price">
+            {formatPrice(account.price)}
+          </span>
+        </CellTooltip>
+      ),
+    },
+    {
+      dataIndex: "costPrice",
+      key: "costPrice",
+      title: "成本",
+      width: 112,
+      render: (_value, account) => (
+        <CellTooltip content={formatPrice(account.costPrice)}>
+          <span className="font-mono text-muted-foreground">
+            {formatPrice(account.costPrice)}
+          </span>
+        </CellTooltip>
+      ),
+    },
+    {
+      dataIndex: "soldPrice",
+      key: "soldPrice",
+      title: "成交价",
+      width: 112,
+      render: (_value, account) =>
+        account.status === ACCOUNT_STATUS.sold ? (
+          <CellTooltip content={formatPrice(account.soldPrice ?? 0)}>
+            <span className="font-mono text-muted-foreground">
+              {formatPrice(account.soldPrice ?? 0)}
+            </span>
+          </CellTooltip>
+        ) : (
+          <span className="text-muted-foreground">-</span>
+        ),
+    },
+    {
+      dataIndex: "profit",
+      key: "profit",
+      title: "利润",
+      width: 112,
+      render: (_value, account) =>
+        account.status === ACCOUNT_STATUS.sold &&
+        account.profit !== undefined ? (
+          <CellTooltip content={formatPrice(account.profit)}>
+            <span className="font-mono text-muted-foreground">
+              {formatPrice(account.profit)}
+            </span>
+          </CellTooltip>
+        ) : (
+          <span className="text-muted-foreground">-</span>
+        ),
+    },
+    {
+      dataIndex: "email",
+      key: "email",
+      title: "邮箱",
+      width: 256,
+      render: (_value, account) => (
+        <CellTooltip content={account.email || "-"}>
+          <span className="text-muted-foreground">{account.email || "-"}</span>
+        </CellTooltip>
+      ),
+    },
+    {
+      dataIndex: "status",
+      key: "status",
+      title: "状态",
+      width: 96,
+      render: (_value, account) => (
+        <AccountStatusBadge status={account.status} />
+      ),
+    },
+    {
+      dataIndex: "updatedAt",
+      key: "updatedAt",
+      title: "更新",
+      width: 144,
+      render: (_value, account) => (
+        <CellTooltip content={formatDate(account.updatedAt)}>
+          <span className="text-muted-foreground">
+            {formatDate(account.updatedAt)}
+          </span>
+        </CellTooltip>
+      ),
+    },
+    {
+      align: "right",
+      fixed: "right",
+      key: "actions",
+      title: "操作",
+      width: 288,
+      render: (_value, account) => renderAccountActions(account),
+    },
+  ];
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -532,7 +739,9 @@ export function AccountsPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">全部状态</SelectItem>
-              <SelectItem value={String(ACCOUNT_STATUS.listed)}>上架</SelectItem>
+              <SelectItem value={String(ACCOUNT_STATUS.listed)}>
+                上架
+              </SelectItem>
               <SelectItem value={String(ACCOUNT_STATUS.unlisted)}>
                 下架
               </SelectItem>
@@ -739,226 +948,47 @@ export function AccountsPage() {
       </div>
 
       <Card className="hidden overflow-hidden rounded-md shadow-none sm:block">
-        <div>
-          <div className="h-[calc(100dvh-22rem)] min-h-[420px] max-h-[620px] overflow-auto">
-            <Table
-              className="min-w-[1320px]"
-              wrapperClassName="overflow-visible"
-            >
-              <TableHeader className="sticky top-0 z-10 bg-card shadow-[0_1px_0_var(--border)]">
-                <TableRow>
-                  <TableHead className="min-w-80 whitespace-nowrap">
-                    账号
-                  </TableHead>
-                  <TableHead className="min-w-56 whitespace-nowrap">
-                    属性
-                  </TableHead>
-                  <TableHead className="min-w-28 whitespace-nowrap">
-                    售价
-                  </TableHead>
-                  <TableHead className="min-w-28 whitespace-nowrap">
-                    成本
-                  </TableHead>
-                  <TableHead className="min-w-28 whitespace-nowrap">
-                    成交价
-                  </TableHead>
-                  <TableHead className="min-w-28 whitespace-nowrap">
-                    利润
-                  </TableHead>
-                  <TableHead className="min-w-64 whitespace-nowrap">
-                    邮箱
-                  </TableHead>
-                  <TableHead className="min-w-24 whitespace-nowrap">
-                    状态
-                  </TableHead>
-                  <TableHead className="min-w-36 whitespace-nowrap">
-                    更新
-                  </TableHead>
-                  <TableHead className={TABLE_ACTION_HEAD_CLASS}>
-                    操作
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading ? (
-                  <AccountTableSkeletonRows />
-                ) : (
-                  accounts.map((account) => {
-                    const isSold = account.status === ACCOUNT_STATUS.sold;
-
-                    return (
-                      <TableRow key={account.id}>
-                        <TableCell>
-                          <div className="flex min-w-72 items-center gap-3">
-                            <div className="relative size-14 overflow-hidden rounded-md border border-border bg-muted">
-                              {account.images[0] ? (
-                                <Image
-                                  fill
-                                  alt={account.title}
-                                  className="object-cover"
-                                  sizes="56px"
-                                  src={account.images[0]}
-                                  unoptimized
-                                />
-                              ) : null}
-                            </div>
-                            <div className="min-w-0">
-                              <CellTooltip
-                                className="font-medium"
-                                content={account.title}
-                              >
-                                {account.title}
-                              </CellTooltip>
-                              <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                                <Badge
-                                  className="rounded-sm"
-                                  variant="secondary"
-                                >
-                                  {account.serialNumber}
-                                </Badge>
-                                {account.images.length} 图
-                              </div>
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <AccountAttributeBadges account={account} />
-                        </TableCell>
-                        <TableCell className="font-mono">
-                          <CellTooltip content={formatPrice(account.price)}>
-                            <span className="font-semibold text-price">
-                              {formatPrice(account.price)}
-                            </span>
-                          </CellTooltip>
-                        </TableCell>
-                        <TableCell className="font-mono text-muted-foreground">
-                          <CellTooltip content={formatPrice(account.costPrice)}>
-                            {formatPrice(account.costPrice)}
-                          </CellTooltip>
-                        </TableCell>
-                        <TableCell className="font-mono text-muted-foreground">
-                          {isSold ? (
-                            <CellTooltip
-                              content={formatPrice(account.soldPrice ?? 0)}
-                            >
-                              {formatPrice(account.soldPrice ?? 0)}
-                            </CellTooltip>
-                          ) : (
-                            "-"
-                          )}
-                        </TableCell>
-                        <TableCell className="font-mono text-muted-foreground">
-                          {isSold && account.profit !== undefined ? (
-                            <CellTooltip content={formatPrice(account.profit)}>
-                              {formatPrice(account.profit)}
-                            </CellTooltip>
-                          ) : (
-                            "-"
-                          )}
-                        </TableCell>
-                        <TableCell className="max-w-64 text-muted-foreground">
-                          <CellTooltip content={account.email || "-"}>
-                            {account.email || "-"}
-                          </CellTooltip>
-                        </TableCell>
-                        <TableCell>
-                          <AccountStatusBadge status={account.status} />
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          <CellTooltip content={formatDate(account.updatedAt)}>
-                            {formatDate(account.updatedAt)}
-                          </CellTooltip>
-                        </TableCell>
-                        <TableCell className={TABLE_ACTION_CELL_CLASS}>
-                          <div className="flex justify-end gap-1">
-                            {isSold ? (
-                              <Button asChild size="sm" variant="ghost">
-                                <Link
-                                  href={`/accounts/${account.id}/edit?game_key=${account.gameKey}&mode=view`}
-                                  scroll={false}
-                                >
-                                  <Eye size={15} />
-                                  查看
-                                </Link>
-                              </Button>
-                            ) : (
-                              <Button asChild size="sm" variant="ghost">
-                                <Link
-                                  href={`/accounts/${account.id}/edit?game_key=${account.gameKey}`}
-                                  scroll={false}
-                                >
-                                  <Edit size={15} />
-                                  编辑
-                                </Link>
-                              </Button>
-                            )}
-                            <Button
-                              disabled={isMutating || isSold}
-                              size="sm"
-                              type="button"
-                              variant="outline"
-                              onClick={() => toggleStatus(account)}
-                            >
-                              {statusActionId === account.id ? (
-                                <Spinner />
-                              ) : null}
-                              {isSold
-                                ? ACCOUNT_STATUS_LABELS[ACCOUNT_STATUS.sold]
-                                : account.status === ACCOUNT_STATUS.listed
-                                  ? "下架"
-                                  : "上架"}
-                            </Button>
-                            {!isSold ? (
-                              <Button
-                                disabled={isMutating}
-                                size="sm"
-                                type="button"
-                                variant="outline"
-                                onClick={() => openSellDialog(account)}
-                              >
-                                {sellActionId === account.id ? (
-                                  <Spinner />
-                                ) : (
-                                  <CircleDollarSign size={15} />
-                                )}
-                                出售
-                              </Button>
-                            ) : null}
-                            <Button
-                              aria-label={`删除账号 ${account.serialNumber}`}
-                              disabled={isMutating}
-                              size="sm"
-                              title={`删除账号 ${account.serialNumber}`}
-                              type="button"
-                              variant="ghost"
-                              onClick={() => setDeleteTarget(account)}
-                            >
-                              {deletingId === account.id ? (
-                                <Spinner />
-                              ) : (
-                                <Trash2 size={15} />
-                              )}
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
-                )}
-                {!loading && accounts.length === 0 ? (
-                  <TableRow>
-                    <TableCell
-                      className="py-10 text-center text-muted-foreground"
-                      colSpan={10}
-                    >
-                      暂无账号
-                    </TableCell>
-                  </TableRow>
-                ) : null}
-              </TableBody>
-            </Table>
-          </div>
-        </div>
+        <ConfigProvider
+          theme={{
+            components: {
+              Table: {
+                borderColor: "var(--border)",
+                cellPaddingBlock: 12,
+                cellPaddingInline: 12,
+                fixedHeaderSortActiveBg: "var(--card)",
+                headerBg: "var(--card)",
+                headerColor: "var(--muted-foreground)",
+                rowHoverBg: "var(--accent)",
+              },
+            },
+            token: {
+              borderRadius: 6,
+              colorBgContainer: "var(--card)",
+              colorBorder: "var(--border)",
+              colorFillAlter: "var(--muted)",
+              colorPrimary: "var(--primary)",
+              colorSplit: "var(--border)",
+              colorText: "var(--card-foreground)",
+              colorTextSecondary: "var(--muted-foreground)",
+              fontFamily: "var(--font-geist-sans), system-ui, sans-serif",
+            },
+          }}
+        >
+          <AntTable<AdminAccount>
+            className="admin-accounts-table"
+            columns={accountTableColumns}
+            dataSource={accounts}
+            loading={loading}
+            locale={{ emptyText: "暂无账号" }}
+            pagination={false}
+            rowKey="id"
+            scroll={{
+              x: ACCOUNT_TABLE_SCROLL_X,
+              y: ACCOUNT_TABLE_SCROLL_Y,
+            }}
+            size="middle"
+          />
+        </ConfigProvider>
         {total > 0 ? (
           <AccountsPagination
             loading={loading}
@@ -1212,53 +1242,6 @@ function MobileAccountSkeletons() {
         <Skeleton className="h-8" />
       </div>
     </div>
-  ));
-}
-
-function AccountTableSkeletonRows() {
-  return Array.from({ length: 6 }).map((_, index) => (
-    <TableRow key={index}>
-      <TableCell>
-        <div className="flex min-w-72 items-center gap-3">
-          <Skeleton className="size-14" />
-          <div className="space-y-2">
-            <Skeleton className="h-4 w-44" />
-            <Skeleton className="h-3 w-28" />
-          </div>
-        </div>
-      </TableCell>
-      <TableCell>
-        <Skeleton className="h-4 w-20" />
-      </TableCell>
-      <TableCell>
-        <Skeleton className="h-4 w-20" />
-      </TableCell>
-      <TableCell>
-        <Skeleton className="h-4 w-20" />
-      </TableCell>
-      <TableCell>
-        <Skeleton className="h-4 w-20" />
-      </TableCell>
-      <TableCell>
-        <Skeleton className="h-4 w-20" />
-      </TableCell>
-      <TableCell>
-        <Skeleton className="h-4 w-36" />
-      </TableCell>
-      <TableCell>
-        <Skeleton className="h-5 w-14" />
-      </TableCell>
-      <TableCell>
-        <Skeleton className="h-4 w-24" />
-      </TableCell>
-      <TableCell className={TABLE_ACTION_CELL_CLASS}>
-        <div className="flex justify-end gap-1">
-          <Skeleton className="h-8 w-16" />
-          <Skeleton className="h-8 w-14" />
-          <Skeleton className="h-8 w-8" />
-        </div>
-      </TableCell>
-    </TableRow>
   ));
 }
 
