@@ -190,7 +190,73 @@ export function EmailPostfixesPage() {
         </CardContent>
       </Card>
 
-      <Card className="overflow-hidden rounded-md shadow-none">
+      <div className="grid gap-3 sm:hidden">
+        {loading ? <EmailPostfixMobileSkeletons /> : null}
+        {!loading
+          ? postfixes.map((postfix) => (
+              <div
+                className="rounded-md border border-border bg-card p-3"
+                key={postfix.id}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="break-all font-medium">
+                      {postfix.postfix}
+                    </div>
+                    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                      <Badge
+                        className="rounded-sm"
+                        variant={postfix.enabled ? "default" : "secondary"}
+                      >
+                        {postfix.enabled ? "启用" : "停用"}
+                      </Badge>
+                      <span>使用中 {postfix.usageCount}</span>
+                      <span>排序 {postfix.sortOrder}</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-3 grid grid-cols-[1fr_auto] gap-2 border-t border-border pt-3">
+                  <Button
+                    disabled={Boolean(pendingAction)}
+                    size="sm"
+                    type="button"
+                    variant="outline"
+                    onClick={() => togglePostfix(postfix)}
+                  >
+                    {togglePending === postfix.id ? <Spinner /> : null}
+                    {postfix.enabled ? "停用" : "启用"}
+                  </Button>
+                  <Button
+                    aria-label={`删除邮箱后缀 ${postfix.postfix}`}
+                    disabled={Boolean(pendingAction) || postfix.usageCount > 0}
+                    size="sm"
+                    title={
+                      postfix.usageCount > 0
+                        ? "已被邮箱使用，只能停用"
+                        : `删除邮箱后缀 ${postfix.postfix}`
+                    }
+                    type="button"
+                    variant="ghost"
+                    onClick={() => setDeleteTarget(postfix)}
+                  >
+                    {deletePending === postfix.id ? (
+                      <Spinner />
+                    ) : (
+                      <Trash2 size={15} />
+                    )}
+                  </Button>
+                </div>
+              </div>
+            ))
+          : null}
+        {!loading && postfixes.length === 0 ? (
+          <div className="rounded-md border border-border bg-card px-4 py-10 text-center text-sm text-muted-foreground">
+            暂无邮箱后缀
+          </div>
+        ) : null}
+      </div>
+
+      <Card className="hidden overflow-hidden rounded-md shadow-none sm:block">
         <Table>
           <TableHeader>
             <TableRow>
@@ -330,5 +396,24 @@ function EmailPostfixSkeletonRows() {
         </div>
       </TableCell>
     </TableRow>
+  ));
+}
+
+function EmailPostfixMobileSkeletons() {
+  return Array.from({ length: 4 }).map((_, index) => (
+    <div className="rounded-md border border-border bg-card p-3" key={index}>
+      <div className="space-y-2">
+        <Skeleton className="h-4 w-32" />
+        <div className="flex gap-2">
+          <Skeleton className="h-5 w-12" />
+          <Skeleton className="h-4 w-16" />
+          <Skeleton className="h-4 w-14" />
+        </div>
+      </div>
+      <div className="mt-3 grid grid-cols-[1fr_auto] gap-2 border-t border-border pt-3">
+        <Skeleton className="h-8" />
+        <Skeleton className="h-8 w-8" />
+      </div>
+    </div>
   ));
 }
