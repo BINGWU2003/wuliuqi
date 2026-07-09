@@ -69,7 +69,6 @@ import {
   useRef,
   useState,
   type ReactNode,
-  type RefObject,
 } from "react";
 import {
   CellTooltip,
@@ -129,9 +128,6 @@ export function AccountsPage() {
   const [soldPriceValue, setSoldPriceValue] = useState("");
   const [gameSelectorOpen, setGameSelectorOpen] = useState(false);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
-  const tableScrollbarRef = useRef<HTMLDivElement | null>(null);
-  const tableViewportRef = useRef<HTMLDivElement | null>(null);
-  const syncingTableScrollRef = useRef(false);
   const loadingRef = useRef(false);
   const pageRef = useRef(1);
   const requestIdRef = useRef(0);
@@ -410,28 +406,6 @@ export function AccountsPage() {
   function openSellDialog(account: AdminAccount) {
     setSellTarget(account);
     setSoldPriceValue(String(account.price));
-  }
-
-  function syncTableScroll(
-    sourceRef: RefObject<HTMLDivElement | null>,
-    targetRef: RefObject<HTMLDivElement | null>,
-  ) {
-    if (syncingTableScrollRef.current) {
-      return;
-    }
-
-    const source = sourceRef.current;
-    const target = targetRef.current;
-
-    if (!source || !target) {
-      return;
-    }
-
-    syncingTableScrollRef.current = true;
-    target.scrollLeft = source.scrollLeft;
-    window.requestAnimationFrame(() => {
-      syncingTableScrollRef.current = false;
-    });
   }
 
   async function confirmSellAccount() {
@@ -765,14 +739,8 @@ export function AccountsPage() {
       </div>
 
       <Card className="hidden overflow-hidden rounded-md shadow-none sm:block">
-        <div className="border-b border-border">
-          <div
-            ref={tableViewportRef}
-            className="h-[calc(100dvh-22rem)] min-h-[420px] max-h-[620px] overflow-x-hidden overflow-y-auto"
-            onScroll={() =>
-              syncTableScroll(tableViewportRef, tableScrollbarRef)
-            }
-          >
+        <div>
+          <div className="h-[calc(100dvh-22rem)] min-h-[420px] max-h-[620px] overflow-auto">
             <Table className="min-w-[1320px]">
               <TableHeader className="sticky top-0 z-10 bg-card shadow-[0_1px_0_var(--border)]">
                 <TableRow>
@@ -986,15 +954,6 @@ export function AccountsPage() {
                 ) : null}
               </TableBody>
             </Table>
-          </div>
-          <div
-            ref={tableScrollbarRef}
-            className="h-4 overflow-x-auto overflow-y-hidden bg-card"
-            onScroll={() =>
-              syncTableScroll(tableScrollbarRef, tableViewportRef)
-            }
-          >
-            <div className="h-px min-w-[1320px]" />
           </div>
         </div>
         {total > 0 ? (
