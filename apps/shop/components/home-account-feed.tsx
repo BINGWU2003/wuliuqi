@@ -308,14 +308,19 @@ export function HomeAccountFeed() {
         </div>
       ) : null}
 
-      {nextCursor ? (
-        <div ref={loadMoreRef} className="flex min-h-10 justify-center pt-1">
-          {loadingAppend ? (
+      {accounts.length > 0 && !error ? (
+        <div
+          ref={nextCursor ? loadMoreRef : undefined}
+          className="flex min-h-10 justify-center pt-1"
+        >
+          {nextCursor && loadingAppend ? (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Spinner />
               正在加载更多
             </div>
-          ) : null}
+          ) : nextCursor ? null : (
+            <span className="text-sm text-muted-foreground">没有更多了</span>
+          )}
         </div>
       ) : null}
     </section>
