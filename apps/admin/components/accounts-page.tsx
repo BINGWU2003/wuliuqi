@@ -741,7 +741,10 @@ export function AccountsPage() {
       <Card className="hidden overflow-hidden rounded-md shadow-none sm:block">
         <div>
           <div className="h-[calc(100dvh-22rem)] min-h-[420px] max-h-[620px] overflow-auto">
-            <Table className="min-w-[1320px]">
+            <Table
+              className="min-w-[1320px]"
+              wrapperClassName="overflow-visible"
+            >
               <TableHeader className="sticky top-0 z-10 bg-card shadow-[0_1px_0_var(--border)]">
                 <TableRow>
                   <TableHead className="min-w-80 whitespace-nowrap">
