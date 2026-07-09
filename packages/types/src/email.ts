@@ -1,5 +1,5 @@
-import type { Pagination } from "./api.js";
-import type { GameKey } from "./game.js";
+import type { Pagination } from "./api";
+import type { GameKey } from "./game";
 
 type ConstValue<T extends Record<string, string | number>> = T[keyof T];
 

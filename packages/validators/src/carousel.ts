@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { optionalString } from "./common.js";
+import { optionalString } from "./common";
 
 export const carouselItemSchema = z.object({
   sortOrder: z.coerce.number().int().min(0),

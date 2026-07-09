@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { DEFAULT_GAME_KEY, GAME_ATTRIBUTE_TYPES } from "@wuliuqi/types";
-import { optionalShortString } from "./common.js";
+import { optionalShortString } from "./common";
 
 export const gameAttributeOptionSchema = z.object({
   label: z.string().trim().min(1, "选项名称为必填项").max(80),

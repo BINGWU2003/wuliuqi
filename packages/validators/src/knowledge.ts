@@ -7,7 +7,7 @@ import {
   KNOWLEDGE_VISIBILITY,
   KNOWLEDGE_VISIBILITY_VALUES,
 } from "@wuliuqi/types";
-import { optionalString } from "./common.js";
+import { optionalString } from "./common";
 
 const slugSchema = z
   .string()

@@ -7,7 +7,7 @@ import {
   optionalNumberFromQuery,
   optionalString,
   paginationQuery,
-} from "./common.js";
+} from "./common";
 
 export const adminEmailListQuerySchema = z.object({
   ...paginationQuery,

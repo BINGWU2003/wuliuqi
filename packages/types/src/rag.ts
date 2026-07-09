@@ -1,4 +1,4 @@
-import type { KnowledgeSourceType } from "./knowledge.js";
+import type { KnowledgeSourceType } from "./knowledge";
 
 export const CHAT_ROLE = {
   user: "user",

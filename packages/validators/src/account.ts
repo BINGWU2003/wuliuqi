@@ -14,7 +14,7 @@ import {
   optionalString,
   paginationQuery,
   writableAccountStatusFieldSchema,
-} from "./common.js";
+} from "./common";
 
 const accountAttributeValueSchema = z.union([z.number(), z.string()]);
 
