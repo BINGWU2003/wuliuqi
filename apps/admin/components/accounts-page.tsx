@@ -1026,7 +1026,15 @@ export function AccountsPage() {
                   variant="outline"
                   onClick={() => toggleStatus(account)}
                 >
-                  {statusActionId === account.id ? <Spinner /> : null}
+                  {statusActionId === account.id ? (
+                    <Spinner />
+                  ) : isSold ? (
+                    <CheckCircle2 size={15} />
+                  ) : account.status === ACCOUNT_STATUS.listed ? (
+                    <Download size={15} />
+                  ) : (
+                    <Upload size={15} />
+                  )}
                   {isSold
                     ? ACCOUNT_STATUS_LABELS[ACCOUNT_STATUS.sold]
                     : account.status === ACCOUNT_STATUS.listed
