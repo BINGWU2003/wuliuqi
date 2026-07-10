@@ -255,7 +255,7 @@ export function calculateRechargePlans({
   return {
     needCp,
     plans:
-      leastOverflowPlan.id === doublePriorityPlan.id
+      plansEquivalent(leastOverflowPlan, doublePriorityPlan)
         ? [leastOverflowPlan]
         : [leastOverflowPlan, doublePriorityPlan],
     satisfied: false,
@@ -468,10 +468,15 @@ function comparePlans(
 ) {
   if (kind === "doublePriority") {
     return compareBy(
-      [-countDoubleUses(left), left.priceRmb, left.overflowCp, left.uses.length],
       [
-        -countDoubleUses(right),
+        left.priceRmb,
+        -countDoubleUses(left),
+        left.overflowCp,
+        left.uses.length,
+      ],
+      [
         right.priceRmb,
+        -countDoubleUses(right),
         right.overflowCp,
         right.uses.length,
       ],
@@ -532,6 +537,18 @@ function compareBy(left: number[], right: number[]) {
   }
 
   return 0;
+}
+
+function plansEquivalent(left: RechargePlan, right: RechargePlan) {
+  return (
+    left.priceRmb === right.priceRmb &&
+    left.gainedCp === right.gainedCp &&
+    left.overflowCp === right.overflowCp &&
+    formatPackageUses(left.uses, "double") ===
+      formatPackageUses(right.uses, "double") &&
+    formatPackageUses(left.uses, "normal") ===
+      formatPackageUses(right.uses, "normal")
+  );
 }
 
 function getDoubleSubsets(packages: CpPackage[]) {

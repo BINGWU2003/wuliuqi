@@ -9,7 +9,9 @@
     "start": "next start --port 3000",
     "apps": "docker build -f ../../docker/Dockerfile.app --build-arg APP_NAME=shop --build-arg APP_PORT=3000 -t wuliuqi-shop:latest ../..",
     "lint": "eslint --max-warnings 0",
-    "check-types": "next typegen && tsc --noEmit"
+    "check-types": "next typegen && tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@wuliuqi/domain": "workspace:*",
@@ -33,6 +35,7 @@
     "eslint": "catalog:",
     "postcss": "catalog:",
     "tailwindcss": "catalog:",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   }
 }
