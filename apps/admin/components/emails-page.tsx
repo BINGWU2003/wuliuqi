@@ -42,8 +42,6 @@ import { toast } from "@wuliuqi/ui/components/sonner";
 import {
   ChevronLeft,
   ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
   Edit,
   MoreHorizontal,
   Plus,
@@ -738,7 +736,6 @@ export function EmailsPage() {
             loading={loading}
             page={page}
             pageSize={pageSize}
-            total={total}
             totalPages={totalPages}
             onPageChange={(nextPage) => loadPage(nextPage, "replace")}
             onPageSizeChange={setPageSize}
@@ -815,7 +812,6 @@ function EmailsPagination({
   onPageSizeChange,
   page,
   pageSize,
-  total,
   totalPages,
 }: {
   loading: boolean;
@@ -823,109 +819,106 @@ function EmailsPagination({
   onPageSizeChange: (pageSize: number) => void;
   page: number;
   pageSize: number;
-  total: number;
   totalPages: number;
 }) {
   const safeTotalPages = Math.max(totalPages, 1);
-  const pages = getPaginationPages(page, safeTotalPages);
+  const pageItems = getPaginationItems(page, safeTotalPages);
   const isFirstPage = page <= 1;
   const isLastPage = page >= safeTotalPages;
 
   return (
-    <div className="flex flex-col gap-3 border-t border-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-      <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-        <span>
-          第 {page} / {safeTotalPages} 页，共 {total} 个邮箱
-        </span>
-        <Select
-          disabled={loading}
-          value={String(pageSize)}
-          onValueChange={(value) => onPageSizeChange(Number(value))}
-        >
-          <SelectTrigger className="h-8 w-24" aria-label="每页邮箱数量">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {EMAIL_PAGE_SIZE_OPTIONS.map((size) => (
-              <SelectItem key={size} value={String(size)}>
-                每页 {size} 条
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="flex flex-wrap items-center gap-1">
-        <Button
-          aria-label="第一页"
-          disabled={loading || isFirstPage}
-          size="sm"
-          title="第一页"
-          type="button"
-          variant="outline"
-          onClick={() => onPageChange(1)}
-        >
-          <ChevronsLeft size={15} />
-        </Button>
-        <Button
-          aria-label="上一页"
-          disabled={loading || isFirstPage}
-          size="sm"
-          title="上一页"
-          type="button"
-          variant="outline"
-          onClick={() => onPageChange(Math.max(page - 1, 1))}
-        >
-          <ChevronLeft size={15} />
-        </Button>
-        {pages.map((pageNumber) => (
+    <div className="flex flex-wrap items-center justify-end gap-1 border-t border-border px-4 py-3">
+      <Button
+        aria-label="上一页"
+        className="size-8 p-0"
+        disabled={loading || isFirstPage}
+        size="sm"
+        title="上一页"
+        type="button"
+        variant="ghost"
+        onClick={() => onPageChange(Math.max(page - 1, 1))}
+      >
+        <ChevronLeft size={15} />
+      </Button>
+      {pageItems.map((item, index) =>
+        item === "ellipsis" ? (
+          <span
+            aria-hidden="true"
+            className="flex size-8 items-center justify-center text-muted-foreground"
+            key={`ellipsis-${index}`}
+          >
+            ...
+          </span>
+        ) : (
           <Button
-            aria-current={pageNumber === page ? "page" : undefined}
-            disabled={loading || pageNumber === page}
-            key={pageNumber}
+            aria-current={item === page ? "page" : undefined}
+            className={
+              item === page
+                ? "size-8 border-primary px-0 text-primary hover:bg-accent hover:text-primary"
+                : "size-8 px-0"
+            }
+            disabled={loading || item === page}
+            key={item}
             size="sm"
             type="button"
-            variant={pageNumber === page ? "default" : "outline"}
-            onClick={() => onPageChange(pageNumber)}
+            variant={item === page ? "outline" : "ghost"}
+            onClick={() => onPageChange(item)}
           >
-            {pageNumber}
+            {item}
           </Button>
-        ))}
-        <Button
-          aria-label="下一页"
-          disabled={loading || isLastPage}
-          size="sm"
-          title="下一页"
-          type="button"
-          variant="outline"
-          onClick={() => onPageChange(Math.min(page + 1, safeTotalPages))}
+        ),
+      )}
+      <Button
+        aria-label="下一页"
+        className="size-8 p-0"
+        disabled={loading || isLastPage}
+        size="sm"
+        title="下一页"
+        type="button"
+        variant="ghost"
+        onClick={() => onPageChange(Math.min(page + 1, safeTotalPages))}
+      >
+        <ChevronRight size={15} />
+      </Button>
+      <Select
+        disabled={loading}
+        value={String(pageSize)}
+        onValueChange={(value) => onPageSizeChange(Number(value))}
+      >
+        <SelectTrigger
+          aria-label="每页邮箱数量"
+          className="ml-2 h-8 w-24 rounded-md text-xs"
         >
-          <ChevronRight size={15} />
-        </Button>
-        <Button
-          aria-label="最后一页"
-          disabled={loading || isLastPage}
-          size="sm"
-          title="最后一页"
-          type="button"
-          variant="outline"
-          onClick={() => onPageChange(safeTotalPages)}
-        >
-          <ChevronsRight size={15} />
-        </Button>
-      </div>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {EMAIL_PAGE_SIZE_OPTIONS.map((size) => (
+            <SelectItem key={size} value={String(size)}>
+              {size} 条/页
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   );
 }
 
-function getPaginationPages(page: number, totalPages: number) {
-  const pageWindow = 5;
-  const halfWindow = Math.floor(pageWindow / 2);
-  let start = Math.max(1, page - halfWindow);
-  const end = Math.min(totalPages, start + pageWindow - 1);
+function getPaginationItems(page: number, totalPages: number) {
+  const edgePageCount = 5;
 
-  start = Math.max(1, end - pageWindow + 1);
+  if (totalPages <= edgePageCount + 2) {
+    return Array.from({ length: totalPages }, (_, index) => index + 1);
+  }
 
-  return Array.from({ length: end - start + 1 }, (_, index) => start + index);
+  if (page <= edgePageCount - 1) {
+    return [1, 2, 3, 4, 5, "ellipsis", totalPages] as const;
+  }
+
+  if (page >= totalPages - (edgePageCount - 2)) {
+    return [1, "ellipsis", totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages] as const;
+  }
+
+  return [1, "ellipsis", page - 1, page, page + 1, "ellipsis", totalPages] as const;
 }
 
 function EmailAddress({
