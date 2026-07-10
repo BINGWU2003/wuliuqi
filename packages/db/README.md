@@ -8,7 +8,6 @@
 - `prisma/migrations/`：主业务库迁移文件。
 - `src/client.ts`：运行时 Prisma Client 单例，会根据环境变量补充连接池参数。
 - `scripts/reconcile-email-bind-status.mjs`：邮箱绑定状态巡检和修复脚本。
-- `scripts/reconcile-sold-account-emails.mjs`：历史已售账号与邮箱解绑修正脚本。
 
 当前主要表：
 
@@ -157,31 +156,6 @@ pnpm --filter @wuliuqi/db fix:email-bind-status -- --write
 - 只修复 `codm_emails.bind_status` 不一致的记录。
 - 不会自动删除重复邮箱，也不会自动补齐缺失邮箱记录。
 
-### 历史已售账号邮箱解绑巡检
-
-```powershell
-pnpm --filter @wuliuqi/db fix:sold-account-emails
-```
-
-用途：
-
-- dry-run，不修改数据库。
-- 将历史 `status=2` 账号按“已出售”口径列为待修正账号。
-- 预览待清空邮箱的账号、待更新绑定状态的邮箱，以及仍需人工处理的重复/缺失异常。
-
-### 历史已售账号邮箱解绑修复
-
-```powershell
-pnpm --filter @wuliuqi/db fix:sold-account-emails -- --write
-```
-
-用途：
-
-- 修改数据库。
-- 将历史 `status=2` 账号更新为 `status=3`，并清空账号邮箱。
-- 按未出售账号占用关系重算 `codm_emails.bind_status`。
-- 这是一次性历史修正脚本；新业务上线后，不要把未来真实下架的 `status=2` 账号重复当作已售处理。
-
 ## RLS 说明
 
 Supabase Security Advisor 会检查 `public` schema 中暴露给 PostgREST 的表。当前 migration 已对主业务表开启 RLS：
@@ -200,4 +174,4 @@ Supabase Security Advisor 会检查 `public` schema 中暴露给 PostgREST 的�
 - 不要提交真实 `.env` 文件。
 - 修改 schema 后先生成 migration，再执行 `generate`。
 - 生产迁移优先使用 direct connection，应用运行时再使用 pooler。
-- `fix:email-bind-status -- --write` 和 `fix:sold-account-emails -- --write` 执行前建议先跑 dry-run 看输出。
+- `fix:email-bind-status -- --write` 执行前建议先跑 dry-run 看输出。
