@@ -61,7 +61,8 @@ import { ADMIN_EMAILS_CHANGED_EVENT } from "@/lib/events";
 import { errorMessage } from "@/lib/feedback";
 import { formatDate } from "@/lib/format";
 
-const EMAIL_PAGE_SIZE = 50;
+const EMAIL_PAGE_SIZE_OPTIONS = [20, 30, 40] as const;
+const DEFAULT_EMAIL_PAGE_SIZE = EMAIL_PAGE_SIZE_OPTIONS[0];
 const MOBILE_VIEWPORT_QUERY = "(max-width: 639px)";
 const EMAIL_TABLE_SCROLL_X = 920;
 const EMAIL_TABLE_SCROLL_Y = 520;
@@ -102,6 +103,7 @@ export function EmailsPage() {
   const [bindStatusValue, setBindStatusValue] = useState("all");
   const [bindStatus, setBindStatus] = useState("all");
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<number>(DEFAULT_EMAIL_PAGE_SIZE);
   const [totalPages, setTotalPages] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -124,10 +126,10 @@ export function EmailsPage() {
             ? undefined
             : (Number(bindStatus) as EmailBindStatus),
         keyword: keyword || undefined,
-        limit: EMAIL_PAGE_SIZE,
+        limit: pageSize,
         page: nextPage,
       }),
-    [bindStatus, gameKey, keyword],
+    [bindStatus, gameKey, keyword, pageSize],
   );
 
   const applyPagination = useCallback(
@@ -735,9 +737,11 @@ export function EmailsPage() {
           <EmailsPagination
             loading={loading}
             page={page}
+            pageSize={pageSize}
             total={total}
             totalPages={totalPages}
             onPageChange={(nextPage) => loadPage(nextPage, "replace")}
+            onPageSizeChange={setPageSize}
           />
         ) : null}
       </Card>
@@ -808,13 +812,17 @@ function MobileEmailSkeletons() {
 function EmailsPagination({
   loading,
   onPageChange,
+  onPageSizeChange,
   page,
+  pageSize,
   total,
   totalPages,
 }: {
   loading: boolean;
   onPageChange: (page: number) => void;
+  onPageSizeChange: (pageSize: number) => void;
   page: number;
+  pageSize: number;
   total: number;
   totalPages: number;
 }) {
@@ -825,8 +833,26 @@ function EmailsPagination({
 
   return (
     <div className="flex flex-col gap-3 border-t border-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-      <div className="text-sm text-muted-foreground">
-        第 {page} / {safeTotalPages} 页，共 {total} 个邮箱
+      <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+        <span>
+          第 {page} / {safeTotalPages} 页，共 {total} 个邮箱
+        </span>
+        <Select
+          disabled={loading}
+          value={String(pageSize)}
+          onValueChange={(value) => onPageSizeChange(Number(value))}
+        >
+          <SelectTrigger className="h-8 w-24" aria-label="每页邮箱数量">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {EMAIL_PAGE_SIZE_OPTIONS.map((size) => (
+              <SelectItem key={size} value={String(size)}>
+                每页 {size} 条
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
       <div className="flex flex-wrap items-center gap-1">
         <Button

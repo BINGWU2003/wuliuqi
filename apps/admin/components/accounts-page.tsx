@@ -87,14 +87,34 @@ import { ADMIN_ACCOUNTS_CHANGED_EVENT } from "@/lib/events";
 import { errorMessage } from "@/lib/feedback";
 import { formatDate, formatPrice } from "@/lib/format";
 
-const ACCOUNT_PAGE_SIZE = 50;
+const ACCOUNT_PAGE_SIZE_OPTIONS = [20, 30, 40] as const;
+const DEFAULT_ACCOUNT_PAGE_SIZE = ACCOUNT_PAGE_SIZE_OPTIONS[0];
 const MOBILE_VIEWPORT_QUERY = "(max-width: 639px)";
 const ACCOUNT_TABLE_SCROLL_X = 1776;
 const ACCOUNT_TABLE_SCROLL_Y = 520;
+const INITIAL_ACCOUNT_TABLE_SKELETON_ROW_COUNT = 10;
 const gameOptions: Array<{ label: string; value: GameKey }> = [
   { label: "CODM", value: GAME_KEY.codm },
   { label: "三国杀", value: GAME_KEY.sanguosha },
 ];
+const initialAccountTableSkeletonRows: AdminAccount[] = Array.from(
+  { length: INITIAL_ACCOUNT_TABLE_SKELETON_ROW_COUNT },
+  (_, index) => ({
+    id: -(index + 1),
+    gameKey: DEFAULT_GAME_KEY,
+    serialNumber: "",
+    images: [],
+    attributes: {},
+    attributeValues: [],
+    price: 0,
+    costPrice: 0,
+    title: "",
+    description: "",
+    xianyuUrl: "",
+    email: "",
+    status: ACCOUNT_STATUS.listed,
+  }),
+);
 
 type LoadMode = "append" | "replace";
 type AccountTableColumns = NonNullable<AntTableProps<AdminAccount>["columns"]>;
@@ -121,6 +141,7 @@ export function AccountsPage() {
   const [sortValue, setSortValue] = useState<AccountSort>(ACCOUNT_SORT.latest);
   const [sort, setSort] = useState<AccountSort>(ACCOUNT_SORT.latest);
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<number>(DEFAULT_ACCOUNT_PAGE_SIZE);
   const [totalPages, setTotalPages] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -143,7 +164,7 @@ export function AccountsPage() {
       fetchAccounts({
         game_key: gameKey,
         keyword: keyword || undefined,
-        limit: ACCOUNT_PAGE_SIZE,
+        limit: pageSize,
         page: nextPage,
         sort,
         status:
@@ -151,7 +172,7 @@ export function AccountsPage() {
             ? undefined
             : (Number(status) as AdminAccount["status"]),
       }),
-    [gameKey, keyword, sort, status],
+    [gameKey, keyword, pageSize, sort, status],
   );
 
   const applyPagination = useCallback(
@@ -720,6 +741,87 @@ export function AccountsPage() {
       render: (_value, account) => renderAccountActions(account),
     },
   ];
+  const accountTableSkeletonColumns: AccountTableColumns = [
+    {
+      key: "account",
+      title: "账号",
+      width: 320,
+      render: () => (
+        <div className="flex min-w-72 items-center gap-3">
+          <Skeleton className="size-14 shrink-0" />
+          <div className="flex-1 space-y-2">
+            <Skeleton className="h-4 w-3/4" />
+            <Skeleton className="h-3 w-24" />
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: "attributes",
+      title: "属性",
+      width: 224,
+      render: () => (
+        <div className="flex gap-1.5">
+          <Skeleton className="h-5 w-14 rounded-full" />
+          <Skeleton className="h-5 w-12 rounded-full" />
+        </div>
+      ),
+    },
+    {
+      key: "price",
+      title: "售价",
+      width: 112,
+      render: () => <Skeleton className="h-4 w-16" />,
+    },
+    {
+      key: "costPrice",
+      title: "成本",
+      width: 112,
+      render: () => <Skeleton className="h-4 w-16" />,
+    },
+    {
+      key: "soldPrice",
+      title: "成交价",
+      width: 112,
+      render: () => <Skeleton className="h-4 w-16" />,
+    },
+    {
+      key: "profit",
+      title: "利润",
+      width: 112,
+      render: () => <Skeleton className="h-4 w-16" />,
+    },
+    {
+      key: "email",
+      title: "邮箱",
+      width: 256,
+      render: () => <Skeleton className="h-4 w-3/4" />,
+    },
+    {
+      key: "status",
+      title: "状态",
+      width: 96,
+      render: () => <Skeleton className="h-5 w-14 rounded-full" />,
+    },
+    {
+      key: "updatedAt",
+      title: "更新",
+      width: 144,
+      render: () => <Skeleton className="h-4 w-24" />,
+    },
+    {
+      align: "right",
+      fixed: "right",
+      key: "actions",
+      title: "操作",
+      width: 144,
+      render: () => (
+        <div className="flex justify-end">
+          <Skeleton className="h-8 w-16" />
+        </div>
+      ),
+    },
+  ];
 
   return (
     <div className="space-y-4">
@@ -1016,10 +1118,18 @@ export function AccountsPage() {
           }}
         >
           <AntTable<AdminAccount>
-            className="admin-accounts-table"
-            columns={accountTableColumns}
-            dataSource={accounts}
-            loading={loading}
+            className={`admin-accounts-table${
+              isInitialLoading ? " admin-table--initial-loading" : ""
+            }`}
+            columns={
+              isInitialLoading
+                ? accountTableSkeletonColumns
+                : accountTableColumns
+            }
+            dataSource={
+              isInitialLoading ? initialAccountTableSkeletonRows : accounts
+            }
+            loading={loading && !isInitialLoading}
             locale={{ emptyText: "暂无账号" }}
             pagination={false}
             rowKey="id"
@@ -1034,9 +1144,11 @@ export function AccountsPage() {
           <AccountsPagination
             loading={loading}
             page={page}
+            pageSize={pageSize}
             total={total}
             totalPages={totalPages}
             onPageChange={(nextPage) => loadPage(nextPage, "replace")}
+            onPageSizeChange={setPageSize}
           />
         ) : null}
       </Card>
@@ -1289,13 +1401,17 @@ function MobileAccountSkeletons() {
 function AccountsPagination({
   loading,
   onPageChange,
+  onPageSizeChange,
   page,
+  pageSize,
   total,
   totalPages,
 }: {
   loading: boolean;
   onPageChange: (page: number) => void;
+  onPageSizeChange: (pageSize: number) => void;
   page: number;
+  pageSize: number;
   total: number;
   totalPages: number;
 }) {
@@ -1306,8 +1422,26 @@ function AccountsPagination({
 
   return (
     <div className="flex flex-col gap-3 border-t border-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-      <div className="text-sm text-muted-foreground">
-        第 {page} / {safeTotalPages} 页，共 {total} 个账号
+      <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+        <span>
+          第 {page} / {safeTotalPages} 页，共 {total} 个账号
+        </span>
+        <Select
+          disabled={loading}
+          value={String(pageSize)}
+          onValueChange={(value) => onPageSizeChange(Number(value))}
+        >
+          <SelectTrigger className="h-8 w-24" aria-label="每页账号数量">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {ACCOUNT_PAGE_SIZE_OPTIONS.map((size) => (
+              <SelectItem key={size} value={String(size)}>
+                每页 {size} 条
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
       <div className="flex flex-wrap items-center gap-1">
         <Button
