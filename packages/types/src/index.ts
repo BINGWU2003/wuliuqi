@@ -6,5 +6,6 @@ export * from "./email";
 export * from "./game";
 export * from "./knowledge";
 export * from "./rag";
+export * from "./shop-filter";
 export * from "./upload";
 export * from "./user";

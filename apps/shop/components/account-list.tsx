@@ -1,7 +1,16 @@
 "use client";
 
-import { ACCOUNT_SORT, DEFAULT_GAME_KEY } from "@wuliuqi/types";
-import type { AccountSort, PublicShopAccount } from "@wuliuqi/types";
+import {
+  ACCOUNT_SORT,
+  DEFAULT_GAME_KEY,
+  SHOP_GAME_ATTRIBUTE_FILTERS,
+} from "@wuliuqi/types";
+import type {
+  AccountSort,
+  GameKey,
+  PublicShopAccount,
+  ShopAttributeFilterConfig,
+} from "@wuliuqi/types";
 import { Badge } from "@wuliuqi/ui/components/badge";
 import { Button } from "@wuliuqi/ui/components/button";
 import { Card, CardContent } from "@wuliuqi/ui/components/card";
@@ -18,20 +27,23 @@ import { toast } from "@wuliuqi/ui/components/sonner";
 import { Spinner } from "@wuliuqi/ui/components/spinner";
 import { cn } from "@wuliuqi/ui/lib/utils";
 import { RefreshCw, RotateCcw, Search, Sparkles } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ProductCard } from "@/components/product-card";
 import { fetchAccounts } from "@/lib/client-api";
+import {
+  accountListSearchParams,
+  attributeRangeOption,
+  priceRangeOption,
+  SHOP_PRICE_RANGES,
+} from "@/lib/shop-filters";
+import type {
+  AccountListFilterState,
+  ShopAttributeSelections,
+  ShopPriceRangeValue,
+} from "@/lib/shop-filters";
 
 const PAGE_SIZE = 12;
-
-const priceRanges = [
-  { label: "全部价格", min: 0, max: 0, value: "all" },
-  { label: "¥0-500", min: 0, max: 500, value: "0-500" },
-  { label: "¥501-1000", min: 501, max: 1000, value: "501-1000" },
-  { label: "¥1001-2000", min: 1001, max: 2000, value: "1001-2000" },
-  { label: "¥2001-5000", min: 2001, max: 5000, value: "2001-5000" },
-  { label: "¥5000+", min: 5001, max: 999999, value: "5000+" },
-] as const;
 
 const sortOptions = [
   { label: "最新上架", value: ACCOUNT_SORT.latest },
@@ -41,13 +53,7 @@ const sortOptions = [
 
 type SortValue = AccountSort;
 type LoadingMode =
-  | "initial"
-  | "replace"
-  | "append"
-  | "search"
-  | "reset"
-  | "filter"
-  | "retry";
+  "initial" | "replace" | "append" | "search" | "reset" | "filter" | "retry";
 type ReplaceLoadingMode = Exclude<LoadingMode, "append" | "retry">;
 type FailedLoad = {
   page: number;
@@ -57,8 +63,9 @@ type FailedLoad = {
 type AccountListProps = {
   compactHeader?: boolean;
   eyebrow?: string;
-  gameKey?: string;
+  gameKey?: GameKey;
   heading?: string;
+  initialFilters: AccountListFilterState;
 };
 
 export function AccountList({
@@ -66,13 +73,22 @@ export function AccountList({
   eyebrow = "CODM Marketplace",
   gameKey = DEFAULT_GAME_KEY,
   heading = "精选账号",
+  initialFilters,
 }: AccountListProps) {
-  const [rangeValue, setRangeValue] = useState(0);
-  const [activeRange, setActiveRange] = useState(0);
-  const [sortValue, setSortValue] = useState<SortValue>(ACCOUNT_SORT.latest);
-  const [sort, setSort] = useState<SortValue>(ACCOUNT_SORT.latest);
-  const [searchValue, setSearchValue] = useState("");
-  const [keyword, setKeyword] = useState("");
+  const pathname = usePathname();
+  const router = useRouter();
+  const attributeFilterConfigs = SHOP_GAME_ATTRIBUTE_FILTERS[gameKey];
+  const [priceRangeValue, setPriceRangeValue] = useState<ShopPriceRangeValue>(
+    initialFilters.priceRange,
+  );
+  const priceRange = initialFilters.priceRange;
+  const [attributeSelectionsValue, setAttributeSelectionsValue] =
+    useState<ShopAttributeSelections>(initialFilters.attributeSelections);
+  const attributeSelections = initialFilters.attributeSelections;
+  const [sortValue, setSortValue] = useState<SortValue>(initialFilters.sort);
+  const sort = initialFilters.sort;
+  const [searchValue, setSearchValue] = useState(initialFilters.keyword);
+  const keyword = initialFilters.keyword;
   const [accounts, setAccounts] = useState<PublicShopAccount[]>([]);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
@@ -95,7 +111,7 @@ export function AccountList({
     async (nextPage: number, mode: LoadingMode, replace: boolean) => {
       const requestId = ++requestIdRef.current;
       const controller = new AbortController();
-      const range = priceRanges[activeRange];
+      const range = priceRangeOption(priceRange);
       const params = new URLSearchParams({
         page: String(nextPage),
         limit: String(PAGE_SIZE),
@@ -108,9 +124,28 @@ export function AccountList({
         params.set("keyword", keyword.trim());
       }
 
-      if (range && (range.min > 0 || range.max > 0)) {
+      if (range?.min !== undefined) {
         params.set("min_price", String(range.min));
+      }
+
+      if (range?.max !== undefined) {
         params.set("max_price", String(range.max));
+      }
+
+      for (const config of attributeFilterConfigs) {
+        const option = attributeRangeOption(
+          gameKey,
+          config.urlKey,
+          attributeSelections[config.urlKey] ?? "all",
+        );
+
+        if (option?.min !== undefined) {
+          params.set(config.minQueryKey, String(option.min));
+        }
+
+        if (option?.max !== undefined) {
+          params.set(config.maxQueryKey, String(option.max));
+        }
       }
 
       requestControllerRef.current?.abort();
@@ -169,7 +204,14 @@ export function AccountList({
         }
       }
     },
-    [activeRange, gameKey, keyword, sort],
+    [
+      attributeFilterConfigs,
+      attributeSelections,
+      gameKey,
+      keyword,
+      priceRange,
+      sort,
+    ],
   );
 
   useEffect(() => {
@@ -223,12 +265,23 @@ export function AccountList({
     return loadingRef.current && loadingModeRef.current !== "append";
   }
 
-  function handleRangeChange(nextRange: number) {
+  function handlePriceRangeChange(nextRange: ShopPriceRangeValue) {
     if (isBlockingControls()) {
       return;
     }
 
-    setRangeValue(nextRange);
+    setPriceRangeValue(nextRange);
+  }
+
+  function handleAttributeRangeChange(urlKey: string, value: string) {
+    if (isBlockingControls()) {
+      return;
+    }
+
+    setAttributeSelectionsValue((current) => ({
+      ...current,
+      [urlKey]: value,
+    }));
   }
 
   function handleSortChange(nextSort: SortValue) {
@@ -248,17 +301,24 @@ export function AccountList({
 
     if (
       nextKeyword === keyword &&
-      rangeValue === activeRange &&
+      priceRangeValue === priceRange &&
+      sameAttributeSelections(
+        attributeSelectionsValue,
+        attributeSelections,
+        attributeFilterConfigs,
+      ) &&
       sortValue === sort
     ) {
       void loadPage(1, "search", true);
       return;
     }
 
-    nextReplaceModeRef.current = "search";
-    setKeyword(nextKeyword);
-    setActiveRange(rangeValue);
-    setSort(sortValue);
+    replaceFilterUrl({
+      attributeSelections: attributeSelectionsValue,
+      keyword: nextKeyword,
+      priceRange: priceRangeValue,
+      sort: sortValue,
+    });
   }
 
   function clearFilters() {
@@ -267,11 +327,20 @@ export function AccountList({
     }
 
     setSearchValue("");
-    setRangeValue(0);
+    setPriceRangeValue("all");
+    const emptyAttributeSelections = Object.fromEntries(
+      attributeFilterConfigs.map((config) => [config.urlKey, "all"]),
+    );
+    setAttributeSelectionsValue(emptyAttributeSelections);
     setSortValue(ACCOUNT_SORT.latest);
 
     if (
-      activeRange === 0 &&
+      priceRange === "all" &&
+      sameAttributeSelections(
+        attributeSelections,
+        emptyAttributeSelections,
+        attributeFilterConfigs,
+      ) &&
       sort === ACCOUNT_SORT.latest &&
       keyword === ""
     ) {
@@ -280,9 +349,20 @@ export function AccountList({
     }
 
     nextReplaceModeRef.current = "reset";
-    setActiveRange(0);
-    setSort(ACCOUNT_SORT.latest);
-    setKeyword("");
+    replaceFilterUrl({
+      attributeSelections: emptyAttributeSelections,
+      keyword: "",
+      priceRange: "all",
+      sort: ACCOUNT_SORT.latest,
+    });
+  }
+
+  function replaceFilterUrl(nextFilters: AccountListFilterState) {
+    const query = accountListSearchParams(nextFilters, gameKey).toString();
+
+    router.replace(query ? `${pathname}?${query}` : pathname, {
+      scroll: false,
+    });
   }
 
   function retryLastLoad() {
@@ -326,14 +406,17 @@ export function AccountList({
         <div className="rounded-md border border-border bg-card p-3 shadow-xs">
           <FilterControls
             clearFilters={clearFilters}
+            attributeFilterConfigs={attributeFilterConfigs}
+            attributeSelections={attributeSelectionsValue}
             controlsDisabled={controlsDisabled}
             loadingMode={loadingMode}
-            rangeValue={rangeValue}
+            priceRangeValue={priceRangeValue}
             searchValue={searchValue}
             setSearchValue={setSearchValue}
             sortValue={sortValue}
             showInlineLoading={showInlineLoading}
-            onRangeChange={handleRangeChange}
+            onAttributeRangeChange={handleAttributeRangeChange}
+            onPriceRangeChange={handlePriceRangeChange}
             onSearch={applyFilters}
             onSortChange={handleSortChange}
           />
@@ -349,8 +432,8 @@ export function AccountList({
       ) : null}
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-        {accounts.map((account) => (
-          <ProductCard key={account.id} account={account} />
+        {accounts.map((account, index) => (
+          <ProductCard key={account.id} account={account} eager={index < 2} />
         ))}
         {isSkeletonLoading
           ? Array.from({ length: 8 }).map((_, index) => (
@@ -397,25 +480,31 @@ export function AccountList({
 }
 
 function FilterControls({
+  attributeFilterConfigs,
+  attributeSelections,
   clearFilters,
   controlsDisabled,
   loadingMode,
-  onRangeChange,
+  onAttributeRangeChange,
+  onPriceRangeChange,
   onSearch,
   onSortChange,
-  rangeValue,
+  priceRangeValue,
   searchValue,
   setSearchValue,
   showInlineLoading,
   sortValue,
 }: {
+  attributeFilterConfigs: readonly ShopAttributeFilterConfig[];
+  attributeSelections: ShopAttributeSelections;
   clearFilters: () => void;
   controlsDisabled: boolean;
   loadingMode: LoadingMode | null;
-  onRangeChange: (value: number) => void;
+  onAttributeRangeChange: (urlKey: string, value: string) => void;
+  onPriceRangeChange: (value: ShopPriceRangeValue) => void;
   onSearch: () => void;
   onSortChange: (value: SortValue) => void;
-  rangeValue: number;
+  priceRangeValue: ShopPriceRangeValue;
   searchValue: string;
   setSearchValue: (value: string) => void;
   showInlineLoading: boolean;
@@ -429,9 +518,9 @@ function FilterControls({
   const showSearchLoading = showInlineLoading && isSearchLoading;
 
   return (
-    <div className="grid gap-2 sm:grid-cols-[minmax(220px,1fr)_minmax(150px,180px)_minmax(160px,190px)_auto]">
+    <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
       <form
-        className="min-w-0"
+        className="col-span-2 min-w-0"
         onSubmit={(event) => {
           event.preventDefault();
           onSearch();
@@ -453,8 +542,10 @@ function FilterControls({
 
       <Select
         disabled={controlsDisabled}
-        value={String(rangeValue)}
-        onValueChange={(value) => onRangeChange(Number(value))}
+        value={priceRangeValue}
+        onValueChange={(value) =>
+          onPriceRangeChange(value as ShopPriceRangeValue)
+        }
       >
         <SelectTrigger
           aria-label="价格区间"
@@ -464,11 +555,8 @@ function FilterControls({
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          {priceRanges.map((range, index) => (
-            <SelectItem
-              key={range.label}
-              value={String(index)}
-            >
+          {SHOP_PRICE_RANGES.map((range) => (
+            <SelectItem key={range.value} value={range.value}>
               {range.label}
             </SelectItem>
           ))}
@@ -494,7 +582,32 @@ function FilterControls({
           ))}
         </SelectContent>
       </Select>
-      <div className="grid grid-cols-2 gap-2">
+      {attributeFilterConfigs.map((config) => (
+        <Select
+          key={config.attributeKey}
+          disabled={controlsDisabled}
+          value={attributeSelections[config.urlKey] ?? "all"}
+          onValueChange={(value) =>
+            onAttributeRangeChange(config.urlKey, value)
+          }
+        >
+          <SelectTrigger
+            aria-label={`${config.label}数量`}
+            className="h-9 rounded-md"
+            title={`筛选${config.label}数量`}
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {config.options.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      ))}
+      <div className="col-span-2 grid grid-cols-2 gap-2">
         <Button
           className="h-9 rounded-md bg-neutral-950 text-white hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-950 dark:hover:bg-neutral-200"
           disabled={controlsDisabled}
@@ -522,6 +635,17 @@ function FilterControls({
         </Button>
       </div>
     </div>
+  );
+}
+
+function sameAttributeSelections(
+  first: ShopAttributeSelections,
+  second: ShopAttributeSelections,
+  configs: readonly ShopAttributeFilterConfig[],
+) {
+  return configs.every(
+    (config) =>
+      (first[config.urlKey] ?? "all") === (second[config.urlKey] ?? "all"),
   );
 }
 

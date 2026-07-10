@@ -26,6 +26,7 @@ const accountTabPaths = [
   "/sanguosha-account-page",
 ];
 const rechargeTabPaths = ["/recharge-section"];
+const accountDetailPaths = ["/codm-account-info", "/sanguosha-account-info"];
 const tabPaths = ["/", ...accountTabPaths, ...rechargeTabPaths, "/guide"];
 
 export function ShopFrame({ children }: { children: ReactNode }) {
@@ -36,6 +37,7 @@ export function ShopFrame({ children }: { children: ReactNode }) {
   const rechargeTabActive = rechargeTabPaths.includes(pathname);
   const showBack = !tabPaths.includes(pathname);
   const showTabs = tabPaths.includes(pathname);
+  const showFloatingContact = !accountDetailPaths.includes(pathname);
 
   return (
     <>
@@ -68,7 +70,10 @@ export function ShopFrame({ children }: { children: ReactNode }) {
           <div className="truncate text-center text-[15px] font-bold sm:hidden">
             {title}
           </div>
-          <nav className="hidden justify-center gap-1 sm:flex" aria-label="主导航">
+          <nav
+            className="hidden justify-center gap-1 sm:flex"
+            aria-label="主导航"
+          >
             <TopLink active={pathname === "/"} href="/">
               首页
             </TopLink>
@@ -97,7 +102,9 @@ export function ShopFrame({ children }: { children: ReactNode }) {
       <div className="min-h-screen px-3 pb-20 pt-[68px] sm:px-6 sm:pt-20">
         {children}
       </div>
-      <ContactOptionsButton avoidBottomTabs={showTabs} variant="floating" />
+      {showFloatingContact ? (
+        <ContactOptionsButton avoidBottomTabs={showTabs} variant="floating" />
+      ) : null}
       {showTabs ? (
         <nav
           className="fixed inset-x-0 bottom-0 z-30 grid h-16 grid-cols-4 border-t border-border bg-card/95 shadow-[0_-8px_24px_rgba(0,0,0,0.06)] backdrop-blur sm:hidden"

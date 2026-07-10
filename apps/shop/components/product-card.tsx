@@ -15,8 +15,10 @@ import {
 
 export function ProductCard({
   account,
+  eager = false,
 }: {
   account: PublicShopAccount;
+  eager?: boolean;
 }) {
   const name = getAccountName(account);
   const badges = getAccountCardBadges(account);
@@ -47,6 +49,7 @@ export function ProductCard({
               sizes="(min-width: 720px) 300px, 50vw"
               src={account.images[0]}
               alt={name}
+              loading={eager ? "eager" : "lazy"}
               unoptimized
             />
           ) : (
@@ -104,7 +107,7 @@ export function ProductCard({
           <div className="flex items-end justify-between gap-2 border-t border-border pt-3">
             <div>
               <div className="text-[11px] font-medium uppercase text-muted-foreground">
-                Ask price
+                售价
               </div>
               <div className="font-mono text-xl font-bold text-price">
                 {formatPrice(account.price)}
@@ -112,7 +115,7 @@ export function ProductCard({
             </div>
             <div className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
               <ShieldCheck size={14} />
-              资料卡
+              账号详情
             </div>
           </div>
         </CardContent>

@@ -4,6 +4,7 @@ import {
   ACCOUNT_STATUS,
   DEFAULT_GAME_KEY,
   GAME_KEY,
+  SHOP_GAME_ATTRIBUTE_FILTERS,
 } from "@wuliuqi/types";
 import type {
   AccountSort,
@@ -177,7 +178,10 @@ function homePriceCursorConditions({
   cursor: HomeCursor;
   cursorDate: Date;
   cursorGameOrder: number;
-  sort: Extract<HomeSort, typeof ACCOUNT_SORT.priceAsc | typeof ACCOUNT_SORT.priceDesc>;
+  sort: Extract<
+    HomeSort,
+    typeof ACCOUNT_SORT.priceAsc | typeof ACCOUNT_SORT.priceDesc
+  >;
 }) {
   if (typeof cursor.price !== "number" || !Number.isFinite(cursor.price)) {
     return [];
@@ -211,7 +215,9 @@ function homePriceCursorConditions({
   return conditions;
 }
 
-function homeOrderBy(sort: HomeSort): Prisma.CodmAccountOrderByWithRelationInput[] {
+function homeOrderBy(
+  sort: HomeSort,
+): Prisma.CodmAccountOrderByWithRelationInput[] {
   if (sort === ACCOUNT_SORT.priceAsc) {
     return [{ price: "asc" }, { createdAt: "desc" }, { id: "desc" }];
   }
@@ -227,6 +233,30 @@ function accountPrice(account: AccountRecord) {
   const price = Number(account.price);
 
   return Number.isFinite(price) ? price : 0;
+}
+
+function shopAttributeWhere(
+  query: AccountListQuery,
+  gameKey: GameKey,
+): Prisma.CodmAccountWhereInput[] {
+  return SHOP_GAME_ATTRIBUTE_FILTERS[gameKey].flatMap((config) => {
+    const min = query[config.minQueryKey];
+    const max = query[config.maxQueryKey];
+
+    if (min === undefined && max === undefined) {
+      return [];
+    }
+
+    return [
+      {
+        attributes: {
+          path: [config.attributeKey],
+          ...(min !== undefined ? { gte: min } : {}),
+          ...(max !== undefined ? { lte: max } : {}),
+        },
+      },
+    ];
+  });
 }
 
 function sortHomeAccounts(
@@ -285,10 +315,10 @@ export async function listShopHomeAccounts(
 
   const [definitionEntries, accountEntries] = await Promise.all([
     Promise.all(
-      games.map(async (game) => [
-        game.key,
-        await listAttributeDefinitions(game.key),
-      ] as const),
+      games.map(
+        async (game) =>
+          [game.key, await listAttributeDefinitions(game.key)] as const,
+      ),
     ),
     Promise.all(
       games.map(async (game) => {
@@ -358,6 +388,12 @@ export async function listShopAccounts(
       { title: { contains: query.keyword } },
       { serialNumber: { contains: query.keyword } },
     ];
+  }
+
+  const attributeWhere = shopAttributeWhere(query, gameKey);
+
+  if (attributeWhere.length > 0) {
+    where.AND = attributeWhere;
   }
 
   const orderBy: Prisma.CodmAccountOrderByWithRelationInput =

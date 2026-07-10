@@ -38,6 +38,7 @@ import {
 } from "@/lib/account-display";
 import { fetchAccount } from "@/lib/client-api";
 import { SHOP_WECHAT_ID } from "@/lib/contact";
+import { ContactOptionsButton } from "@/components/contact-options-button";
 
 type AccountDetailPresentation = "page" | "modal";
 
@@ -160,6 +161,8 @@ export function AccountDetail({
         isModal ? "max-w-none" : "max-w-6xl",
       )}
     >
+      <MobileAccountSummary account={account} badges={badges} />
+
       <section className="min-w-0 space-y-4">
         <AccountGallery
           account={account}
@@ -200,7 +203,7 @@ export function AccountDetail({
 
       <aside
         className={cn(
-          "space-y-4 lg:sticky lg:self-start",
+          "hidden space-y-4 lg:sticky lg:block lg:self-start",
           isModal ? "lg:top-4" : "lg:top-24",
         )}
       >
@@ -240,7 +243,7 @@ export function AccountDetail({
           <CardContent className="space-y-4 p-4">
             <div>
               <div className="text-xs font-semibold uppercase text-muted-foreground">
-                Ask price
+                售价
               </div>
               <div className="mt-1 font-mono text-4xl font-bold text-price">
                 {formatPrice(account.price)}
@@ -325,6 +328,8 @@ export function AccountDetail({
         </Card>
       </aside>
 
+      <MobilePurchaseBar account={account} />
+
       <ImageLightbox
         downloadImage={(image) =>
           downloadImageWithWatermark(image, { text: "© 567手游店" })
@@ -336,6 +341,124 @@ export function AccountDetail({
         onClose={() => setPreviewOpen(false)}
       />
     </Root>
+  );
+}
+
+function MobileAccountSummary({
+  account,
+  badges,
+}: {
+  account: ShopAccount;
+  badges: string[];
+}) {
+  return (
+    <Card className="rounded-md shadow-none lg:hidden">
+      <CardHeader className="space-y-3 border-b border-border p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+              <Hash size={14} />
+              {account.serialNumber}
+            </div>
+            <CardTitle className="mt-1.5 text-xl leading-tight">
+              {account.title}
+            </CardTitle>
+          </div>
+          <Badge
+            className="shrink-0 rounded-sm border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/70 dark:bg-emerald-950/50 dark:text-emerald-300"
+            variant="outline"
+          >
+            {getStatusLabel(account.status)}
+          </Badge>
+        </div>
+        {badges.length > 0 ? (
+          <div className="flex flex-wrap gap-1.5">
+            {badges.map((badge) => (
+              <Badge
+                key={badge}
+                className="rounded-sm font-normal"
+                variant="secondary"
+              >
+                {badge}
+              </Badge>
+            ))}
+          </div>
+        ) : null}
+      </CardHeader>
+      <CardContent className="space-y-4 p-4">
+        <div>
+          <div className="text-xs font-semibold text-muted-foreground">
+            售价
+          </div>
+          <div className="mt-1 font-mono text-3xl font-bold text-price">
+            {formatPrice(account.price)}
+          </div>
+        </div>
+
+        {account.attributeValues.length > 0 ? (
+          <div className="grid grid-cols-2 gap-2">
+            {account.attributeValues.slice(0, 4).map((attribute) => (
+              <div
+                className="rounded-md border border-border bg-background p-2.5"
+                key={attribute.key}
+              >
+                <div className="truncate text-xs text-muted-foreground">
+                  {attribute.label}
+                </div>
+                <div className="mt-1 truncate text-sm font-semibold">
+                  {attribute.displayValue}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : null}
+
+        <XianyuPurchaseButton account={account} label="立即在闲鱼购买" />
+      </CardContent>
+    </Card>
+  );
+}
+
+function MobilePurchaseBar({ account }: { account: ShopAccount }) {
+  return (
+    <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/95 px-3 py-2 shadow-[0_-8px_24px_rgba(0,0,0,0.08)] backdrop-blur lg:hidden">
+      <div className="mx-auto grid max-w-2xl grid-cols-[auto_minmax(0,0.85fr)_minmax(0,1.15fr)] items-center gap-2 pb-[env(safe-area-inset-bottom)]">
+        <div className="min-w-20 pr-1">
+          <div className="text-[11px] text-muted-foreground">售价</div>
+          <div className="truncate font-mono text-lg font-bold text-price">
+            {formatPrice(account.price)}
+          </div>
+        </div>
+        <ContactOptionsButton className="h-11" />
+        <XianyuPurchaseButton account={account} label="闲鱼购买" />
+      </div>
+    </div>
+  );
+}
+
+function XianyuPurchaseButton({
+  account,
+  label,
+}: {
+  account: ShopAccount;
+  label: string;
+}) {
+  return account.xianyuUrl ? (
+    <Button asChild className="h-11 w-full rounded-md">
+      <a
+        href={account.xianyuUrl}
+        rel="noreferrer"
+        target="_blank"
+        title={`打开闲鱼商品：${account.serialNumber}`}
+      >
+        {label}
+        <ExternalLink size={16} />
+      </a>
+    </Button>
+  ) : (
+    <Button className="h-11 w-full rounded-md" disabled>
+      暂无购买链接
+    </Button>
   );
 }
 

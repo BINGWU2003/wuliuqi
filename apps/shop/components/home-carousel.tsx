@@ -197,7 +197,7 @@ export function HomeCarousel() {
     return (
       <section
         aria-label="首页轮播图占位"
-        className="relative mx-auto aspect-[16/6] min-h-[150px] w-full max-w-6xl overflow-hidden rounded-md border border-border bg-card shadow-xs"
+        className="relative mx-auto h-32 w-full max-w-6xl overflow-hidden rounded-md border border-border bg-card shadow-xs sm:h-auto sm:aspect-[16/5] sm:min-h-[150px]"
       >
         <Skeleton className="size-full rounded-none" />
       </section>
@@ -208,7 +208,7 @@ export function HomeCarousel() {
     return (
       <section
         aria-label="首页轮播图加载失败"
-        className="relative mx-auto flex aspect-[16/6] min-h-[150px] w-full max-w-6xl items-center justify-center overflow-hidden rounded-md border border-border bg-card p-4 text-center shadow-xs"
+        className="relative mx-auto flex h-32 w-full max-w-6xl items-center justify-center overflow-hidden rounded-md border border-border bg-card p-4 text-center shadow-xs sm:h-auto sm:aspect-[16/5] sm:min-h-[150px]"
       >
         <div className="flex flex-col items-center gap-3">
           <div className="space-y-1">
@@ -244,7 +244,7 @@ export function HomeCarousel() {
   return (
     <section
       aria-label="首页轮播图"
-      className="relative mx-auto aspect-[16/6] min-h-[150px] w-full max-w-6xl overflow-hidden rounded-md border border-border bg-card shadow-xs"
+      className="relative mx-auto h-32 w-full max-w-6xl overflow-hidden rounded-md border border-border bg-card shadow-xs sm:h-auto sm:aspect-[16/5] sm:min-h-[150px]"
       style={{ touchAction: "pan-y" }}
       onPointerCancel={handlePointerCancel}
       onPointerDown={handlePointerDown}

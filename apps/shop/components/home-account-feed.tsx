@@ -18,9 +18,18 @@ import { Skeleton } from "@wuliuqi/ui/components/skeleton";
 import { toast } from "@wuliuqi/ui/components/sonner";
 import { Spinner } from "@wuliuqi/ui/components/spinner";
 import { RotateCcw, Search } from "lucide-react";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ProductCard } from "@/components/product-card";
 import { fetchHomeAccounts } from "@/lib/client-api";
+import {
+  gameListHref,
+  homeFilterSearchParams,
+  priceRangeOption,
+  SHOP_PRICE_RANGES,
+} from "@/lib/shop-filters";
+import type { HomeFilterState, ShopPriceRangeValue } from "@/lib/shop-filters";
 
 const HOME_PAGE_SIZE = 12;
 
@@ -30,40 +39,35 @@ const gameOptions: Array<{ label: string; value: HomeGameFilter }> = [
   { label: "三国杀", value: HOME_GAME_FILTER.sanguosha },
 ];
 
-const priceRanges = [
-  { label: "全部价格", min: 0, max: 0, value: "all" },
-  { label: "¥0-500", min: 0, max: 500, value: "0-500" },
-  { label: "¥501-1000", min: 501, max: 1000, value: "501-1000" },
-  { label: "¥1001-2000", min: 1001, max: 2000, value: "1001-2000" },
-  { label: "¥2001-5000", min: 2001, max: 5000, value: "2001-5000" },
-  { label: "¥5000+", min: 5001, max: 999999, value: "5000+" },
-] as const;
-
 const sortOptions = [
   { label: "最新上架", value: ACCOUNT_SORT.latest },
   { label: "价格从低到高", value: ACCOUNT_SORT.priceAsc },
   { label: "价格从高到低", value: ACCOUNT_SORT.priceDesc },
 ] as const;
 
-type HomePriceRangeValue = (typeof priceRanges)[number]["value"];
 type HomeSortValue = AccountSort;
 type LoadingMode = "initial" | "append" | "filter";
 
-export function HomeAccountFeed() {
+export function HomeAccountFeed({
+  initialFilters,
+}: {
+  initialFilters: HomeFilterState;
+}) {
+  const pathname = usePathname();
+  const router = useRouter();
   const [accounts, setAccounts] = useState<PublicShopAccount[]>([]);
   const [gameKeyValue, setGameKeyValue] = useState<HomeGameFilter>(
-    HOME_GAME_FILTER.all,
+    initialFilters.gameKey,
   );
-  const [gameKey, setGameKey] = useState<HomeGameFilter>(
-    HOME_GAME_FILTER.all,
+  const gameKey = initialFilters.gameKey;
+  const [priceRangeValue, setPriceRangeValue] = useState<ShopPriceRangeValue>(
+    initialFilters.priceRange,
   );
-  const [priceRangeValue, setPriceRangeValue] =
-    useState<HomePriceRangeValue>("all");
-  const [priceRange, setPriceRange] = useState<HomePriceRangeValue>("all");
+  const priceRange = initialFilters.priceRange;
   const [sortValue, setSortValue] = useState<HomeSortValue>(
-    ACCOUNT_SORT.latest,
+    initialFilters.sort,
   );
-  const [sort, setSort] = useState<HomeSortValue>(ACCOUNT_SORT.latest);
+  const sort = initialFilters.sort;
   const [nextCursor, setNextCursor] = useState<string | undefined>();
   const [loadingMode, setLoadingMode] = useState<LoadingMode | null>("initial");
   const [error, setError] = useState("");
@@ -79,14 +83,17 @@ export function HomeAccountFeed() {
         limit: String(HOME_PAGE_SIZE),
         sort,
       });
-      const range = priceRanges.find((item) => item.value === priceRange);
+      const range = priceRangeOption(priceRange);
 
       if (cursor) {
         params.set("cursor", cursor);
       }
 
-      if (range && (range.min > 0 || range.max > 0)) {
+      if (range?.min !== undefined) {
         params.set("min_price", String(range.min));
+      }
+
+      if (range?.max !== undefined) {
         params.set("max_price", String(range.max));
       }
 
@@ -163,6 +170,14 @@ export function HomeAccountFeed() {
   const loadingFilter = loadingMode === "filter";
   const controlsDisabled = loadingMode !== null && loadingMode !== "append";
 
+  function replaceFilterUrl(nextFilters: HomeFilterState) {
+    const query = homeFilterSearchParams(nextFilters).toString();
+
+    router.replace(query ? `${pathname}?${query}` : pathname, {
+      scroll: false,
+    });
+  }
+
   function resetFilters() {
     if (controlsDisabled) {
       return;
@@ -181,9 +196,11 @@ export function HomeAccountFeed() {
       return;
     }
 
-    setGameKey(HOME_GAME_FILTER.all);
-    setPriceRange("all");
-    setSort(ACCOUNT_SORT.latest);
+    replaceFilterUrl({
+      gameKey: HOME_GAME_FILTER.all,
+      priceRange: "all",
+      sort: ACCOUNT_SORT.latest,
+    });
   }
 
   function searchAccounts() {
@@ -200,10 +217,17 @@ export function HomeAccountFeed() {
       return;
     }
 
-    setGameKey(gameKeyValue);
-    setPriceRange(priceRangeValue);
-    setSort(sortValue);
+    replaceFilterUrl({
+      gameKey: gameKeyValue,
+      priceRange: priceRangeValue,
+      sort: sortValue,
+    });
   }
+
+  const dedicatedGameHref =
+    gameKey === HOME_GAME_FILTER.all
+      ? null
+      : gameListHref(gameKey, { gameKey, priceRange, sort });
 
   return (
     <section className="mx-auto w-full max-w-6xl space-y-3">
@@ -214,12 +238,22 @@ export function HomeAccountFeed() {
           </p>
           <h2 className="mt-1 text-xl font-bold tracking-normal">账号市场</h2>
         </div>
-        <div className="shrink-0 rounded-sm border border-border bg-card px-2 py-1 text-xs font-medium text-muted-foreground">
-          {loadingInitial ? "加载中" : `已展示 ${accounts.length} 个账号`}
+        <div className="flex shrink-0 flex-col items-end gap-1">
+          <div className="rounded-sm border border-border bg-card px-2 py-1 text-xs font-medium text-muted-foreground">
+            {loadingInitial ? "加载中" : `已展示 ${accounts.length} 个账号`}
+          </div>
+          {dedicatedGameHref ? (
+            <Link
+              className="text-xs font-medium text-foreground underline-offset-4 hover:underline"
+              href={dedicatedGameHref}
+            >
+              进入专属筛选
+            </Link>
+          ) : null}
         </div>
       </div>
 
-      <div className="grid gap-2 rounded-md border border-border bg-card p-3 shadow-xs sm:grid-cols-[1fr_1fr_1fr_auto]">
+      <div className="grid grid-cols-2 gap-2 rounded-md border border-border bg-card p-3 shadow-xs sm:grid-cols-[1fr_1fr_1fr_auto]">
         <Select
           disabled={controlsDisabled}
           value={gameKeyValue}
@@ -240,14 +274,14 @@ export function HomeAccountFeed() {
           disabled={controlsDisabled}
           value={priceRangeValue}
           onValueChange={(value) =>
-            setPriceRangeValue(value as HomePriceRangeValue)
+            setPriceRangeValue(value as ShopPriceRangeValue)
           }
         >
           <SelectTrigger className="h-9 rounded-md" aria-label="价格区间">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {priceRanges.map((range) => (
+            {SHOP_PRICE_RANGES.map((range) => (
               <SelectItem key={range.value} value={range.value}>
                 {range.label}
               </SelectItem>
@@ -303,9 +337,10 @@ export function HomeAccountFeed() {
         </div>
       ) : accounts.length > 0 ? (
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-          {accounts.map((account) => (
+          {accounts.map((account, index) => (
             <ProductCard
               account={account}
+              eager={index < 2}
               key={`${account.gameKey}-${account.id}`}
             />
           ))}

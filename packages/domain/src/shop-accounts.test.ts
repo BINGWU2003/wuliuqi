@@ -199,9 +199,7 @@ describe("商城账号", () => {
     expect(prismaMock.codmAccount.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          OR: [
-            { createdAt: { lt: new Date("2026-07-05T00:00:00.000Z") } },
-          ],
+          OR: [{ createdAt: { lt: new Date("2026-07-05T00:00:00.000Z") } }],
         }),
       }),
     );
@@ -380,6 +378,51 @@ describe("商城账号", () => {
       ],
     });
     expect(result.list[0]).not.toHaveProperty("email");
+  });
+
+  it("按公开白名单应用 CODM 神话和传说数量筛选", async () => {
+    prismaMock.codmAccount.count.mockResolvedValue(0);
+    prismaMock.codmAccount.findMany.mockResolvedValue([]);
+    prismaMock.gameAttributeDefinition.findMany.mockResolvedValue([]);
+
+    await listShopAccounts({
+      game_key: "codm",
+      keyword: undefined,
+      page: 1,
+      limit: 12,
+      status: 1,
+      sort: ACCOUNT_SORT.latest,
+      mythic_min: 10,
+      mythic_max: 19,
+      legendary_min: 30,
+    });
+
+    const where = {
+      status: 1,
+      AND: [
+        {
+          attributes: {
+            path: ["mythic_skins"],
+            gte: 10,
+            lte: 19,
+          },
+        },
+        {
+          attributes: {
+            path: ["legendary_skins"],
+            gte: 30,
+          },
+        },
+      ],
+    };
+
+    expect(prismaMock.codmAccount.count).toHaveBeenCalledWith({ where });
+    expect(prismaMock.codmAccount.findMany).toHaveBeenCalledWith({
+      where,
+      orderBy: { updatedAt: "desc" },
+      skip: 0,
+      take: 12,
+    });
   });
 
   it("首页分区只查询最近三个月的已上架账号", async () => {
