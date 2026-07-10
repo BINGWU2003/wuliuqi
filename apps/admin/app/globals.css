@@ -159,6 +159,10 @@ body {
   scrollbar-width: thin;
 }
 
+.admin-table--initial-loading .ant-table-body {
+  min-height: 520px;
+}
+
 .admin-accounts-table .ant-table-body::-webkit-scrollbar {
   height: 10px;
   width: 10px;

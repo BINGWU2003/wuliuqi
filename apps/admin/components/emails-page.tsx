@@ -65,10 +65,22 @@ const EMAIL_PAGE_SIZE = 50;
 const MOBILE_VIEWPORT_QUERY = "(max-width: 639px)";
 const EMAIL_TABLE_SCROLL_X = 920;
 const EMAIL_TABLE_SCROLL_Y = 520;
+const INITIAL_EMAIL_TABLE_SKELETON_ROW_COUNT = 10;
 const gameOptions: Array<{ label: string; value: GameKey }> = [
   { label: "CODM", value: GAME_KEY.codm },
   { label: "三国杀", value: GAME_KEY.sanguosha },
 ];
+const initialEmailTableSkeletonRows: AdminEmail[] = Array.from(
+  { length: INITIAL_EMAIL_TABLE_SKELETON_ROW_COUNT },
+  (_, index) => ({
+    id: -(index + 1),
+    gameKey: DEFAULT_GAME_KEY,
+    prefix: "",
+    postfix: "",
+    email: "",
+    bindStatus: EMAIL_BIND_STATUS.unbound,
+  }),
+);
 
 type LoadMode = "append" | "replace";
 type EmailTableColumns = NonNullable<AntTableProps<AdminEmail>["columns"]>;
@@ -466,6 +478,44 @@ export function EmailsPage() {
       render: (_value, email) => renderEmailActions(email),
     },
   ];
+  const emailTableSkeletonColumns: EmailTableColumns = [
+    {
+      key: "email",
+      title: "邮箱",
+      width: 360,
+      render: () => <Skeleton className="h-4 w-3/4" />,
+    },
+    {
+      key: "bindStatus",
+      title: "状态",
+      width: 112,
+      render: () => <Skeleton className="h-5 w-16 rounded-full" />,
+    },
+    {
+      key: "boundAccountId",
+      title: "关联账号",
+      width: 128,
+      render: () => <Skeleton className="h-5 w-20 rounded-full" />,
+    },
+    {
+      key: "updatedAt",
+      title: "更新",
+      width: 144,
+      render: () => <Skeleton className="h-4 w-24" />,
+    },
+    {
+      align: "right",
+      fixed: "right",
+      key: "actions",
+      title: "操作",
+      width: 144,
+      render: () => (
+        <div className="flex justify-end">
+          <Skeleton className="h-8 w-16" />
+        </div>
+      ),
+    },
+  ];
 
   return (
     <div className="space-y-4">
@@ -661,10 +711,16 @@ export function EmailsPage() {
           }}
         >
           <AntTable<AdminEmail>
-            className="admin-accounts-table admin-emails-table"
-            columns={emailTableColumns}
-            dataSource={emails}
-            loading={loading}
+            className={`admin-accounts-table admin-emails-table${
+              isInitialLoading ? " admin-table--initial-loading" : ""
+            }`}
+            columns={
+              isInitialLoading ? emailTableSkeletonColumns : emailTableColumns
+            }
+            dataSource={
+              isInitialLoading ? initialEmailTableSkeletonRows : emails
+            }
+            loading={loading && !isInitialLoading}
             locale={{ emptyText: "暂无邮箱" }}
             pagination={false}
             rowKey="id"
