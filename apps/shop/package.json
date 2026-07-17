@@ -19,6 +19,7 @@
     "@wuliuqi/ui": "workspace:*",
     "@wuliuqi/utils": "workspace:*",
     "@wuliuqi/validators": "workspace:*",
+    "@vercel/analytics": "^2.0.1",
     "lucide-react": "catalog:",
     "next": "catalog:",
     "react": "catalog:",
