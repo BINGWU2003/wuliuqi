@@ -441,7 +441,7 @@ export function AccountList({
                 key={index}
                 className="overflow-hidden rounded-md shadow-none"
               >
-                <Skeleton className="aspect-video rounded-none sm:aspect-[4/3]" />
+                <Skeleton className="aspect-video rounded-none md:aspect-[4/3]" />
                 <CardContent className="space-y-3 p-3">
                   <Skeleton className="h-3 w-20" />
                   <Skeleton className="h-4 w-full" />

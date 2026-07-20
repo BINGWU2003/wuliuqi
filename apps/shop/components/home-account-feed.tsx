@@ -333,7 +333,7 @@ export function HomeAccountFeed({
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, index) => (
             <Skeleton
-              className="aspect-[9/10] rounded-xl sm:aspect-[4/5]"
+              className="aspect-[9/10] rounded-xl md:aspect-[4/5]"
               key={index}
             />
           ))}
