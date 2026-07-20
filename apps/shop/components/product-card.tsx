@@ -40,7 +40,7 @@ export function ProductCard({
       title={`查看账号详情：${account.serialNumber}`}
     >
       <Card className="flex h-full flex-col overflow-hidden rounded-xl border-border/80 bg-card shadow-sm transition-[transform,border-color,box-shadow] group-hover:-translate-y-0.5 group-hover:border-foreground/30 group-hover:shadow-md">
-        <div className="relative aspect-[4/3] bg-muted">
+        <div className="relative aspect-video bg-muted sm:aspect-[4/3]">
           {account.images[0] ? (
             <Image
               fill

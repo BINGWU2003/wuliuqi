@@ -332,7 +332,10 @@ export function HomeAccountFeed({
       {loadingInitial ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, index) => (
-            <Skeleton className="aspect-[4/5] rounded-xl" key={index} />
+            <Skeleton
+              className="aspect-[9/10] rounded-xl sm:aspect-[4/5]"
+              key={index}
+            />
           ))}
         </div>
       ) : accounts.length > 0 ? (
