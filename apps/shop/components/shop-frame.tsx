@@ -3,7 +3,14 @@
 import { Button } from "@wuliuqi/ui/components/button";
 import { ThemeToggle } from "@wuliuqi/ui/components/theme-toggle";
 import { cn } from "@wuliuqi/ui/lib/utils";
-import { ArrowLeft, BookOpen, Gamepad2, Home, ShieldCheck } from "lucide-react";
+import {
+  ArrowLeft,
+  BookOpen,
+  Coins,
+  Gamepad2,
+  Home,
+  ShieldCheck,
+} from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import type { ReactNode } from "react";
@@ -123,7 +130,7 @@ export function ShopFrame({ children }: { children: ReactNode }) {
           <TabLink
             active={rechargeTabActive}
             href="/recharge-section"
-            icon={<Gamepad2 size={21} />}
+            icon={<Coins size={21} />}
           >
             充值专区
           </TabLink>
