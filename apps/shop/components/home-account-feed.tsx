@@ -253,13 +253,13 @@ export function HomeAccountFeed({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-2 rounded-md border border-border bg-card p-3 shadow-xs sm:grid-cols-[1fr_1fr_1fr_auto]">
+      <div className="grid grid-cols-2 gap-2 rounded-xl border border-border/80 bg-card p-3 shadow-sm sm:grid-cols-[1fr_1fr_1fr_auto]">
         <Select
           disabled={controlsDisabled}
           value={gameKeyValue}
           onValueChange={(value) => setGameKeyValue(value as HomeGameFilter)}
         >
-          <SelectTrigger className="h-9 rounded-md" aria-label="游戏分类">
+          <SelectTrigger className="h-10 rounded-lg" aria-label="游戏分类">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -277,7 +277,7 @@ export function HomeAccountFeed({
             setPriceRangeValue(value as ShopPriceRangeValue)
           }
         >
-          <SelectTrigger className="h-9 rounded-md" aria-label="价格区间">
+          <SelectTrigger className="h-10 rounded-lg" aria-label="价格区间">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -293,7 +293,7 @@ export function HomeAccountFeed({
           value={sortValue}
           onValueChange={(value) => setSortValue(value as HomeSortValue)}
         >
-          <SelectTrigger className="h-9 rounded-md" aria-label="排序">
+          <SelectTrigger className="h-10 rounded-lg" aria-label="排序">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -306,7 +306,7 @@ export function HomeAccountFeed({
         </Select>
         <div className="grid grid-cols-2 gap-2">
           <Button
-            className="h-9 rounded-md bg-neutral-950 text-white hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-950 dark:hover:bg-neutral-200"
+            className="h-10 rounded-lg bg-neutral-950 text-white hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-950 dark:hover:bg-neutral-200"
             disabled={controlsDisabled}
             title="搜索首页账号"
             type="button"
@@ -316,7 +316,7 @@ export function HomeAccountFeed({
             {loadingFilter ? "搜索中..." : "搜索"}
           </Button>
           <Button
-            className="h-9 rounded-md border-border bg-background px-3 text-xs"
+            className="h-10 rounded-lg border-border bg-background px-3 text-xs"
             disabled={controlsDisabled}
             title="重置首页筛选"
             type="button"
@@ -330,13 +330,13 @@ export function HomeAccountFeed({
       </div>
 
       {loadingInitial ? (
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, index) => (
-            <Skeleton className="aspect-[4/5] rounded-md" key={index} />
+            <Skeleton className="aspect-[4/5] rounded-xl" key={index} />
           ))}
         </div>
       ) : accounts.length > 0 ? (
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {accounts.map((account, index) => (
             <ProductCard
               account={account}

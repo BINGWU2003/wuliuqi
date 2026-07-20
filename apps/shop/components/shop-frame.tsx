@@ -90,7 +90,7 @@ export function ShopFrame({ children }: { children: ReactNode }) {
           <div className="hidden items-center gap-2 sm:flex">
             <div className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
               <ShieldCheck size={15} />
-              闲鱼交易
+              闲鱼担保交易
             </div>
             <ThemeToggle storageKey="wuliuqi-shop-theme" />
           </div>

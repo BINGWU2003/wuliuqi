@@ -110,7 +110,7 @@ export function AccountDetail({
 
   if (error) {
     return (
-      <Card className="mx-auto max-w-3xl rounded-md border-destructive/30 bg-destructive/5 shadow-none">
+      <Card className="mx-auto max-w-3xl rounded-xl border-destructive/30 bg-destructive/5 shadow-sm">
         <CardContent className="flex flex-col items-center gap-3 p-8 text-center">
           <div>
             <div className="text-sm font-medium text-destructive">{error}</div>
@@ -139,7 +139,7 @@ export function AccountDetail({
 
   if (!account) {
     return (
-      <Card className="mx-auto max-w-3xl rounded-md shadow-none">
+      <Card className="mx-auto max-w-3xl rounded-xl shadow-sm">
         <CardContent className="p-8 text-center text-sm text-muted-foreground">
           账号不存在
         </CardContent>
@@ -163,7 +163,7 @@ export function AccountDetail({
     >
       <MobileAccountSummary account={account} badges={badges} />
 
-      <section className="min-w-0 space-y-4">
+      <section className="min-w-0 space-y-4 pb-4 lg:pb-0">
         <AccountGallery
           account={account}
           selectedIndex={safeSelectedImageIndex}
@@ -171,19 +171,19 @@ export function AccountDetail({
           onSelect={setSelectedImageIndex}
         />
 
-        <Card className="rounded-md shadow-none">
+        <Card className="rounded-xl border-border/80 shadow-sm">
           <CardHeader className="border-b border-border">
             <CardTitle className="text-base">账号说明</CardTitle>
           </CardHeader>
           <CardContent className="p-4">
             <div
-              className="min-h-20 rounded-md bg-muted p-4 text-sm leading-7 text-foreground/85 break-words"
+              className="min-h-20 rounded-lg bg-muted p-4 text-sm leading-7 text-foreground/85 break-words"
               dangerouslySetInnerHTML={{ __html: account.description || "-" }}
             />
           </CardContent>
         </Card>
 
-        <Card className="rounded-md border-amber-200 bg-amber-50/60 shadow-none dark:border-amber-900/60 dark:bg-amber-950/30">
+        <Card className="rounded-xl border-amber-200 bg-amber-50/60 shadow-sm dark:border-amber-900/60 dark:bg-amber-950/30">
           <CardHeader className="border-b border-amber-200/70 dark:border-amber-900/60">
             <CardTitle className="text-base text-amber-950 dark:text-amber-200">
               交易提醒
@@ -207,7 +207,7 @@ export function AccountDetail({
           isModal ? "lg:top-4" : "lg:top-24",
         )}
       >
-        <Card className="rounded-md shadow-none">
+        <Card className="rounded-xl border-border/80 shadow-sm">
           <CardHeader className="space-y-3 border-b border-border">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
@@ -258,7 +258,7 @@ export function AccountDetail({
                 <div className="grid grid-cols-2 gap-2">
                   {account.attributeValues.map((attribute) => (
                     <div
-                      className="rounded-md border border-border bg-background p-3"
+                      className="rounded-lg border border-border bg-background p-3"
                       key={attribute.key}
                     >
                       <div className="truncate text-xs font-medium text-muted-foreground">
@@ -274,27 +274,30 @@ export function AccountDetail({
               </div>
             ) : null}
 
-            {account.xianyuUrl ? (
-              <Button asChild className="h-11 w-full rounded-md">
-                <a
-                  href={account.xianyuUrl}
-                  rel="noreferrer"
-                  target="_blank"
-                  title={`打开闲鱼商品：${account.serialNumber}`}
-                >
-                  打开闲鱼商品
-                  <ExternalLink size={16} />
-                </a>
-              </Button>
-            ) : (
-              <Button className="h-11 w-full rounded-md" disabled>
-                暂无外部购买链接
-              </Button>
-            )}
+            <div className="grid grid-cols-2 gap-2">
+              <ContactOptionsButton className="h-11" />
+              {account.xianyuUrl ? (
+                <Button asChild className="h-11 w-full rounded-md">
+                  <a
+                    href={account.xianyuUrl}
+                    rel="noreferrer"
+                    target="_blank"
+                    title={`打开闲鱼商品：${account.serialNumber}`}
+                  >
+                    闲鱼购买
+                    <ExternalLink size={16} />
+                  </a>
+                </Button>
+              ) : (
+                <Button className="h-11 w-full rounded-md" disabled>
+                  暂无购买链接
+                </Button>
+              )}
+            </div>
 
             <Separator />
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2">
               <Metric
                 icon={<Camera size={16} />}
                 label="截图"
@@ -319,7 +322,7 @@ export function AccountDetail({
           </CardContent>
         </Card>
 
-        <Card className="rounded-md shadow-none">
+        <Card className="rounded-xl border-border/80 shadow-sm">
           <CardContent className="space-y-3 p-4">
             <TrustItem>商品截图与描述优先以详情页和闲鱼沟通确认为准</TrustItem>
             <TrustItem>付款前确认编号、价格和账号截图，避免私下冒充</TrustItem>
@@ -352,7 +355,7 @@ function MobileAccountSummary({
   badges: string[];
 }) {
   return (
-    <Card className="rounded-md shadow-none lg:hidden">
+    <Card className="rounded-xl border-border/80 shadow-sm lg:hidden">
       <CardHeader className="space-y-3 border-b border-border p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
@@ -399,7 +402,7 @@ function MobileAccountSummary({
           <div className="grid grid-cols-2 gap-2">
             {account.attributeValues.slice(0, 4).map((attribute) => (
               <div
-                className="rounded-md border border-border bg-background p-2.5"
+                className="rounded-lg border border-border bg-background p-2.5"
                 key={attribute.key}
               >
                 <div className="truncate text-xs text-muted-foreground">
@@ -412,8 +415,6 @@ function MobileAccountSummary({
             ))}
           </div>
         ) : null}
-
-        <XianyuPurchaseButton account={account} label="立即在闲鱼购买" />
       </CardContent>
     </Card>
   );
@@ -476,7 +477,7 @@ function AccountGallery({
   const mainImage = account.images[selectedIndex] ?? account.images[0];
 
   return (
-    <Card className="overflow-hidden rounded-md shadow-none">
+    <Card className="overflow-hidden rounded-xl border-border/80 shadow-sm">
       <div className="relative aspect-[4/3] bg-muted sm:aspect-[16/10]">
         {mainImage ? (
           <button
@@ -509,7 +510,7 @@ function AccountGallery({
               key={`${image}-${index}`}
               aria-label={`选择第 ${index + 1} 张账号截图`}
               className={cn(
-                "relative aspect-square overflow-hidden rounded-sm border border-border bg-muted transition-opacity active:opacity-80",
+                "relative aspect-square overflow-hidden rounded-md border border-border bg-muted transition-opacity active:opacity-80",
                 index === selectedIndex &&
                   "ring-2 ring-foreground ring-offset-2",
               )}
@@ -548,7 +549,7 @@ function DetailSkeleton({
         isModal ? "max-w-none" : "max-w-6xl",
       )}
     >
-      <Card className="overflow-hidden rounded-md shadow-none">
+      <Card className="overflow-hidden rounded-xl border-border/80 shadow-sm">
         <Skeleton className="aspect-[4/3] rounded-none sm:aspect-[16/10]" />
         <CardContent className="grid grid-cols-4 gap-2 p-3 sm:grid-cols-6">
           {Array.from({ length: 6 }).map((_, index) => (
@@ -556,7 +557,7 @@ function DetailSkeleton({
           ))}
         </CardContent>
       </Card>
-      <Card className="rounded-md shadow-none">
+      <Card className="rounded-xl border-border/80 shadow-sm">
         <CardContent className="space-y-4 p-4">
           <Skeleton className="h-4 w-28" />
           <Skeleton className="h-8 w-full" />
@@ -578,7 +579,7 @@ function Metric({
   value: string;
 }) {
   return (
-    <div className="rounded-md border border-border bg-background p-3">
+    <div className="min-w-0 rounded-lg border border-border bg-background p-3">
       <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
         {icon}
         {label}

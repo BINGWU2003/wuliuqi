@@ -6,20 +6,21 @@ import { Skeleton } from "@wuliuqi/ui/components/skeleton";
 import { toast } from "@wuliuqi/ui/components/sonner";
 import { Spinner } from "@wuliuqi/ui/components/spinner";
 import { cn } from "@wuliuqi/ui/lib/utils";
-import { RefreshCw } from "lucide-react";
+import { ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
 import Image from "next/image";
 import {
   useCallback,
   useEffect,
   useRef,
   useState,
+  type FocusEvent,
   type PointerEvent,
 } from "react";
 import { fetchCarousel } from "@/lib/client-api";
 
 const CAROUSEL_NAME = "home_ads";
 const SWIPE_THRESHOLD = 48;
-const AUTO_PLAY_INTERVAL_MS = 3000;
+const AUTO_PLAY_INTERVAL_MS = 5000;
 const AUTO_PLAY_PAUSE_AFTER_INTERACTION_MS = 5000;
 
 export function HomeCarousel() {
@@ -27,6 +28,9 @@ export function HomeCarousel() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [active, setActive] = useState(0);
+  const [focusPaused, setFocusPaused] = useState(false);
+  const [hoverPaused, setHoverPaused] = useState(false);
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
   const dragStartXRef = useRef<number | null>(null);
   const dragPointerIdRef = useRef<number | null>(null);
   const autoPlayPausedUntilRef = useRef(0);
@@ -88,7 +92,12 @@ export function HomeCarousel() {
   }, [loadCarousel]);
 
   useEffect(() => {
-    if (items.length < 2) {
+    if (
+      items.length < 2 ||
+      focusPaused ||
+      hoverPaused ||
+      prefersReducedMotion
+    ) {
       return;
     }
 
@@ -124,7 +133,17 @@ export function HomeCarousel() {
         window.clearTimeout(timer);
       }
     };
-  }, [items.length]);
+  }, [focusPaused, hoverPaused, items.length, prefersReducedMotion]);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const updatePreference = () => setPrefersReducedMotion(mediaQuery.matches);
+
+    updatePreference();
+    mediaQuery.addEventListener("change", updatePreference);
+
+    return () => mediaQuery.removeEventListener("change", updatePreference);
+  }, []);
 
   useEffect(() => {
     setActive((current) => (items[current] ? current : 0));
@@ -193,11 +212,17 @@ export function HomeCarousel() {
     dragPointerIdRef.current = null;
   }
 
+  function handleBlur(event: FocusEvent<HTMLElement>) {
+    if (!event.currentTarget.contains(event.relatedTarget)) {
+      setFocusPaused(false);
+    }
+  }
+
   if (loading && !error) {
     return (
       <section
         aria-label="首页轮播图占位"
-        className="relative mx-auto h-32 w-full max-w-6xl overflow-hidden rounded-md border border-border bg-card shadow-xs sm:h-auto sm:aspect-[16/5] sm:min-h-[150px]"
+        className="relative mx-auto aspect-[3/1] w-full max-w-6xl overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm sm:aspect-[11/5] sm:min-h-[150px]"
       >
         <Skeleton className="size-full rounded-none" />
       </section>
@@ -208,7 +233,7 @@ export function HomeCarousel() {
     return (
       <section
         aria-label="首页轮播图加载失败"
-        className="relative mx-auto flex h-32 w-full max-w-6xl items-center justify-center overflow-hidden rounded-md border border-border bg-card p-4 text-center shadow-xs sm:h-auto sm:aspect-[16/5] sm:min-h-[150px]"
+        className="relative mx-auto flex aspect-[3/1] w-full max-w-6xl items-center justify-center overflow-hidden rounded-xl border border-border/80 bg-card p-4 text-center shadow-sm sm:aspect-[11/5] sm:min-h-[150px]"
       >
         <div className="flex flex-col items-center gap-3">
           <div className="space-y-1">
@@ -244,8 +269,12 @@ export function HomeCarousel() {
   return (
     <section
       aria-label="首页轮播图"
-      className="relative mx-auto h-32 w-full max-w-6xl overflow-hidden rounded-md border border-border bg-card shadow-xs sm:h-auto sm:aspect-[16/5] sm:min-h-[150px]"
+      className="relative mx-auto aspect-[3/1] w-full max-w-6xl overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm sm:aspect-[11/5] sm:min-h-[150px]"
       style={{ touchAction: "pan-y" }}
+      onBlurCapture={handleBlur}
+      onFocusCapture={() => setFocusPaused(true)}
+      onMouseEnter={() => setHoverPaused(true)}
+      onMouseLeave={() => setHoverPaused(false)}
       onPointerCancel={handlePointerCancel}
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerUp}
@@ -255,34 +284,60 @@ export function HomeCarousel() {
         priority
         className="select-none object-cover"
         draggable={false}
-        sizes="(min-width: 920px) 920px, 100vw"
+        sizes="(min-width: 1152px) 1152px, 100vw"
         src={current.url}
         alt="首页轮播图"
         unoptimized
       />
       {items.length > 1 ? (
-        <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-1.5 rounded-full bg-black/25 px-2 py-1.5 backdrop-blur">
-          {items.map((item, index) => (
-            <button
-              key={`${item.url}-${item.sortOrder}`}
-              aria-label={`切换到第 ${index + 1} 张轮播图`}
-              className={cn(
-                "h-1.5 w-1.5 cursor-pointer rounded-full bg-white/65 transition-all hover:bg-white",
-                index === active && "w-5 bg-white",
-              )}
-              title={`切换到第 ${index + 1} 张轮播图`}
-              type="button"
-              onClick={() => {
-                pauseAutoPlay();
-                setActive(index);
-              }}
-              onPointerDown={(event) => {
-                pauseAutoPlay();
-                event.stopPropagation();
-              }}
-            />
-          ))}
-        </div>
+        <>
+          <button
+            aria-label="上一张轮播图"
+            className="absolute left-0 top-1/2 hidden h-16 w-9 -translate-y-1/2 place-items-center rounded-r-md bg-black/35 text-white/90 backdrop-blur-sm transition-colors hover:bg-black/50 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white sm:grid"
+            title="上一张"
+            type="button"
+            onClick={showPrevious}
+            onPointerDown={(event) => event.stopPropagation()}
+          >
+            <ChevronLeft aria-hidden="true" size={26} strokeWidth={2} />
+          </button>
+          <button
+            aria-label="下一张轮播图"
+            className="absolute right-0 top-1/2 hidden h-16 w-9 -translate-y-1/2 place-items-center rounded-l-md bg-black/35 text-white/90 backdrop-blur-sm transition-colors hover:bg-black/50 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white sm:grid"
+            title="下一张"
+            type="button"
+            onClick={showNext}
+            onPointerDown={(event) => event.stopPropagation()}
+          >
+            <ChevronRight aria-hidden="true" size={26} strokeWidth={2} />
+          </button>
+          <div className="absolute bottom-1 right-2 flex items-center rounded-full bg-black/25 px-1 py-0.5 backdrop-blur-sm sm:hidden">
+            {items.map((item, index) => (
+              <button
+                key={`${item.url}-${item.sortOrder}`}
+                aria-label={`切换到第 ${index + 1} 张轮播图`}
+                className="group grid size-5 cursor-pointer place-items-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-white"
+                title={`切换到第 ${index + 1} 张轮播图`}
+                type="button"
+                onClick={() => {
+                  pauseAutoPlay();
+                  setActive(index);
+                }}
+                onPointerDown={(event) => {
+                  pauseAutoPlay();
+                  event.stopPropagation();
+                }}
+              >
+                <span
+                  className={cn(
+                    "size-1.5 rounded-full bg-white/60 transition-colors group-hover:bg-white",
+                    index === active && "bg-white",
+                  )}
+                />
+              </button>
+            ))}
+          </div>
+        </>
       ) : null}
     </section>
   );

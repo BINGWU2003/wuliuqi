@@ -33,7 +33,7 @@
 
 :root {
   color-scheme: light;
-  --radius: 6px;
+  --radius: 10px;
   --background: #f6f6f4;
   --foreground: #111111;
   --card: #ffffff;
