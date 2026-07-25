@@ -40,6 +40,7 @@ import { fetchAccount } from "@/lib/client-api";
 import { SHOP_WECHAT_ID } from "@/lib/contact";
 import { ContactOptionsButton } from "@/components/contact-options-button";
 import {
+  captureAccountContactClicked,
   captureAccountDetailViewedOnce,
   captureAccountXianyuClicked,
   type AccountDetailPresentation,
@@ -291,7 +292,12 @@ export function AccountDetail({
             ) : null}
 
             <div className="grid grid-cols-2 gap-2">
-              <ContactOptionsButton className="h-11" />
+              <ContactOptionsButton
+                className="h-11"
+                onContactClick={(method) =>
+                  captureAccountContactClicked(account, presentation, method)
+                }
+              />
               {account.xianyuUrl ? (
                 <Button asChild className="h-11 w-full rounded-md">
                   <a
@@ -455,7 +461,12 @@ function MobilePurchaseBar({
             {formatPrice(account.price)}
           </div>
         </div>
-        <ContactOptionsButton className="h-11" />
+        <ContactOptionsButton
+          className="h-11"
+          onContactClick={(method) =>
+            captureAccountContactClicked(account, presentation, method)
+          }
+        />
         <XianyuPurchaseButton
           account={account}
           label="闲鱼购买"

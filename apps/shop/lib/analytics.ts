@@ -5,8 +5,11 @@ export const SHOP_ACCOUNT_DETAIL_VIEWED_EVENT =
   "shop_account_detail_viewed";
 export const SHOP_ACCOUNT_XIANYU_CLICKED_EVENT =
   "shop_account_xianyu_clicked";
+export const SHOP_ACCOUNT_CONTACT_CLICKED_EVENT =
+  "shop_account_contact_clicked";
 
 export type AccountDetailPresentation = "page" | "modal";
+export type AccountContactMethod = "wechat" | "xianyu";
 
 type AccountAnalyticsSource = Pick<
   ShopAccount,
@@ -73,6 +76,17 @@ export function captureAccountXianyuClicked(
     SHOP_ACCOUNT_XIANYU_CLICKED_EVENT,
     accountAnalyticsProperties(account, presentation),
   );
+}
+
+export function captureAccountContactClicked(
+  account: AccountAnalyticsSource,
+  presentation: AccountDetailPresentation,
+  contactMethod: AccountContactMethod,
+) {
+  capture(SHOP_ACCOUNT_CONTACT_CLICKED_EVENT, {
+    ...accountAnalyticsProperties(account, presentation),
+    contact_method: contactMethod,
+  });
 }
 
 export function ensurePostHogInitialized() {

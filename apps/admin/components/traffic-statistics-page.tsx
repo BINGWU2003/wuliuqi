@@ -39,10 +39,11 @@ import {
   Eye,
   Gamepad2,
   Globe2,
+  MessageCircle,
+  MessagesSquare,
   Monitor,
   MousePointerClick,
   RefreshCw,
-  TrendingUp,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -100,8 +101,9 @@ const tooltipContentStyle = {
 export function TrafficStatisticsPage() {
   const [range, setRange] = useState<TrafficRange>("30d");
   const [gameKey, setGameKey] = useState<TrafficGameFilter>("all");
-  const [statistics, setStatistics] =
-    useState<AdminTrafficStatistics | null>(null);
+  const [statistics, setStatistics] = useState<AdminTrafficStatistics | null>(
+    null,
+  );
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
@@ -142,7 +144,7 @@ export function TrafficStatisticsPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-normal">流量统计</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            查看账号详情的匿名访客、浏览和闲鱼点击表现。
+            分析账号详情的访问规模、购买意向与咨询行为，以及用户来源与设备分布。
           </p>
         </div>
         <div className="grid grid-cols-2 gap-2 sm:flex sm:w-auto">
@@ -163,9 +165,7 @@ export function TrafficStatisticsPage() {
           </Select>
           <Select
             value={gameKey}
-            onValueChange={(value) =>
-              setGameKey(value as TrafficGameFilter)
-            }
+            onValueChange={(value) => setGameKey(value as TrafficGameFilter)}
           >
             <SelectTrigger className="w-full sm:w-32">
               <SelectValue />
@@ -220,34 +220,40 @@ function TrafficStatisticsContent({
 }) {
   const metrics: TrafficMetric[] = [
     {
-      label: "匿名访客（按日）",
+      label: "访问用户（按日）",
       value: formatNumber(statistics.summary.visitors),
-      detail: "无 Cookie 模式下跨天会重新计数",
+      detail: "按日去重后汇总，跨日访问会重复计数",
       icon: Users,
     },
     {
-      label: "详情浏览",
+      label: "账号详情浏览量",
       value: formatNumber(statistics.summary.views),
-      detail: "账号详情成功加载次数",
+      detail: "账号详情成功加载的累计次数",
       icon: Eye,
     },
     {
-      label: "闲鱼点击",
+      label: "闲鱼购买点击",
       value: formatNumber(statistics.summary.xianyuClicks),
-      detail: "桌面与移动端购买按钮点击",
+      detail: "账号详情中“闲鱼购买”按钮的点击次数",
       icon: MousePointerClick,
     },
     {
-      label: "点击转化率",
-      value: formatPercent(statistics.summary.conversionRate),
-      detail: "闲鱼点击数 ÷ 详情浏览数",
-      icon: TrendingUp,
+      label: "微信咨询点击",
+      value: formatNumber(statistics.summary.wechatContactClicks),
+      detail: "“联系卖家”中微信联系方式的点击次数",
+      icon: MessageCircle,
+    },
+    {
+      label: "闲鱼咨询点击",
+      value: formatNumber(statistics.summary.xianyuContactClicks),
+      detail: "“联系卖家”中闲鱼联系方式的点击次数",
+      icon: MessagesSquare,
     },
   ];
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {metrics.map((metric) => (
           <TrafficMetricCard key={metric.label} metric={metric} />
         ))}
@@ -255,26 +261,24 @@ function TrafficStatisticsContent({
 
       <TrafficTrendChart statistics={statistics} />
 
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 md:grid-cols-3">
         <TrafficBreakdownCard
           icon={Gamepad2}
+          kind="game"
           rows={statistics.gameBreakdown}
-          title="游戏分布"
+          title="游戏访问分布"
         />
         <TrafficBreakdownCard
           icon={Globe2}
+          kind="referrer"
           rows={statistics.breakdowns.referrers}
           title="访问来源"
         />
         <TrafficBreakdownCard
-          icon={Globe2}
-          rows={statistics.breakdowns.countries}
-          title="国家或地区"
-        />
-        <TrafficBreakdownCard
           icon={Monitor}
+          kind="device"
           rows={statistics.breakdowns.devices}
-          title="设备类型"
+          title="访问设备"
         />
       </div>
 
@@ -318,8 +322,10 @@ function TrafficTrendChart({
   return (
     <Card className="rounded-md shadow-none">
       <CardHeader>
-        <CardTitle className="text-base">每日趋势</CardTitle>
-        <CardDescription>按 PostHog 项目时区统计。</CardDescription>
+        <CardTitle className="text-base">访问与互动趋势</CardTitle>
+        <CardDescription>
+          按日对比访问用户、详情浏览及购买与咨询行为。
+        </CardDescription>
       </CardHeader>
       <CardContent>
         {statistics.trend.length > 0 ? (
@@ -350,7 +356,7 @@ function TrafficTrendChart({
                 <Line
                   dataKey="visitors"
                   dot={false}
-                  name="匿名访客"
+                  name="访问用户（按日）"
                   stroke="#6b6b66"
                   strokeWidth={2}
                   type="monotone"
@@ -366,8 +372,16 @@ function TrafficTrendChart({
                 <Line
                   dataKey="xianyuClicks"
                   dot={false}
-                  name="闲鱼点击"
+                  name="闲鱼购买"
                   stroke="var(--price)"
+                  strokeWidth={2}
+                  type="monotone"
+                />
+                <Line
+                  dataKey="contactClicks"
+                  dot={false}
+                  name="咨询点击"
+                  stroke="var(--primary)"
                   strokeWidth={2}
                   type="monotone"
                 />
@@ -384,10 +398,12 @@ function TrafficTrendChart({
 
 function TrafficBreakdownCard({
   icon: Icon,
+  kind,
   rows,
   title,
 }: {
   icon: LucideIcon;
+  kind: "device" | "game" | "referrer";
   rows: TrafficBreakdownRow[];
   title: string;
 }) {
@@ -407,7 +423,7 @@ function TrafficBreakdownCard({
             <div className="space-y-1.5" key={row.key}>
               <div className="flex items-center justify-between gap-3 text-sm">
                 <span className="truncate" title={row.label}>
-                  {row.label}
+                  {formatBreakdownLabel(kind, row.label)}
                 </span>
                 <span className="shrink-0 font-mono text-muted-foreground">
                   {formatNumber(row.value)}
@@ -435,23 +451,26 @@ function TopAccountsCard({ accounts }: { accounts: TrafficTopAccount[] }) {
   return (
     <Card className="rounded-md shadow-none">
       <CardHeader>
-        <CardTitle className="text-base">热门账号详情</CardTitle>
-        <CardDescription>按详情浏览次数从高到低排列。</CardDescription>
+        <CardTitle className="text-base">账号关注度排行</CardTitle>
+        <CardDescription>
+          按账号详情浏览量降序排列，重点关注“有浏览、无互动”的账号。
+        </CardDescription>
       </CardHeader>
       <CardContent>
         {accounts.length > 0 ? (
           <>
-            <div className="hidden md:block">
-              <Table>
+            <div className="hidden overflow-x-auto md:block">
+              <Table className="min-w-[960px]">
                 <TableHeader>
                   <TableRow>
                     <TableHead>账号</TableHead>
                     <TableHead>游戏</TableHead>
                     <TableHead className="text-right">价格</TableHead>
-                    <TableHead className="text-right">访客</TableHead>
-                    <TableHead className="text-right">浏览</TableHead>
-                    <TableHead className="text-right">闲鱼点击</TableHead>
-                    <TableHead className="text-right">转化率</TableHead>
+                    <TableHead className="text-right">访问用户</TableHead>
+                    <TableHead className="text-right">浏览量</TableHead>
+                    <TableHead className="text-right">闲鱼购买</TableHead>
+                    <TableHead className="text-right">咨询点击</TableHead>
+                    <TableHead>状态</TableHead>
                     <TableHead className="text-right">操作</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -484,7 +503,10 @@ function TopAccountsCard({ accounts }: { accounts: TrafficTopAccount[] }) {
                         {formatNumber(account.xianyuClicks)}
                       </TableCell>
                       <TableCell className="text-right font-mono">
-                        {formatPercent(account.conversionRate)}
+                        {formatNumber(account.contactClicks)}
+                      </TableCell>
+                      <TableCell>
+                        <AccountAttention account={account} />
                       </TableCell>
                       <TableCell className="text-right">
                         <AccountLink account={account} />
@@ -513,16 +535,22 @@ function TopAccountsCard({ accounts }: { accounts: TrafficTopAccount[] }) {
                     <GameBadge gameKey={account.gameKey} />
                   </div>
                   <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-                    <MobileMetric label="访客" value={account.visitors} />
-                    <MobileMetric label="浏览" value={account.views} />
                     <MobileMetric
-                      label="闲鱼点击"
+                      label="访问用户（按日）"
+                      value={account.visitors}
+                    />
+                    <MobileMetric label="详情浏览量" value={account.views} />
+                    <MobileMetric
+                      label="闲鱼购买"
                       value={account.xianyuClicks}
                     />
                     <MobileMetric
-                      label="转化率"
-                      value={formatPercent(account.conversionRate)}
+                      label="咨询点击"
+                      value={account.contactClicks}
                     />
+                  </div>
+                  <div className="mt-3">
+                    <AccountAttention account={account} />
                   </div>
                   <div className="mt-3 flex items-center justify-between gap-3 border-t border-border pt-3">
                     <span className="font-mono text-sm text-price">
@@ -551,6 +579,19 @@ function AccountLink({ account }: { account: TrafficTopAccount }) {
     >
       查看
     </Link>
+  );
+}
+
+function AccountAttention({ account }: { account: TrafficTopAccount }) {
+  const hasAction = account.xianyuClicks + account.contactClicks > 0;
+
+  return (
+    <Badge
+      className="whitespace-nowrap"
+      variant={hasAction ? "secondary" : "outline"}
+    >
+      {hasAction ? "已有互动" : "有浏览，无互动"}
+    </Badge>
   );
 }
 
@@ -590,14 +631,14 @@ function EmptyState({ text }: { text: string }) {
 function TrafficStatisticsSkeleton() {
   return (
     <div className="space-y-4">
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, index) => (
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {Array.from({ length: 5 }).map((_, index) => (
           <Skeleton className="h-28" key={index} />
         ))}
       </div>
       <Skeleton className="h-96" />
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, index) => (
+      <div className="grid gap-3 md:grid-cols-3">
+        {Array.from({ length: 3 }).map((_, index) => (
           <Skeleton className="h-64" key={index} />
         ))}
       </div>
@@ -610,16 +651,35 @@ function formatNumber(value: number) {
   return numberFormatter.format(value);
 }
 
-function formatPercent(value: number) {
-  return `${value.toFixed(1)}%`;
-}
-
 function formatChartDate(value: string | number) {
   const date = new Date(String(value));
-  return Number.isNaN(date.getTime()) ? String(value) : dateFormatter.format(date);
+  return Number.isNaN(date.getTime())
+    ? String(value)
+    : dateFormatter.format(date);
 }
 
 function formatDateTime(value: string) {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? value : dateTimeFormatter.format(date);
+}
+
+function formatBreakdownLabel(
+  kind: "device" | "game" | "referrer",
+  label: string,
+) {
+  if (kind === "referrer" && (label === "$direct" || label === "direct")) {
+    return "直接访问（书签或手动输入）";
+  }
+
+  if (kind === "device") {
+    return (
+      {
+        Desktop: "电脑",
+        Mobile: "手机",
+        Tablet: "平板",
+      }[label] ?? label
+    );
+  }
+
+  return label;
 }

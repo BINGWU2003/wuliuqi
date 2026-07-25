@@ -12,6 +12,7 @@ import {
   accountAnalyticsKey,
   accountAnalyticsProperties,
   accountViewEventKey,
+  captureAccountContactClicked,
   captureAccountDetailViewed,
   captureAccountDetailViewedOnce,
   captureAccountXianyuClicked,
@@ -65,7 +66,7 @@ describe("商城 PostHog 事件", () => {
     expect(posthogMock.capture).not.toHaveBeenCalled();
   });
 
-  it("同一次详情打开只上报一次，闲鱼点击上报一次", () => {
+  it("同一次详情打开只上报一次，并区分购买与联系方式点击", () => {
     vi.stubEnv("NEXT_PUBLIC_POSTHOG_KEY", "phc_project_token");
     vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROXY_READY", "true");
     vi.stubGlobal("window", {});
@@ -82,9 +83,11 @@ describe("商城 PostHog 事件", () => {
       trackedEventKey,
     );
     captureAccountXianyuClicked(account, "page");
+    captureAccountContactClicked(account, "page", "wechat");
+    captureAccountContactClicked(account, "page", "xianyu");
 
     expect(posthogMock.init).toHaveBeenCalledOnce();
-    expect(posthogMock.capture).toHaveBeenCalledTimes(2);
+    expect(posthogMock.capture).toHaveBeenCalledTimes(4);
     expect(posthogMock.capture).toHaveBeenNthCalledWith(
       1,
       "shop_account_detail_viewed",
@@ -94,6 +97,24 @@ describe("商城 PostHog 事件", () => {
       2,
       "shop_account_xianyu_clicked",
       expect.objectContaining({ account_key: "codm:7", presentation: "page" }),
+    );
+    expect(posthogMock.capture).toHaveBeenNthCalledWith(
+      3,
+      "shop_account_contact_clicked",
+      expect.objectContaining({
+        account_key: "codm:7",
+        contact_method: "wechat",
+        presentation: "page",
+      }),
+    );
+    expect(posthogMock.capture).toHaveBeenNthCalledWith(
+      4,
+      "shop_account_contact_clicked",
+      expect.objectContaining({
+        account_key: "codm:7",
+        contact_method: "xianyu",
+        presentation: "page",
+      }),
     );
   });
 });

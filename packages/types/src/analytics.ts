@@ -16,6 +16,7 @@ export interface TrafficTrendPoint {
   visitors: number;
   views: number;
   xianyuClicks: number;
+  contactClicks: number;
 }
 
 export interface TrafficBreakdownRow {
@@ -34,6 +35,10 @@ export interface TrafficTopAccount {
   visitors: number;
   views: number;
   xianyuClicks: number;
+  wechatContactClicks: number;
+  xianyuContactClicks: number;
+  contactClicks: number;
+  interactionClicks: number;
   conversionRate: number;
 }
 
@@ -45,6 +50,10 @@ export interface AdminTrafficStatistics {
     visitors: number;
     views: number;
     xianyuClicks: number;
+    wechatContactClicks: number;
+    xianyuContactClicks: number;
+    contactClicks: number;
+    interactionClicks: number;
     conversionRate: number;
   };
   trend: TrafficTrendPoint[];

@@ -47,8 +47,8 @@ describe("Admin PostHog 流量统计", () => {
   it("转换汇总、趋势、分布和热门账号数据", async () => {
     configurePostHog();
     fetchMock
-      .mockResolvedValueOnce(response([[4, 8, 2]]))
-      .mockResolvedValueOnce(response([["2026-07-24", 3, 5, 1]]))
+      .mockResolvedValueOnce(response([[4, 8, 2, 3, 1]]))
+      .mockResolvedValueOnce(response([["2026-07-24", 3, 5, 1, 2, 1]]))
       .mockResolvedValueOnce(
         response([
           ["codm", 5],
@@ -57,7 +57,19 @@ describe("Admin PostHog 流量统计", () => {
       )
       .mockResolvedValueOnce(
         response([
-          ["codm:7", 7, "codm", "#CODM-7", "神话账号", 899, 3, 5, 1],
+          [
+            "codm:7",
+            7,
+            "codm",
+            "#CODM-7",
+            "神话账号",
+            899,
+            3,
+            5,
+            1,
+            2,
+            1,
+          ],
         ]),
       )
       .mockResolvedValueOnce(response([["example.com", 4]]))
@@ -70,10 +82,20 @@ describe("Admin PostHog 流量统计", () => {
       visitors: 4,
       views: 8,
       xianyuClicks: 2,
-      conversionRate: 25,
+      wechatContactClicks: 3,
+      xianyuContactClicks: 1,
+      contactClicks: 4,
+      interactionClicks: 6,
+      conversionRate: 75,
     });
     expect(result.trend).toEqual([
-      { date: "2026-07-24", visitors: 3, views: 5, xianyuClicks: 1 },
+      {
+        date: "2026-07-24",
+        visitors: 3,
+        views: 5,
+        xianyuClicks: 1,
+        contactClicks: 3,
+      },
     ]);
     expect(result.gameBreakdown).toEqual([
       { key: "codm", label: "CODM", value: 5 },
@@ -89,7 +111,11 @@ describe("Admin PostHog 流量统计", () => {
       visitors: 3,
       views: 5,
       xianyuClicks: 1,
-      conversionRate: 20,
+      wechatContactClicks: 2,
+      xianyuContactClicks: 1,
+      contactClicks: 3,
+      interactionClicks: 4,
+      conversionRate: 80,
     });
     expect(result.breakdowns).toEqual({
       referrers: [{ key: "example.com", label: "example.com", value: 4 }],
@@ -112,6 +138,10 @@ describe("Admin PostHog 流量统计", () => {
       visitors: 0,
       views: 0,
       xianyuClicks: 0,
+      wechatContactClicks: 0,
+      xianyuContactClicks: 0,
+      contactClicks: 0,
+      interactionClicks: 0,
       conversionRate: 0,
     });
     expect(result.trend).toEqual([]);

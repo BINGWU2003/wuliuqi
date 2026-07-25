@@ -13,6 +13,7 @@ import { cn } from "@wuliuqi/ui/lib/utils";
 import { ExternalLink, MessageCircle, MessagesSquare } from "lucide-react";
 import type { ReactNode } from "react";
 import { useState } from "react";
+import type { AccountContactMethod } from "@/lib/analytics";
 import { SHOP_WECHAT_ID, SHOP_XIANYU_URL } from "@/lib/contact";
 
 type ContactButtonVariant = "full" | "floating";
@@ -20,16 +21,19 @@ type ContactButtonVariant = "full" | "floating";
 export function ContactOptionsButton({
   avoidBottomTabs = false,
   className,
+  onContactClick,
   variant = "full",
 }: {
   avoidBottomTabs?: boolean;
   className?: string;
+  onContactClick?: (method: AccountContactMethod) => void;
   variant?: ContactButtonVariant;
 }) {
   const [open, setOpen] = useState(false);
   const isFloating = variant === "floating";
 
   async function openWechat() {
+    onContactClick?.("wechat");
     const copied = await copyText(SHOP_WECHAT_ID);
 
     setOpen(false);
@@ -44,6 +48,7 @@ export function ContactOptionsButton({
   }
 
   function openXianyu() {
+    onContactClick?.("xianyu");
     setOpen(false);
     window.open(SHOP_XIANYU_URL, "_blank", "noopener,noreferrer");
   }

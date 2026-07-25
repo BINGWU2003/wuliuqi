@@ -14,6 +14,7 @@ import type {
 
 const ACCOUNT_DETAIL_VIEWED_EVENT = "shop_account_detail_viewed";
 const ACCOUNT_XIANYU_CLICKED_EVENT = "shop_account_xianyu_clicked";
+const ACCOUNT_CONTACT_CLICKED_EVENT = "shop_account_contact_clicked";
 const RANGE_DAYS: Record<TrafficRange, number> = {
   "7d": 7,
   "30d": 30,
@@ -83,7 +84,9 @@ export async function getAdminTrafficStatistics(
         SELECT
           uniqIf(distinct_id, event = '${ACCOUNT_DETAIL_VIEWED_EVENT}'),
           countIf(event = '${ACCOUNT_DETAIL_VIEWED_EVENT}'),
-          countIf(event = '${ACCOUNT_XIANYU_CLICKED_EVENT}')
+          countIf(event = '${ACCOUNT_XIANYU_CLICKED_EVENT}'),
+          countIf(event = '${ACCOUNT_CONTACT_CLICKED_EVENT}' AND properties.contact_method = 'wechat'),
+          countIf(event = '${ACCOUNT_CONTACT_CLICKED_EVENT}' AND properties.contact_method = 'xianyu')
         FROM events
         WHERE ${conditions}
       `,
@@ -95,7 +98,9 @@ export async function getAdminTrafficStatistics(
           toString(toDate(timestamp)),
           uniqIf(distinct_id, event = '${ACCOUNT_DETAIL_VIEWED_EVENT}'),
           countIf(event = '${ACCOUNT_DETAIL_VIEWED_EVENT}'),
-          countIf(event = '${ACCOUNT_XIANYU_CLICKED_EVENT}')
+          countIf(event = '${ACCOUNT_XIANYU_CLICKED_EVENT}'),
+          countIf(event = '${ACCOUNT_CONTACT_CLICKED_EVENT}' AND properties.contact_method = 'wechat'),
+          countIf(event = '${ACCOUNT_CONTACT_CLICKED_EVENT}' AND properties.contact_method = 'xianyu')
         FROM events
         WHERE ${conditions}
         GROUP BY toDate(timestamp)
@@ -126,7 +131,9 @@ export async function getAdminTrafficStatistics(
           argMax(properties.price, timestamp),
           uniqIf(distinct_id, event = '${ACCOUNT_DETAIL_VIEWED_EVENT}'),
           countIf(event = '${ACCOUNT_DETAIL_VIEWED_EVENT}'),
-          countIf(event = '${ACCOUNT_XIANYU_CLICKED_EVENT}')
+          countIf(event = '${ACCOUNT_XIANYU_CLICKED_EVENT}'),
+          countIf(event = '${ACCOUNT_CONTACT_CLICKED_EVENT}' AND properties.contact_method = 'wechat'),
+          countIf(event = '${ACCOUNT_CONTACT_CLICKED_EVENT}' AND properties.contact_method = 'xianyu')
         FROM events
         WHERE ${conditions}
           AND properties.account_key IS NOT NULL
@@ -199,7 +206,7 @@ function queryConditions(days: number, gameKey: TrafficGameFilter) {
     gameKey === "all" ? "" : ` AND properties.game_key = '${gameKey}'`;
 
   return `timestamp >= now() - INTERVAL ${days} DAY
-    AND event IN ('${ACCOUNT_DETAIL_VIEWED_EVENT}', '${ACCOUNT_XIANYU_CLICKED_EVENT}')${gameCondition}`;
+    AND event IN ('${ACCOUNT_DETAIL_VIEWED_EVENT}', '${ACCOUNT_XIANYU_CLICKED_EVENT}', '${ACCOUNT_CONTACT_CLICKED_EVENT}')${gameCondition}`;
 }
 
 async function runHogQLQuery(query: string, name: string) {
@@ -275,27 +282,42 @@ function parseSummary(row?: unknown[]) {
   const visitors = asNumber(row?.[0]);
   const views = asNumber(row?.[1]);
   const xianyuClicks = asNumber(row?.[2]);
+  const wechatContactClicks = asNumber(row?.[3]);
+  const xianyuContactClicks = asNumber(row?.[4]);
+  const contactClicks = wechatContactClicks + xianyuContactClicks;
+  const interactionClicks = xianyuClicks + contactClicks;
 
   return {
     visitors,
     views,
     xianyuClicks,
-    conversionRate: percentage(xianyuClicks, views),
+    wechatContactClicks,
+    xianyuContactClicks,
+    contactClicks,
+    interactionClicks,
+    conversionRate: percentage(interactionClicks, views),
   };
 }
 
 function parseTrendPoint(row: unknown[]): TrafficTrendPoint {
+  const contactClicks = asNumber(row[4]) + asNumber(row[5]);
+
   return {
     date: asString(row[0]),
     visitors: asNumber(row[1]),
     views: asNumber(row[2]),
     xianyuClicks: asNumber(row[3]),
+    contactClicks,
   };
 }
 
 function parseTopAccount(row: unknown[]): TrafficTopAccount {
   const views = asNumber(row[7]);
   const xianyuClicks = asNumber(row[8]);
+  const wechatContactClicks = asNumber(row[9]);
+  const xianyuContactClicks = asNumber(row[10]);
+  const contactClicks = wechatContactClicks + xianyuContactClicks;
+  const interactionClicks = xianyuClicks + contactClicks;
   const rawGameKey = asString(row[2]);
 
   return {
@@ -311,7 +333,11 @@ function parseTopAccount(row: unknown[]): TrafficTopAccount {
     visitors: asNumber(row[6]),
     views,
     xianyuClicks,
-    conversionRate: percentage(xianyuClicks, views),
+    wechatContactClicks,
+    xianyuContactClicks,
+    contactClicks,
+    interactionClicks,
+    conversionRate: percentage(interactionClicks, views),
   };
 }
 
