@@ -29,7 +29,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import type { ReactNode } from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   formatDate,
   formatPrice,
@@ -39,8 +39,11 @@ import {
 import { fetchAccount } from "@/lib/client-api";
 import { SHOP_WECHAT_ID } from "@/lib/contact";
 import { ContactOptionsButton } from "@/components/contact-options-button";
-
-type AccountDetailPresentation = "page" | "modal";
+import {
+  captureAccountDetailViewedOnce,
+  captureAccountXianyuClicked,
+  type AccountDetailPresentation,
+} from "@/lib/analytics";
 
 export function AccountDetail({
   gameKey = DEFAULT_GAME_KEY,
@@ -57,6 +60,7 @@ export function AccountDetail({
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [retryToken, setRetryToken] = useState(0);
+  const trackedViewRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!id) {
@@ -103,6 +107,18 @@ export function AccountDetail({
       controller.abort();
     };
   }, [gameKey, id, retryToken]);
+
+  useEffect(() => {
+    if (!account) {
+      return;
+    }
+
+    trackedViewRef.current = captureAccountDetailViewedOnce(
+      account,
+      presentation,
+      trackedViewRef.current,
+    );
+  }, [account, presentation]);
 
   if (loading) {
     return <DetailSkeleton presentation={presentation} />;
@@ -283,6 +299,9 @@ export function AccountDetail({
                     rel="noreferrer"
                     target="_blank"
                     title={`打开闲鱼商品：${account.serialNumber}`}
+                    onClick={() =>
+                      captureAccountXianyuClicked(account, presentation)
+                    }
                   >
                     闲鱼购买
                     <ExternalLink size={16} />
@@ -331,7 +350,7 @@ export function AccountDetail({
         </Card>
       </aside>
 
-      <MobilePurchaseBar account={account} />
+      <MobilePurchaseBar account={account} presentation={presentation} />
 
       <ImageLightbox
         downloadImage={(image) =>
@@ -420,7 +439,13 @@ function MobileAccountSummary({
   );
 }
 
-function MobilePurchaseBar({ account }: { account: ShopAccount }) {
+function MobilePurchaseBar({
+  account,
+  presentation,
+}: {
+  account: ShopAccount;
+  presentation: AccountDetailPresentation;
+}) {
   return (
     <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/95 px-3 py-2 shadow-[0_-8px_24px_rgba(0,0,0,0.08)] backdrop-blur lg:hidden">
       <div className="mx-auto grid max-w-2xl grid-cols-[auto_minmax(0,0.85fr)_minmax(0,1.15fr)] items-center gap-2 pb-[env(safe-area-inset-bottom)]">
@@ -431,7 +456,11 @@ function MobilePurchaseBar({ account }: { account: ShopAccount }) {
           </div>
         </div>
         <ContactOptionsButton className="h-11" />
-        <XianyuPurchaseButton account={account} label="闲鱼购买" />
+        <XianyuPurchaseButton
+          account={account}
+          label="闲鱼购买"
+          presentation={presentation}
+        />
       </div>
     </div>
   );
@@ -440,9 +469,11 @@ function MobilePurchaseBar({ account }: { account: ShopAccount }) {
 function XianyuPurchaseButton({
   account,
   label,
+  presentation,
 }: {
   account: ShopAccount;
   label: string;
+  presentation: AccountDetailPresentation;
 }) {
   return account.xianyuUrl ? (
     <Button asChild className="h-11 w-full rounded-md">
@@ -451,6 +482,7 @@ function XianyuPurchaseButton({
         rel="noreferrer"
         target="_blank"
         title={`打开闲鱼商品：${account.serialNumber}`}
+        onClick={() => captureAccountXianyuClicked(account, presentation)}
       >
         {label}
         <ExternalLink size={16} />

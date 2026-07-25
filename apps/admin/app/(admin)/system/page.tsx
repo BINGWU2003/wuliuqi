@@ -11,15 +11,22 @@ import {
   GalleryHorizontalEnd,
   Hash,
   Library,
+  MousePointerClick,
 } from "lucide-react";
 import Link from "next/link";
 
 const systemMenuItems = [
   {
     href: "/statistics",
-    title: "数据统计",
+    title: "业务统计",
     description: "查看账号库存、销售金额和重点运营列表。",
     icon: BarChart3,
+  },
+  {
+    href: "/traffic-statistics",
+    title: "流量统计",
+    description: "查看商城账号详情的访客、浏览和闲鱼点击数据。",
+    icon: MousePointerClick,
   },
   {
     href: "/carousels/home_ads",

@@ -20,7 +20,13 @@
     "GEMINI_API_KEY",
     "GEMINI_CHAT_MODEL",
     "GEMINI_EMBEDDING_MODEL",
-    "GEMINI_EMBEDDING_DIMENSIONS"
+    "GEMINI_EMBEDDING_DIMENSIONS",
+    "NEXT_PUBLIC_POSTHOG_KEY",
+    "POSTHOG_INGEST_HOST",
+    "POSTHOG_ASSET_HOST",
+    "POSTHOG_API_HOST",
+    "POSTHOG_PROJECT_ID",
+    "POSTHOG_PERSONAL_API_KEY"
   ],
   "globalDependencies": ["packages/db/prisma/schema.prisma"],
   "tasks": {

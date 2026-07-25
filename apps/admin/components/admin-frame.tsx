@@ -136,7 +136,8 @@ function isNavActive(pathname: string, href: string) {
       pathname.startsWith("/carousels") ||
       pathname.startsWith("/sequence-counters") ||
       pathname.startsWith("/knowledge") ||
-      pathname.startsWith("/statistics")
+      pathname.startsWith("/statistics") ||
+      pathname.startsWith("/traffic-statistics")
     );
   }
 

@@ -9,9 +9,13 @@
     "start": "next start --port 3001",
     "apps": "docker build -f ../../docker/Dockerfile.app --build-arg APP_NAME=admin --build-arg APP_PORT=3001 -t wuliuqi-admin:latest ../..",
     "lint": "eslint --max-warnings 0",
-    "check-types": "next typegen && tsc --noEmit"
+    "check-types": "next typegen && tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
+    "@ant-design/cssinjs": "catalog:",
+    "@ant-design/nextjs-registry": "catalog:",
     "@wuliuqi/auth": "workspace:*",
     "@wuliuqi/domain": "workspace:*",
     "@wuliuqi/rag": "workspace:*",
@@ -21,26 +25,26 @@
     "@wuliuqi/ui": "workspace:*",
     "@wuliuqi/utils": "workspace:*",
     "@wuliuqi/validators": "workspace:*",
-    "@ant-design/cssinjs": "catalog:",
-    "@ant-design/nextjs-registry": "catalog:",
     "antd": "catalog:",
     "cos-js-sdk-v5": "catalog:",
     "lucide-react": "catalog:",
     "next": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
+    "recharts": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@wuliuqi/eslint-config": "workspace:*",
-    "@wuliuqi/typescript-config": "workspace:*",
     "@tailwindcss/postcss": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
+    "@wuliuqi/eslint-config": "workspace:*",
+    "@wuliuqi/typescript-config": "workspace:*",
     "eslint": "catalog:",
     "postcss": "catalog:",
     "tailwindcss": "catalog:",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   }
 }

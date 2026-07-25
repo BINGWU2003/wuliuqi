@@ -100,7 +100,7 @@ export function StatisticsPage() {
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-normal">数据统计</h1>
+          <h1 className="text-2xl font-bold tracking-normal">业务统计</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             查看账号库存、销售金额和重点运营列表。
           </p>

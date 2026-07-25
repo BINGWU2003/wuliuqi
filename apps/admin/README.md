@@ -10,6 +10,8 @@
 - `/system`：系统菜单，包含首页轮播、序号计数器和知识库入口。
 - `/carousels/home_ads`：首页轮播管理。
 - `/sequence-counters`：序号计数器。
+- `/statistics`：账号库存、销售金额和运营列表等业务统计。
+- `/traffic-statistics`：PostHog 账号详情流量统计。
 - `/knowledge`：知识库、分类、文章、FAQ 和索引管理，从系统菜单进入。
 
 ## 环境变量
@@ -34,11 +36,17 @@ GEMINI_API_KEY="your-gemini-api-key"
 GEMINI_CHAT_MODEL="gemini-3.5-flash"
 GEMINI_EMBEDDING_MODEL="gemini-embedding-2"
 GEMINI_EMBEDDING_DIMENSIONS="768"
+
+POSTHOG_API_HOST="https://your-region-posthog-host"
+POSTHOG_PROJECT_ID="your-project-id"
+POSTHOG_PERSONAL_API_KEY="phx_read-only-personal-api-key"
 ```
 
 `COS_PUBLIC_BASE_URL` 只在使用自定义 CDN 或公开访问域名时填写。
 图片上传使用浏览器直传 COS。腾讯云 Bucket 需要配置 CORS：允许 admin 生产域名和本地开发域名，允许 `PUT`、`OPTIONS` 方法，允许上传请求头。当前密钥需要具备签发 STS 临时密钥和目标 Bucket `PutObject` 权限。
 RAG/Gemini 默认值可以不改；需要换模型或连接池大小时再调整。
+
+PostHog Personal API Key 只在 admin 服务端使用，并应只授予 `query:read` 权限。缺少任意 PostHog 配置时，“系统 → 流量统计”会显示配置提示，其他管理功能不受影响。
 
 Vercel 部署时将 `DATABASE_POOL_SIZE` 设为 `1`，避免多个 serverless 实例叠加打满 Supabase pooler。
 
@@ -47,6 +55,7 @@ Vercel 部署时将 `DATABASE_POOL_SIZE` 设为 `1`，避免多个 serverless �
 ```sh
 pnpm --filter admin dev
 pnpm --filter admin lint
+pnpm --filter admin test
 pnpm --filter admin check-types
 pnpm --filter admin build
 pnpm --filter admin apps

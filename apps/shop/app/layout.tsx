@@ -5,6 +5,7 @@ import { Analytics } from "@vercel/analytics/next";
 import { Toaster } from "@wuliuqi/ui/components/sonner";
 import { getThemeInitScript } from "@wuliuqi/ui/lib/theme";
 import { ShopFrame } from "@/components/shop-frame";
+import { PostHogProvider } from "@/components/posthog-provider";
 import "./globals.css";
 
 const geistSans = localFont({
@@ -38,8 +39,10 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased`}
       >
-        <ShopFrame>{children}</ShopFrame>
-        {modal}
+        <PostHogProvider>
+          <ShopFrame>{children}</ShopFrame>
+          {modal}
+        </PostHogProvider>
         <Toaster />
         <Analytics />
       </body>

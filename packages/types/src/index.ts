@@ -1,4 +1,5 @@
 export * from "./account";
+export * from "./analytics";
 export * from "./api";
 export * from "./attribute";
 export * from "./carousel";

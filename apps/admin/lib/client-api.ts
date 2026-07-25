@@ -3,6 +3,7 @@ import type {
   AdminAccount,
   AdminAccountListResult,
   AdminAccountStatistics,
+  AdminTrafficStatistics,
   AdminEmail,
   AdminEmailListResult,
   AdminEmailPostfix,
@@ -20,6 +21,8 @@ import type {
   GameKey,
   EmailBindStatus,
   SequenceCounter,
+  TrafficGameFilter,
+  TrafficRange,
   UploadCredential,
   UploadResult,
 } from "@wuliuqi/types";
@@ -130,6 +133,16 @@ export async function fetchAccountStatistics(gameKey: GameKey = DEFAULT_GAME_KEY
   const params = paramsFrom({ game_key: gameKey });
   return requestJson<AdminAccountStatistics>(
     `/api/statistics/accounts?${params}`,
+  );
+}
+
+export async function fetchTrafficStatistics(values: {
+  range: TrafficRange;
+  game_key: TrafficGameFilter;
+}) {
+  const params = paramsFrom(values);
+  return requestJson<AdminTrafficStatistics>(
+    `/api/statistics/traffic?${params}`,
   );
 }
 
