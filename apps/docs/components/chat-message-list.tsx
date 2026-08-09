@@ -1,7 +1,6 @@
 "use client";
 
 import type { ChatMessageInput } from "@wuliuqi/types";
-import { Badge } from "@wuliuqi/ui/components/badge";
 import { Button } from "@wuliuqi/ui/components/button";
 import { cn } from "@wuliuqi/ui/lib/utils";
 import { Bot, ChevronDown, UserRound } from "lucide-react";
@@ -56,38 +55,53 @@ export function ChatMessageList({
   }, [messages]);
 
   return (
-    <div className={cn("relative min-h-0", className)}>
+    <div
+      className={cn(
+        "relative min-h-0 overflow-hidden rounded-sm border border-line bg-surface",
+        className,
+      )}
+    >
       <div
         ref={viewportRef}
-        className="h-full space-y-3 overflow-y-auto px-1"
+        className="h-full overflow-y-auto"
         onScroll={handleScroll}
       >
         {messages.length === 0 ? (
-          <div className="rounded-md border border-border bg-card p-8 text-center text-sm text-muted-foreground">
-            {emptyHint}
+          <div className="grid min-h-full place-items-center p-8 text-center">
+            <div className="max-w-sm">
+              <p className="text-sm leading-7 text-ink-muted">{emptyHint}</p>
+            </div>
           </div>
         ) : null}
         {messages.map((message, index) => (
           <div
             key={`${message.role}-${index}`}
-            className="rounded-md border border-border bg-card p-4"
+            className={cn(
+              "grid gap-3 border-b border-line p-4 sm:grid-cols-[7rem_minmax(0,1fr)]",
+              message.role === "user" ? "bg-surface-muted/50" : "bg-surface",
+            )}
           >
-            <div className="mb-2 flex items-center gap-2 text-sm font-medium">
+            <div className="flex items-center gap-2 self-start font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-muted">
               {message.role === "user" ? <UserRound size={16} /> : <Bot size={16} />}
-              {message.role === "user" ? "你" : "AI 助手"}
-              {message.role === "assistant" ? (
-                <Badge variant="secondary">基于帮助中心</Badge>
-              ) : null}
+              {message.role === "user" ? "你" : "567 助手"}
             </div>
-            <div className="whitespace-pre-wrap text-sm leading-7">
-              {message.content || (loading ? "正在生成..." : "")}
+            <div>
+              {message.role === "assistant" ? (
+                <span className="mb-2 inline-block border border-line bg-brand-soft px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.12em] text-brand-strong dark:text-brand">
+                  基于帮助中心
+                </span>
+              ) : null}
+              <div className="whitespace-pre-wrap text-sm leading-7 text-ink/90">
+                {message.content || (loading ? "正在检索并生成答案…" : "")}
+              </div>
             </div>
           </div>
         ))}
       </div>
       {showJump ? (
         <Button
-          className="absolute bottom-2 right-2 size-8 rounded-full shadow-md"
+          aria-label="跳到最新消息"
+          className="absolute bottom-2 right-2 size-8 rounded-sm border border-line bg-surface shadow-none hover:bg-brand-soft"
           size="icon"
           type="button"
           variant="secondary"

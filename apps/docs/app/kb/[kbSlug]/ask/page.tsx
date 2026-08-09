@@ -23,17 +23,23 @@ export default async function AskPage({ params }: { params: Params }) {
 
   return (
     <DocsShell base={base} categories={categories}>
-      <div className="space-y-5">
-        <div>
-          <h1 className="text-3xl font-bold tracking-normal">AI 问答</h1>
-          <p className="mt-2 text-sm leading-7 text-muted-foreground">
-            AI 会检索帮助中心内容后回答。订单、支付、隐私、库存和售后争议问题会引导人工处理。
+      <div className="space-y-6">
+        <header className="border-b border-line pb-8">
+          <div className="flex items-center gap-2 font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-brand-strong dark:text-brand">
+            <span className="h-px w-5 bg-brand" />
+            567 Assistant
+          </div>
+          <h1 className="mt-4 text-3xl font-black tracking-[-0.03em] sm:text-4xl">
+            询问帮助助手
+          </h1>
+          <p className="mt-3 max-w-2xl text-[15px] leading-7 text-ink-muted">
+            助手会先检索已发布帮助内容，再组织答案。订单、支付、隐私和售后争议仍由人工处理。
           </p>
-        </div>
-        <Alert>
-          <AlertTitle>回答范围</AlertTitle>
-          <AlertDescription>
-            当前助手只基于已发布帮助内容回答，不会处理具体订单或账号隐私信息。
+        </header>
+        <Alert className="rounded-sm border-line bg-brand-soft/60">
+          <AlertTitle className="font-semibold">先保护你的账号信息</AlertTitle>
+          <AlertDescription className="leading-6 text-ink-muted">
+            不要发送订单号、密码、验证码或其他隐私信息；助手只回答公开帮助内容。
           </AlertDescription>
         </Alert>
         <AskClient kbSlug={base.slug} />

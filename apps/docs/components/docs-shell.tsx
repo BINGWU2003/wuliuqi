@@ -8,6 +8,7 @@ import {
   SheetTrigger,
 } from "@wuliuqi/ui/components/sheet";
 import { ThemeToggle } from "@wuliuqi/ui/components/theme-toggle";
+import { cn } from "@wuliuqi/ui/lib/utils";
 import { Menu, Search } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
@@ -36,45 +37,70 @@ export function DocsShell({
   );
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur">
-        <div className="mx-auto flex h-14 max-w-7xl items-center gap-2 px-3 sm:h-16 sm:px-6">
+    <div className="min-h-screen bg-canvas text-ink">
+      <header className="sticky top-0 z-40 border-b border-line bg-surface/95 backdrop-blur-sm">
+        <div className="mx-auto flex h-16 max-w-[1440px] items-center gap-3 px-4 sm:px-6 lg:px-8">
           <Sheet>
             <SheetTrigger asChild>
-              <Button className="lg:hidden" size="icon" variant="ghost">
+              <Button
+                aria-label="打开帮助目录"
+                className="rounded-sm border border-line bg-transparent lg:hidden"
+                size="icon"
+                variant="ghost"
+              >
                 <Menu size={18} />
               </Button>
             </SheetTrigger>
-            <SheetContent side="left">
+            <SheetContent className="border-line bg-surface" side="left">
               <SheetHeader>
-                <SheetTitle>{base.name}</SheetTitle>
+                <SheetTitle className="text-left">{base.name}</SheetTitle>
               </SheetHeader>
-              <div className="mt-6">{nav}</div>
+              <div className="mt-8">{nav}</div>
             </SheetContent>
           </Sheet>
-          <Link className="flex items-center gap-2 font-bold" href={`/kb/${base.slug}`}>
-            <span className="grid size-8 place-items-center rounded-md bg-primary text-xs text-primary-foreground">
+          <Link
+            className="group flex items-center gap-3"
+            href={`/kb/${base.slug}`}
+          >
+            <span className="docs-brand-mark grid size-9 place-items-center rounded-sm border-2 border-ink bg-brand font-mono text-xs font-black text-white transition-transform group-hover:-translate-x-0.5 group-hover:-translate-y-0.5 dark:text-[#21110b]">
               567
             </span>
-            <span className="hidden sm:inline">{base.name}</span>
+            <span className="hidden leading-tight sm:block">
+              <span className="block text-sm font-bold tracking-tight">五六七手游店</span>
+              <span className="mt-0.5 block font-mono text-[10px] uppercase tracking-[0.18em] text-ink-muted">
+                Buyer support
+              </span>
+            </span>
           </Link>
-          <div className="ml-auto flex min-w-0 items-center gap-1">
-            <Button asChild className="hidden sm:inline-flex" variant="outline">
-              <Link href="/search">
+          <div className="ml-auto flex min-w-0 items-center gap-2">
+            <Button
+              asChild
+              className="rounded-sm border-line bg-transparent px-3 hover:bg-brand-soft hover:text-ink"
+              size="sm"
+              variant="outline"
+            >
+              <Link aria-label="搜索帮助内容" href={`/search?kbSlug=${base.slug}`}>
                 <Search size={16} />
-                搜索
+                <span className="hidden sm:inline">搜索帮助</span>
               </Link>
             </Button>
             <ThemeToggle storageKey="wuliuqi-docs-theme" />
           </div>
         </div>
       </header>
-      <div className="mx-auto grid max-w-7xl gap-6 px-3 py-4 sm:px-6 lg:grid-cols-[240px_minmax(0,1fr)_260px] lg:py-6">
-        <aside className="sticky top-20 hidden h-[calc(100dvh-6rem)] overflow-auto lg:block">
+      <div
+        className={cn(
+          "mx-auto grid max-w-[1440px] gap-8 px-4 py-6 sm:px-6 lg:grid-cols-[208px_minmax(0,1fr)] lg:px-8 lg:py-8",
+          aside && "xl:grid-cols-[208px_minmax(0,1fr)_240px]",
+        )}
+      >
+        <aside className="sticky top-24 hidden h-[calc(100dvh-7rem)] overflow-auto lg:block">
           {nav}
         </aside>
-        <main className="min-w-0">{children}</main>
-        <aside className="hidden min-w-0 lg:block">{aside}</aside>
+        <main className={cn("min-w-0", !aside && "max-w-5xl")}>{children}</main>
+        {aside ? (
+          <aside className="hidden min-w-0 xl:block">{aside}</aside>
+        ) : null}
       </div>
       <AskWidget kbSlug={base.slug} />
     </div>
