@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "playful-devtool-ui": {
+      "source": "BINGWU2003/skills",
+      "sourceType": "github",
+      "skillPath": "skills/playful-devtool-ui/SKILL.md",
+      "computedHash": "9732831ebe96f5cc2378000db56dc0d24850565cb8e0ede002b9d505bbed0765"
+    }
+  }
+}
