@@ -124,6 +124,8 @@ export async function fetchAccounts(values: {
   keyword?: string;
   status?: AccountStatus;
   sort?: AccountSort;
+  updated_from?: string;
+  updated_to?: string;
 }) {
   const params = paramsFrom(values);
   return requestJson<AdminAccountListResult>(`/api/accounts?${params}`);

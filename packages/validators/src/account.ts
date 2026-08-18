@@ -39,6 +39,14 @@ const shopAttributeFilterQueryFields = {
   mythic_min: shopAttributeFilterNumber,
 };
 
+const optionalDateTimeFromQuery = z.preprocess(
+  (value) => (value === "" || value === undefined ? undefined : value),
+  z.iso
+    .datetime({ offset: true })
+    .transform((value) => new Date(value))
+    .optional(),
+);
+
 export const accountAttributesSchema = z.record(
   z.string().trim().min(1),
   accountAttributeValueSchema,
@@ -134,7 +142,21 @@ export type ShopHomeAccountListQuery = z.infer<
   typeof shopHomeAccountListQuerySchema
 >;
 
-export const adminAccountListQuerySchema = accountListQuerySchema;
+export const adminAccountListQuerySchema = accountListQuerySchema
+  .safeExtend({
+    updated_from: optionalDateTimeFromQuery,
+    updated_to: optionalDateTimeFromQuery,
+  })
+  .refine(
+    (query) =>
+      query.updated_from === undefined ||
+      query.updated_to === undefined ||
+      query.updated_from <= query.updated_to,
+    {
+      message: "开始日期不能晚于结束日期",
+      path: ["updated_from"],
+    },
+  );
 
 export const adminAccountCreateSchema = z.object({
   gameKey: gameKeyBodyField,

@@ -469,6 +469,35 @@ describe("后台账号", () => {
     });
   });
 
+  it("按更新时间范围筛选后台账号", async () => {
+    const updatedFrom = new Date("2026-07-01T00:00:00.000Z");
+    const updatedTo = new Date("2026-07-31T23:59:59.999Z");
+    prismaMock.codmAccount.count.mockResolvedValue(0);
+    prismaMock.codmAccount.findMany.mockResolvedValue([]);
+    prismaMock.gameAttributeDefinition.findMany.mockResolvedValue([]);
+
+    await listAdminAccounts({
+      game_key: "codm",
+      keyword: undefined,
+      limit: 20,
+      page: 1,
+      sort: ACCOUNT_SORT.latest,
+      updated_from: updatedFrom,
+      updated_to: updatedTo,
+    });
+
+    const where = {
+      updatedAt: { gte: updatedFrom, lte: updatedTo },
+    };
+    expect(prismaMock.codmAccount.count).toHaveBeenCalledWith({ where });
+    expect(prismaMock.codmAccount.findMany).toHaveBeenCalledWith({
+      where,
+      orderBy: { updatedAt: "desc" },
+      skip: 0,
+      take: 20,
+    });
+  });
+
   it("统计账号状态、金额和运营列表", async () => {
     prismaMock.codmAccount.aggregate.mockResolvedValue({
       _count: { _all: 6 },

@@ -23,6 +23,7 @@ import {
 import { Badge } from "@wuliuqi/ui/components/badge";
 import { Button } from "@wuliuqi/ui/components/button";
 import { Card } from "@wuliuqi/ui/components/card";
+import { DateRangePicker } from "@wuliuqi/ui/components/date-range-picker";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -91,6 +92,30 @@ const MOBILE_VIEWPORT_QUERY = "(max-width: 639px)";
 const ACCOUNT_TABLE_SCROLL_X = 1776;
 const ACCOUNT_TABLE_SCROLL_Y = 520;
 const INITIAL_ACCOUNT_TABLE_SKELETON_ROW_COUNT = 10;
+const ACCOUNT_DATE_RANGE = {
+  all: "all",
+  today: "today",
+  thisWeek: "this_week",
+  thisMonth: "this_month",
+  lastMonth: "last_month",
+  last7Days: "last_7_days",
+  last30Days: "last_30_days",
+  custom: "custom",
+} as const;
+type AccountDateRange =
+  (typeof ACCOUNT_DATE_RANGE)[keyof typeof ACCOUNT_DATE_RANGE];
+const accountDateRangeOptions: Array<{
+  label: string;
+  value: AccountDateRange;
+}> = [
+  { label: "全部日期", value: ACCOUNT_DATE_RANGE.all },
+  { label: "今天", value: ACCOUNT_DATE_RANGE.today },
+  { label: "本周", value: ACCOUNT_DATE_RANGE.thisWeek },
+  { label: "本月", value: ACCOUNT_DATE_RANGE.thisMonth },
+  { label: "上月", value: ACCOUNT_DATE_RANGE.lastMonth },
+  { label: "近 7 天", value: ACCOUNT_DATE_RANGE.last7Days },
+  { label: "近 30 天", value: ACCOUNT_DATE_RANGE.last30Days },
+];
 const gameOptions: Array<{ label: string; value: GameKey }> = [
   { label: "CODM", value: GAME_KEY.codm },
   { label: "三国杀", value: GAME_KEY.sanguosha },
@@ -128,6 +153,96 @@ function isMobileViewport() {
   );
 }
 
+function getAccountDateRangeBounds(
+  range: AccountDateRange,
+  customRange: { from: string; to: string },
+  now = new Date(),
+) {
+  if (range === ACCOUNT_DATE_RANGE.custom) {
+    if (!customRange.from || !customRange.to) {
+      return {};
+    }
+
+    const from = new Date(`${customRange.from}T00:00:00`);
+    const to = new Date(`${customRange.to}T23:59:59.999`);
+
+    return {
+      updatedFrom: from.toISOString(),
+      updatedTo: to.toISOString(),
+    };
+  }
+
+  const selectedRange = getAccountDateRangeDates(range, now);
+
+  if (!selectedRange?.from || !selectedRange.to) {
+    return {};
+  }
+
+  return {
+    updatedFrom: selectedRange.from.toISOString(),
+    updatedTo: selectedRange.to.toISOString(),
+  };
+}
+
+function getAccountDateRangeDates(
+  range: AccountDateRange,
+  now = new Date(),
+) {
+  if (
+    range === ACCOUNT_DATE_RANGE.all ||
+    range === ACCOUNT_DATE_RANGE.custom
+  ) {
+    return undefined;
+  }
+
+  const from = new Date(now);
+  const to = new Date(now);
+  from.setHours(0, 0, 0, 0);
+  to.setHours(23, 59, 59, 999);
+
+  if (range === ACCOUNT_DATE_RANGE.thisWeek) {
+    const daysSinceMonday = (from.getDay() + 6) % 7;
+    from.setDate(from.getDate() - daysSinceMonday);
+  } else if (range === ACCOUNT_DATE_RANGE.thisMonth) {
+    from.setDate(1);
+  } else if (range === ACCOUNT_DATE_RANGE.lastMonth) {
+    from.setDate(1);
+    from.setMonth(from.getMonth() - 1);
+    to.setDate(0);
+  } else if (range === ACCOUNT_DATE_RANGE.last7Days) {
+    from.setDate(from.getDate() - 6);
+  } else if (range === ACCOUNT_DATE_RANGE.last30Days) {
+    from.setDate(from.getDate() - 29);
+  }
+
+  return { from, to };
+}
+
+function dateFromInputValue(value: string) {
+  if (!value) {
+    return undefined;
+  }
+
+  const [year, month, day] = value.split("-").map(Number);
+
+  if (!year || !month || !day) {
+    return undefined;
+  }
+
+  return new Date(year, month - 1, day);
+}
+
+function dateToInputValue(value?: Date) {
+  if (!value) {
+    return "";
+  }
+
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, "0");
+  const day = String(value.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 export function AccountsPage() {
   const [accounts, setAccounts] = useState<AdminAccount[]>([]);
   const [gameKeyValue, setGameKeyValue] = useState<GameKey>(DEFAULT_GAME_KEY);
@@ -138,6 +253,15 @@ export function AccountsPage() {
   const [status, setStatus] = useState("all");
   const [sortValue, setSortValue] = useState<AccountSort>(ACCOUNT_SORT.latest);
   const [sort, setSort] = useState<AccountSort>(ACCOUNT_SORT.latest);
+  const [dateRangeValue, setDateRangeValue] = useState<AccountDateRange>(
+    ACCOUNT_DATE_RANGE.all,
+  );
+  const [dateRange, setDateRange] = useState<AccountDateRange>(
+    ACCOUNT_DATE_RANGE.all,
+  );
+  const [customDateFromValue, setCustomDateFromValue] = useState("");
+  const [customDateToValue, setCustomDateToValue] = useState("");
+  const [customDateRange, setCustomDateRange] = useState({ from: "", to: "" });
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<number>(DEFAULT_ACCOUNT_PAGE_SIZE);
   const [totalPages, setTotalPages] = useState(0);
@@ -158,8 +282,13 @@ export function AccountsPage() {
   const errorRef = useRef("");
 
   const fetchAccountPage = useCallback(
-    (nextPage: number) =>
-      fetchAccounts({
+    (nextPage: number) => {
+      const { updatedFrom, updatedTo } = getAccountDateRangeBounds(
+        dateRange,
+        customDateRange,
+      );
+
+      return fetchAccounts({
         game_key: gameKey,
         keyword: keyword || undefined,
         limit: pageSize,
@@ -169,8 +298,11 @@ export function AccountsPage() {
           status === "all"
             ? undefined
             : (Number(status) as AdminAccount["status"]),
-      }),
-    [gameKey, keyword, pageSize, sort, status],
+        updated_from: updatedFrom,
+        updated_to: updatedTo,
+      });
+    },
+    [customDateRange, dateRange, gameKey, keyword, pageSize, sort, status],
   );
 
   const applyPagination = useCallback(
@@ -354,12 +486,33 @@ export function AccountsPage() {
     const nextGameKey = gameKeyValue;
     const nextStatus = statusValue;
     const nextSort = sortValue;
+    const nextDateRange = dateRangeValue;
+    const nextCustomDateFrom =
+      nextDateRange === ACCOUNT_DATE_RANGE.custom ? customDateFromValue : "";
+    const nextCustomDateTo =
+      nextDateRange === ACCOUNT_DATE_RANGE.custom ? customDateToValue : "";
+
+    if (
+      nextDateRange === ACCOUNT_DATE_RANGE.custom &&
+      (!nextCustomDateFrom || !nextCustomDateTo)
+    ) {
+      toast.error("请选择完整的开始和结束日期");
+      return;
+    }
+
+    if (nextCustomDateFrom > nextCustomDateTo) {
+      toast.error("开始日期不能晚于结束日期");
+      return;
+    }
 
     if (
       nextKeyword === keyword &&
       nextGameKey === gameKey &&
       nextStatus === status &&
-      nextSort === sort
+      nextSort === sort &&
+      nextDateRange === dateRange &&
+      nextCustomDateFrom === customDateRange.from &&
+      nextCustomDateTo === customDateRange.to
     ) {
       void loadPage(1, "replace");
       return;
@@ -369,6 +522,11 @@ export function AccountsPage() {
     setGameKey(nextGameKey);
     setStatus(nextStatus);
     setSort(nextSort);
+    setDateRange(nextDateRange);
+    setCustomDateRange({
+      from: nextCustomDateFrom,
+      to: nextCustomDateTo,
+    });
   }
 
   function handleResetFilters() {
@@ -380,12 +538,18 @@ export function AccountsPage() {
     setGameKeyValue(DEFAULT_GAME_KEY);
     setStatusValue("all");
     setSortValue(ACCOUNT_SORT.latest);
+    setDateRangeValue(ACCOUNT_DATE_RANGE.all);
+    setCustomDateFromValue("");
+    setCustomDateToValue("");
 
     if (
       keyword === "" &&
       gameKey === DEFAULT_GAME_KEY &&
       status === "all" &&
-      sort === ACCOUNT_SORT.latest
+      sort === ACCOUNT_SORT.latest &&
+      dateRange === ACCOUNT_DATE_RANGE.all &&
+      customDateRange.from === "" &&
+      customDateRange.to === ""
     ) {
       void loadPage(1, "replace");
       return;
@@ -395,6 +559,8 @@ export function AccountsPage() {
     setGameKey(DEFAULT_GAME_KEY);
     setStatus("all");
     setSort(ACCOUNT_SORT.latest);
+    setDateRange(ACCOUNT_DATE_RANGE.all);
+    setCustomDateRange({ from: "", to: "" });
   }
 
   async function toggleStatus(account: AdminAccount) {
@@ -841,7 +1007,7 @@ export function AccountsPage() {
       </div>
 
       <div className="rounded-md border border-border bg-card p-3 shadow-xs">
-        <div className="grid gap-2 sm:grid-cols-[minmax(220px,1fr)_150px_150px_150px_auto]">
+        <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-[minmax(220px,1fr)_150px_150px_150px_230px_auto]">
           <form
             className="min-w-0"
             onSubmit={(event) => {
@@ -908,6 +1074,39 @@ export function AccountsPage() {
               </SelectItem>
             </SelectContent>
           </Select>
+          <DateRangePicker
+            className="h-9 rounded-md"
+            disabled={loading}
+            presets={accountDateRangeOptions.map((option) => ({
+              ...option,
+              range: getAccountDateRangeDates(option.value),
+            }))}
+            selectedPreset={
+              dateRangeValue === ACCOUNT_DATE_RANGE.custom
+                ? undefined
+                : dateRangeValue
+            }
+            value={
+              dateRangeValue === ACCOUNT_DATE_RANGE.custom
+                ? customDateFromValue || customDateToValue
+                  ? {
+                      from: dateFromInputValue(customDateFromValue),
+                      to: dateFromInputValue(customDateToValue),
+                    }
+                  : undefined
+                : getAccountDateRangeDates(dateRangeValue)
+            }
+            onChange={(value) => {
+              setDateRangeValue(ACCOUNT_DATE_RANGE.custom);
+              setCustomDateFromValue(dateToInputValue(value?.from));
+              setCustomDateToValue(dateToInputValue(value?.to));
+            }}
+            onPresetChange={(value) => {
+              setDateRangeValue(value as AccountDateRange);
+              setCustomDateFromValue("");
+              setCustomDateToValue("");
+            }}
+          />
           <div className="grid grid-cols-2 gap-2">
             <Button
               className="h-9 rounded-md bg-neutral-950 text-white hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-950 dark:hover:bg-neutral-200"

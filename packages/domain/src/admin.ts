@@ -644,6 +644,13 @@ export async function listAdminAccounts(
     };
   }
 
+  if (query.updated_from !== undefined || query.updated_to !== undefined) {
+    where.updatedAt = {
+      gte: query.updated_from,
+      lte: query.updated_to,
+    };
+  }
+
   if (query.keyword) {
     where.OR = [
       { title: { contains: query.keyword } },
