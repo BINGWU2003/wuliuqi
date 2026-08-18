@@ -1,4 +1,4 @@
-import { z } from "zod";
+import z from "zod";
 import {
   ACCOUNT_SORT,
   ACCOUNT_SORT_VALUES,
