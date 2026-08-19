@@ -7,7 +7,6 @@
 - `/kb/buyer-help`：买家帮助中心首页。
 - `/kb/[kbSlug]/categories/[categorySlug]`：帮助分类页。
 - `/kb/[kbSlug]/docs/[docSlug]`：帮助文章详情。
-- `/kb/[kbSlug]/ask`：AI 问答页。
 - `/search`：帮助内容搜索。
 
 ## 环境变量

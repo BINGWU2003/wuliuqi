@@ -17,10 +17,16 @@
     "@wuliuqi/types": "workspace:*",
     "@wuliuqi/ui": "workspace:*",
     "@wuliuqi/validators": "workspace:*",
+    "fumadocs-core": "catalog:",
+    "fumadocs-ui": "catalog:",
+    "github-slugger": "catalog:",
     "lucide-react": "catalog:",
     "next": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
+    "react-markdown": "catalog:",
+    "rehype-slug": "catalog:",
+    "remark-gfm": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
