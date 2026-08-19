@@ -2,7 +2,6 @@ import { searchPublishedKnowledge } from "@wuliuqi/rag-db";
 import { KNOWLEDGE_SOURCE_TYPE } from "@wuliuqi/types";
 import { Search } from "lucide-react";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Card, Cards } from "fumadocs-ui/components/card";
 import { buttonVariants } from "fumadocs-ui/components/ui/button";
@@ -12,6 +11,7 @@ import {
   DocsPage,
   DocsTitle,
 } from "fumadocs-ui/layouts/docs/page";
+import { AskAssistantTrigger } from "@/components/ask-widget";
 import { KnowledgeDocsLayout } from "@/components/knowledge-docs-layout";
 import { getDocsContext } from "@/lib/docs";
 
@@ -131,12 +131,11 @@ export default async function SearchPage({
           {query ? (
             <p className="not-prose text-sm text-fd-muted-foreground">
               仍未解决？
-              <Link
+              <AskAssistantTrigger
                 className="ml-1 font-medium text-fd-foreground underline underline-offset-4"
-                href={`/kb/${context.base.slug}/ask`}
               >
                 询问 AI 助手
-              </Link>
+              </AskAssistantTrigger>
             </p>
           ) : null}
         </DocsBody>

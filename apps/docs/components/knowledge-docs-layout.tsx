@@ -12,22 +12,14 @@ export function KnowledgeDocsLayout({
 }) {
   return (
     <DocsLayout
-      links={[
-        {
-          type: "main",
-          text: "AI 助手",
-          url: `/kb/${context.base.slug}/ask`,
-          active: "url",
-        },
-      ]}
       nav={{
         title: "五六七手游店 · 帮助中心",
         url: `/kb/${context.base.slug}`,
       }}
       tree={context.tree}
     >
-      {children}
       <AskWidget kbSlug={context.base.slug} />
+      {children}
     </DocsLayout>
   );
 }

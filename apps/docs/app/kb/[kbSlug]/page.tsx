@@ -2,7 +2,6 @@ import { listFaqItems } from "@wuliuqi/rag-db";
 import { KNOWLEDGE_STATUS } from "@wuliuqi/types";
 import { Bot, FileText, Search } from "lucide-react";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
 import { Card, Cards } from "fumadocs-ui/components/card";
@@ -13,6 +12,7 @@ import {
   DocsPage,
   DocsTitle,
 } from "fumadocs-ui/layouts/docs/page";
+import { AskAssistantTrigger } from "@/components/ask-widget";
 import { getDocsContext } from "@/lib/docs";
 
 export const dynamic = "force-dynamic";
@@ -146,12 +146,11 @@ export default async function KnowledgeHome({ params }: { params: Params }) {
           <p className="mt-2 text-sm leading-6 text-fd-muted-foreground">
             让 AI 根据已发布的帮助内容继续定位。请不要发送订单号、密码或验证码。
           </p>
-          <Link
+          <AskAssistantTrigger
             className={`${buttonVariants({ color: "outline" })} mt-4`}
-            href={`/kb/${context.base.slug}/ask`}
           >
             询问 AI 助手
-          </Link>
+          </AskAssistantTrigger>
         </section>
       </DocsBody>
     </DocsPage>

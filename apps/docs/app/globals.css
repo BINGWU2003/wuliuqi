@@ -11,7 +11,7 @@ html {
 html,
 body {
   max-width: 100vw;
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 body {
@@ -24,6 +24,26 @@ body {
 
 html body[data-scroll-locked] {
   margin-right: 0 !important;
+}
+
+@keyframes ask-ai-open {
+  from {
+    translate: 100% 0;
+  }
+
+  to {
+    translate: 0 0;
+  }
+}
+
+@keyframes ask-ai-close {
+  from {
+    width: var(--ai-chat-width);
+  }
+
+  to {
+    width: 0;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

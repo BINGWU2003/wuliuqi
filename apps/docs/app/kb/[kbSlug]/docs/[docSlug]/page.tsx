@@ -1,7 +1,6 @@
 import { searchPublishedKnowledge } from "@wuliuqi/rag-db";
 import { Bot, FileText } from "lucide-react";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Callout } from "fumadocs-ui/components/callout";
 import { Card, Cards } from "fumadocs-ui/components/card";
@@ -13,6 +12,7 @@ import {
   DocsTitle,
   PageLastUpdate,
 } from "fumadocs-ui/layouts/docs/page";
+import { AskAssistantTrigger } from "@/components/ask-widget";
 import { getMarkdownToc, MarkdownContent } from "@/components/markdown-content";
 import { getDocsContext } from "@/lib/docs";
 
@@ -61,7 +61,7 @@ export default async function ArticlePage({ params }: { params: Params }) {
   const toc = getMarkdownToc(article.content);
 
   return (
-    <DocsPage toc={toc}>
+    <DocsPage tableOfContent={{ enabled: toc.length > 0 }} toc={toc}>
       <DocsTitle>{article.title}</DocsTitle>
       <DocsDescription>{article.excerpt}</DocsDescription>
       {article.updatedAt ? (
@@ -76,13 +76,12 @@ export default async function ArticlePage({ params }: { params: Params }) {
         <MarkdownContent content={article.content} />
 
         <div className="not-prose my-10 border-t pt-6">
-          <Link
+          <AskAssistantTrigger
             className={buttonVariants({ color: "outline" })}
-            href={`/kb/${context.base.slug}/ask`}
           >
             <Bot className="size-4" />
             针对本文提问
-          </Link>
+          </AskAssistantTrigger>
         </div>
 
         {relatedArticles.length > 0 ? (
