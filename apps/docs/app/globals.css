@@ -1,109 +1,11 @@
 @import "tailwindcss";
-
-@source "../../../packages/ui/src/**/*.{ts,tsx}";
+@import "fumadocs-ui/css/neutral.css";
+@import "fumadocs-ui/css/preset.css";
 
 @custom-variant dark (&:where(.dark, .dark *));
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
-  --color-canvas: var(--canvas);
-  --color-surface: var(--surface);
-  --color-surface-muted: var(--surface-muted);
-  --color-ink: var(--ink);
-  --color-ink-muted: var(--ink-muted);
-  --color-line: var(--line);
-  --color-brand: var(--brand);
-  --color-brand-strong: var(--brand-strong);
-  --color-brand-soft: var(--brand-soft);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
-}
-
-:root {
-  color-scheme: light;
-  --radius: 6px;
-  --canvas: #f6f2e9;
-  --surface: #fffdf8;
-  --surface-muted: #ece6db;
-  --ink: #24221f;
-  --ink-muted: #666057;
-  --line: #d5ccbd;
-  --brand: #d65f36;
-  --brand-strong: #aa3f20;
-  --brand-soft: #f3ded1;
-  --background: var(--canvas);
-  --foreground: var(--ink);
-  --card: var(--surface);
-  --card-foreground: var(--ink);
-  --popover: var(--surface);
-  --popover-foreground: var(--ink);
-  --primary: var(--brand);
-  --primary-foreground: #fffaf3;
-  --secondary: var(--surface-muted);
-  --secondary-foreground: var(--ink);
-  --muted: var(--surface-muted);
-  --muted-foreground: var(--ink-muted);
-  --accent: var(--brand-soft);
-  --accent-foreground: #75301c;
-  --destructive: #d92d20;
-  --border: var(--line);
-  --input: #bdb2a2;
-  --ring: var(--brand);
-}
-
-.dark {
-  color-scheme: dark;
-  --canvas: #171512;
-  --surface: #1f1c18;
-  --surface-muted: #2b2721;
-  --ink: #f5efe5;
-  --ink-muted: #b9afa1;
-  --line: #403930;
-  --brand: #ef7a50;
-  --brand-strong: #ff916b;
-  --brand-soft: #3a271f;
-  --background: var(--canvas);
-  --foreground: var(--ink);
-  --card: var(--surface);
-  --card-foreground: var(--ink);
-  --popover: #27221d;
-  --popover-foreground: var(--ink);
-  --primary: var(--brand);
-  --primary-foreground: #21110b;
-  --secondary: var(--surface-muted);
-  --secondary-foreground: var(--ink);
-  --muted: var(--surface-muted);
-  --muted-foreground: var(--ink-muted);
-  --accent: var(--brand-soft);
-  --accent-foreground: #ffc1a9;
-  --destructive: #ff6b5f;
-  --border: var(--line);
-  --input: #5b5145;
-  --ring: var(--brand);
-}
-
-* {
-  box-sizing: border-box;
+html {
+  scrollbar-gutter: stable;
 }
 
 html,
@@ -112,34 +14,16 @@ body {
   overflow-x: hidden;
 }
 
-::selection {
-  background: var(--brand-soft);
-  color: var(--ink);
+body {
+  background: var(--color-fd-background);
+  color: var(--color-fd-foreground);
+  font-feature-settings:
+    "rlig" 1,
+    "calt" 1;
 }
 
-:focus-visible {
-  outline-color: var(--ring);
-}
-
-.docs-brand-mark {
-  box-shadow: 3px 3px 0 var(--ink);
-}
-
-.docs-offset-panel {
-  box-shadow: 4px 4px 0 var(--ink);
-}
-
-.docs-primary-action {
-  background: var(--brand) !important;
-  color: #fffaf3 !important;
-}
-
-.docs-primary-action:hover {
-  background: var(--brand-strong) !important;
-}
-
-.dark .docs-primary-action {
-  color: #21110b !important;
+html body[data-scroll-locked] {
+  margin-right: 0 !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -151,20 +35,4 @@ body {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
   }
-}
-
-html {
-  scrollbar-gutter: stable;
-}
-
-html body[data-scroll-locked] {
-  margin-right: 0 !important;
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-feature-settings:
-    "rlig" 1,
-    "calt" 1;
 }
