@@ -450,8 +450,8 @@ export function EmailsPage() {
       ),
     },
     {
-      dataIndex: "boundAccountId",
-      key: "boundAccountId",
+      dataIndex: "boundAccountSerialNumber",
+      key: "boundAccountSerialNumber",
       title: "关联账号",
       width: 128,
       render: (_value, email) => <LinkedAccountBadge email={email} showEmpty />,
@@ -492,7 +492,7 @@ export function EmailsPage() {
       render: () => <Skeleton className="h-5 w-16 rounded-full" />,
     },
     {
-      key: "boundAccountId",
+      key: "boundAccountSerialNumber",
       title: "关联账号",
       width: 128,
       render: () => <Skeleton className="h-5 w-20 rounded-full" />,
@@ -962,7 +962,7 @@ function LinkedAccountBadge({
   email: AdminEmail;
   showEmpty?: boolean;
 }) {
-  if (!email.boundAccountId) {
+  if (!email.boundAccountId || !email.boundAccountSerialNumber) {
     return showEmpty ? (
       <span className="text-sm text-muted-foreground">-</span>
     ) : null;
@@ -973,9 +973,9 @@ function LinkedAccountBadge({
       className="inline-flex h-6 items-center rounded-sm border border-sky-200 bg-sky-50 px-2 text-xs font-medium !text-sky-700 transition-colors hover:border-sky-300 hover:bg-sky-100 dark:border-sky-900/70 dark:bg-sky-950/50 dark:!text-sky-300 dark:hover:bg-sky-950"
       href={`/accounts/${email.boundAccountId}/edit?game_key=${email.gameKey}`}
       scroll={false}
-      title={`查看账号 #${email.boundAccountId}`}
+      title={`查看账号 ${email.boundAccountSerialNumber}`}
     >
-      账号 #{email.boundAccountId}
+      {email.boundAccountSerialNumber}
     </Link>
   );
 }

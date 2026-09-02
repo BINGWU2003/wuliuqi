@@ -25,6 +25,7 @@ export interface AdminEmail {
   email: string;
   bindStatus: EmailBindStatus;
   boundAccountId?: number;
+  boundAccountSerialNumber?: string;
   createdAt?: string;
   updatedAt?: string;
 }

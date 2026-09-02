@@ -67,6 +67,7 @@ type EmailRecord = {
   postfix: string;
   bindStatus: number;
   boundAccountId?: bigint | number | null;
+  boundAccountSerialNumber?: string;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -354,6 +355,9 @@ export function serializeEmail(
     email: `${email.prefix}${email.postfix}`,
     bindStatus: email.bindStatus as EmailBindStatus,
     ...(boundAccountId === undefined ? {} : { boundAccountId }),
+    ...(email.boundAccountSerialNumber === undefined
+      ? {}
+      : { boundAccountSerialNumber: email.boundAccountSerialNumber }),
     createdAt: toIsoString(email.createdAt),
     updatedAt: toIsoString(email.updatedAt),
   };

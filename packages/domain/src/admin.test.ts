@@ -94,6 +94,7 @@ import {
   deleteAdminEmailPostfix,
   deleteAdminGameAttributeDefinition,
   getAdminAccountStatistics,
+  getAdminEmailById,
   listAdminEmailPostfixes,
   listAdminAccounts,
   listAdminEmails,
@@ -1334,13 +1335,35 @@ describe("后台账号", () => {
 });
 
 describe("后台邮箱", () => {
+  it("查询邮箱详情时返回绑定账号序列号", async () => {
+    prismaMock.sanguoshaEmail.findUnique.mockResolvedValue(
+      emailRecord({ id: 8n, prefix: "sgs", postfix: "@example.com" }),
+    );
+    prismaMock.sanguoshaAccount.findFirst.mockResolvedValue({
+      id: 61n,
+      serialNumber: "#SGS-61",
+    });
+
+    const result = await getAdminEmailById(8, "sanguosha");
+
+    expect(result).toMatchObject({
+      email: "sgs@example.com",
+      boundAccountId: 61,
+      boundAccountSerialNumber: "#SGS-61",
+    });
+  });
+
   it("按游戏查询邮箱列表并匹配对应游戏的绑定账号", async () => {
     prismaMock.sanguoshaEmail.count.mockResolvedValue(1);
     prismaMock.sanguoshaEmail.findMany.mockResolvedValue([
       emailRecord({ id: 8n, prefix: "sgs", postfix: "@example.com" }),
     ]);
     prismaMock.sanguoshaAccount.findMany.mockResolvedValue([
-      { email: "sgs@example.com", id: 61n },
+      {
+        email: "sgs@example.com",
+        id: 61n,
+        serialNumber: "#SGS-61",
+      },
     ]);
 
     const result = await listAdminEmails({
@@ -1367,12 +1390,14 @@ describe("后台邮箱", () => {
       select: {
         email: true,
         id: true,
+        serialNumber: true,
       },
     });
     expect(prismaMock.codmEmail.findMany).not.toHaveBeenCalled();
     expect(result.list[0]).toMatchObject({
       email: "sgs@example.com",
       boundAccountId: 61,
+      boundAccountSerialNumber: "#SGS-61",
     });
   });
 

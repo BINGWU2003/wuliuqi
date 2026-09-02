@@ -1284,24 +1284,30 @@ export async function listAdminEmails(
           select: {
             email: true,
             id: true,
+            serialNumber: true,
           },
-        }) as Array<{ email: string | null; id: bigint }>
+        }) as Array<LinkedEmailAccount & { email: string | null }>
       : [];
-  const accountIdByEmail = new Map<string, bigint>();
+  const accountByEmail = new Map<string, LinkedEmailAccount>();
 
   for (const account of boundAccounts) {
-    if (account.email && !accountIdByEmail.has(account.email)) {
-      accountIdByEmail.set(account.email, account.id);
+    if (account.email && !accountByEmail.has(account.email)) {
+      accountByEmail.set(account.email, account);
     }
   }
 
   return {
-    list: emails.map((email) =>
-      serializeEmail({
+    list: emails.map((email) => {
+      const boundAccount = accountByEmail.get(
+        `${email.prefix}${email.postfix}`,
+      );
+
+      return serializeEmail({
         ...email,
-        boundAccountId: accountIdByEmail.get(`${email.prefix}${email.postfix}`),
-      }, gameKey),
-    ),
+        boundAccountId: boundAccount?.id,
+        boundAccountSerialNumber: boundAccount?.serialNumber,
+      }, gameKey);
+    }),
     pagination: {
       page: query.page,
       limit: query.limit,
@@ -1335,6 +1341,7 @@ export async function getAdminEmailById(
   return serializeEmail({
     ...email,
     boundAccountId: linkedAccount?.id,
+    boundAccountSerialNumber: linkedAccount?.serialNumber,
   }, gameKey);
 }
 
